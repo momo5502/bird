@@ -12,6 +12,9 @@ target_precompile_headers(client PRIVATE std_include.hpp)
 
 target_link_libraries(client PRIVATE
   common
+  glm
+  glfw
+  libglew_static
 )
 
 set_target_properties(client PROPERTIES OUTPUT_NAME "bird")

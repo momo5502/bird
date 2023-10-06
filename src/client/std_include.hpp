@@ -53,6 +53,15 @@
 
 #include <cassert>
 
+#define GLM_FORCE_SILENT_WARNINGS 1
+#define GLM_ENABLE_EXPERIMENTAL 1
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/vector_angle.hpp>
+
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
+
 #pragma warning(pop)
 
 using namespace std::literals;
