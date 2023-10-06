@@ -8,7 +8,8 @@ public:
 
 	operator GLFWwindow*() const;
 
-	void show();
+	void show(const std::function<void()>& frame_callback);
+	void close();
 
 	bool is_key_pressed(int key) const;
 

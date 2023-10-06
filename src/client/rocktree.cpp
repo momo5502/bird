@@ -65,6 +65,11 @@ const std::string& rocktree_object::get_planet() const
 
 void rocktree_object::fetch()
 {
+	if (is_ready())
+	{
+		return;
+	}
+
 	state expected{state::fresh};
 	if (!this->state_.compare_exchange_strong(expected, state::fetching))
 	{
@@ -185,6 +190,11 @@ bool bulk::can_be_removed() const
 	}
 
 	return true;
+}
+
+const std::string& bulk::get_path() const
+{
+	return this->path_;
 }
 
 oriented_bounding_box unpack_obb(const std::string& packed, const glm::vec3& head_node_center,

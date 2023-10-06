@@ -68,6 +68,8 @@ void window::create(const int width, const int height, const std::string& title)
 	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
 	glHint(GL_POINT_SMOOTH_HINT, GL_FASTEST);
+
+	glfwSetInputMode(this->handle_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 void window::size_callback(const int width, const int height)
@@ -80,7 +82,7 @@ void window::size_callback_static(GLFWwindow* _window, const int width, const in
 	static_cast<window*>(glfwGetWindowUserPointer(_window))->size_callback(width, height);
 }
 
-void window::show()
+void window::show(const std::function<void()>& frame_callback)
 {
 	while (this->handle_ && !glfwWindowShouldClose(this->handle_))
 	{
@@ -89,10 +91,17 @@ void window::show()
 		glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		frame_callback();
+
 		glfwSwapBuffers(this->handle_);
 
 		this->update_frame_times();
 	}
+}
+
+void window::close()
+{
+	glfwSetWindowShouldClose(this->handle_, GLFW_TRUE);
 }
 
 bool window::is_key_pressed(const int key) const

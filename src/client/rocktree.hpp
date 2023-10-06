@@ -143,6 +143,8 @@ public:
 
 	bool can_be_removed() const override;
 
+	const std::string& get_path() const;
+
 private:
 	uint32_t epoch_{};
 	std::string path_{};
@@ -175,6 +177,11 @@ public:
 	const std::string& get_planet() const
 	{
 		return this->planet_;
+	}
+
+	planetoid* get_planetoid() const
+	{
+		return this->planetoid_.get();
 	}
 
 private:
