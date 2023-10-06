@@ -1,10 +1,11 @@
 #include "std_include.hpp"
 #include "window.hpp"
-
-#include <rocktree.pb.h>
+#include "rocktree.hpp"
 
 int main(int argc, char** argv)
 {
+	rocktree rocktree{"earth"};
+
 	window window(800, 600, "game");
 
 	window.show();

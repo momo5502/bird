@@ -41,6 +41,7 @@
 
 #include <map>
 #include <array>
+#include <deque>
 #include <atomic>
 #include <vector>
 #include <mutex>

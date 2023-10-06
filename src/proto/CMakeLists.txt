@@ -1,14 +1,15 @@
 add_custom_command(
-    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/rocktree.pb.h"
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/rocktree.pb.h" "${CMAKE_CURRENT_BINARY_DIR}/rocktree.pb.cc"
     COMMAND protoc --cpp_out="${CMAKE_CURRENT_BINARY_DIR}" --proto_path="${CMAKE_CURRENT_LIST_DIR}" "${CMAKE_CURRENT_LIST_DIR}/rocktree.proto"
     DEPENDS protobuf::protoc "${CMAKE_CURRENT_LIST_DIR}/rocktree.proto"
 )
 
-add_library(proto INTERFACE
+add_library(proto
     "${CMAKE_CURRENT_BINARY_DIR}/rocktree.pb.h"
+    "${CMAKE_CURRENT_BINARY_DIR}/rocktree.pb.cc"
 )
 
-target_link_libraries(proto INTERFACE
+target_link_libraries(proto PUBLIC
     protobuf::libprotobuf
 )
 

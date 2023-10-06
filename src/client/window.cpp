@@ -55,7 +55,7 @@ void window::create(const int width, const int height, const std::string& title)
 	glfwMakeContextCurrent(this->handle_);
 	glfwSetWindowSizeCallback(this->handle_, window::size_callback_static);
 
-	glfwSwapInterval(0);
+	glfwSwapInterval(1);
 
 	glViewport(0, 0, width, height);
 
