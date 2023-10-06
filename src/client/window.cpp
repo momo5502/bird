@@ -77,7 +77,7 @@ void window::size_callback(const int width, const int height)
 
 void window::size_callback_static(GLFWwindow* _window, const int width, const int height)
 {
-	reinterpret_cast<window*>(glfwGetWindowUserPointer(_window))->size_callback(width, height);
+	static_cast<window*>(glfwGetWindowUserPointer(_window))->size_callback(width, height);
 }
 
 void window::show()

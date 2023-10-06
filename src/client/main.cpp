@@ -1,6 +1,8 @@
 #include "std_include.hpp"
 #include "window.hpp"
 
+#include <rocktree.pb.h>
+
 int main(int argc, char** argv)
 {
 	window window(800, 600, "game");

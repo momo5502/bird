@@ -15,6 +15,7 @@ target_link_libraries(client PRIVATE
   glm
   glfw
   libglew_static
+  proto
 )
 
 set_target_properties(client PROPERTIES OUTPUT_NAME "bird")

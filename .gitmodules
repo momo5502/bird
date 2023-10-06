@@ -7,3 +7,10 @@
 [submodule "deps/glew-cmake"]
 	path = deps/glew-cmake
 	url = https://github.com/Perlmint/glew-cmake.git
+[submodule "deps/curl"]
+	path = deps/curl
+	url = https://github.com/curl/curl.git
+[submodule "deps/protobuf"]
+	path = deps/protobuf
+	url = https://github.com/protocolbuffers/protobuf.git
+	branch = 24.x
