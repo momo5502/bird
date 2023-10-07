@@ -108,7 +108,7 @@ namespace
 			break;
 		case texture_format::dxt1:
 			glCompressedTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, mesh.texture_width,
-			                       mesh.texture_height, 0, mesh.texture.size(), mesh.texture.data());
+			                       mesh.texture_height, 0, static_cast<GLsizei>(mesh.texture.size()), mesh.texture.data());
 			break;
 		}
 	}
@@ -119,16 +119,19 @@ namespace
 
 		glGenBuffers(1, &mesh.vertex_buffer);
 		glBindBuffer(GL_ARRAY_BUFFER, mesh.vertex_buffer);
-		glBufferData(GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(unsigned char), mesh.vertices.data(),
+		glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizei>(mesh.vertices.size()) * sizeof(unsigned char), mesh.vertices.data(),
 		             GL_STATIC_DRAW);
 		glGenBuffers(1, &mesh.index_buffer);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.indices.size() * sizeof(unsigned short), mesh.indices.data(),
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizei>(mesh.indices.size()) * sizeof(unsigned short), mesh.indices.data(),
 		             GL_STATIC_DRAW);
 
 		glGenTextures(1, &mesh.texture_buffer);
 		glBindTexture(GL_TEXTURE_2D, mesh.texture_buffer);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); // GL_NEAREST
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 

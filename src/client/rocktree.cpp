@@ -177,7 +177,7 @@ std::vector<uint8_t> unpackVertices(const std::string& packed)
 }
 
 // unpackTexCoords unpacks texture coordinates UV to 8-byte-per-vertex-array
-void unpackTexCoords(const std::string& packed, uint8_t* vertices, int vertices_len, glm::vec2& uv_offset,
+void unpackTexCoords(const std::string& packed, uint8_t* vertices, size_t vertices_len, glm::vec2& uv_offset,
                      glm::vec2& uv_scale)
 {
 	auto data = (uint8_t*)packed.data();
@@ -188,7 +188,7 @@ void unpackTexCoords(const std::string& packed, uint8_t* vertices, int vertices_
 	data += 4;
 	auto vtx = (vertex_t*)vertices;
 	auto u = 0, v = 0;
-	for (auto i = 0; i < count; i++)
+	for (size_t i = 0; i < count; i++)
 	{
 		vtx[i].u = u = (u + data[count * 0 + i] + (data[count * 2 + i] << 8)) % u_mod;
 		vtx[i].v = v = (v + data[count * 1 + i] + (data[count * 3 + i] << 8)) % v_mod;
@@ -220,8 +220,8 @@ std::vector<uint16_t> unpackIndices(const std::string& packed)
 }
 
 // unpackOctantMaskAndOctantCountsAndLayerBounds unpacks the octant mask for vertices (W) and layer bounds and octant counts
-void unpackOctantMaskAndOctantCountsAndLayerBounds(const std::string& packed, const uint16_t* indices, int indices_len,
-                                                   uint8_t* vertices, int vertices_len, int layer_bounds[10])
+void unpackOctantMaskAndOctantCountsAndLayerBounds(const std::string& packed, const uint16_t* indices, size_t indices_len,
+                                                   uint8_t* vertices, size_t vertices_len, int layer_bounds[10])
 {
 	// todo: octant counts
 	auto offset = 0;
@@ -322,7 +322,7 @@ void node::populate()
 		{
 			auto data = reinterpret_cast<uint8_t*>(tex.data());
 			int width, height, comp;
-			unsigned char* pixels = stbi_load_from_memory(&data[0], tex.size(), &width, &height, &comp, 0);
+			unsigned char* pixels = stbi_load_from_memory(&data[0], static_cast<int>(tex.size()), &width, &height, &comp, 0);
 			assert(pixels != NULL);
 			assert(width == texture.width() && height == texture.height() && comp == 3);
 			m.texture = std::vector<uint8_t>(pixels, pixels + width * height * comp);
@@ -333,10 +333,10 @@ void node::populate()
 		{
 			auto src_size = tex.size();
 			auto src = reinterpret_cast<uint8_t*>(tex.data());
-			auto dst_size = crn_get_decompressed_size(src, src_size, 0);
+			auto dst_size = crn_get_decompressed_size(src, static_cast<uint32_t>(src_size), 0);
 			assert(dst_size == ((texture.width() + 3) / 4) * ((texture.height() + 3) / 4) * 8);
 			m.texture = std::vector<uint8_t>(dst_size);
-			crn_decompress(src, src_size, m.texture.data(), dst_size, 0);
+			crn_decompress(src,static_cast<uint32_t>(src_size), m.texture.data(), dst_size, 0);
 			m.format = texture_format::dxt1;
 		}
 		else
