@@ -190,11 +190,8 @@ void unpackTexCoords(const std::string& packed, uint8_t* vertices, int vertices_
 	auto u = 0, v = 0;
 	for (auto i = 0; i < count; i++)
 	{
-		u = (u + data[count * 0 + i] + (data[count * 2 + i] << 8)) % u_mod;
-		v = (v + data[count * 1 + i] + (data[count * 3 + i] << 8)) % v_mod;
-
-		vtx[i].u = u;
-		vtx[i].v = v;
+		vtx[i].u = u = (u + data[count * 0 + i] + (data[count * 2 + i] << 8)) % u_mod;
+		vtx[i].v = v = (v + data[count * 1 + i] + (data[count * 3 + i] << 8)) % v_mod;
 	}
 
 	uv_offset[0] = 0.5;
@@ -214,10 +211,7 @@ std::vector<uint16_t> unpackIndices(const std::string& packed)
 	for (int zeros = 0, a, b = 0, c = 0, i = 0; i < triangle_strip_len; i++)
 	{
 		int val = unpackVarInt(packed, &offset);
-		a = b;
-		b = c;
-		c = zeros - val;
-		triangle_strip[i] = a;
+		triangle_strip[i] = (a = b, b = c, c = zeros - val);
 		if (a != b && a != c && b != c) num_non_degenerate_triangles++;
 		if (0 == val) zeros++;
 	}
