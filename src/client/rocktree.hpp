@@ -8,7 +8,7 @@ class rocktree_object
 {
 public:
 	rocktree_object(rocktree& rocktree);
-	virtual ~rocktree_object();
+	virtual ~rocktree_object() = default;
 
 	rocktree_object(rocktree_object&&) = delete;
 	rocktree_object(const rocktree_object&) = delete;
@@ -112,7 +112,6 @@ class node final : public rocktree_object
 public:
 	node(rocktree& rocktree, uint32_t epoch, std::string path, texture_format format,
 	     std::optional<uint32_t> imagery_epoch);
-	~node() override;
 
 	bool can_have_data{};
 	float meters_per_texel{};
@@ -135,7 +134,6 @@ class bulk final : public rocktree_object
 {
 public:
 	bulk(rocktree& rocktree, uint32_t epoch, std::string path = {});
-	~bulk() override;
 
 	glm::dvec3 head_node_center{};
 	std::map<std::string, std::unique_ptr<node>> nodes;
@@ -156,7 +154,6 @@ class planetoid final : public rocktree_object
 {
 public:
 	using rocktree_object::rocktree_object;
-	~planetoid() override;
 
 	float radius{};
 	std::unique_ptr<bulk> root_bulk{};

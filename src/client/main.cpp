@@ -82,7 +82,179 @@ namespace
 		return result;
 	}
 
-	void run_frame(window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction)
+
+	struct gl_ctx_t
+	{
+		GLuint program;
+		GLint transform_loc;
+		GLint uv_offset_loc;
+		GLint uv_scale_loc;
+		GLint octant_mask_loc;
+		GLint texture_loc;
+		GLint position_loc;
+		GLint octant_loc;
+		GLint texcoords_loc;
+	};
+
+	void meshTexImage2d(const mesh& mesh)
+	{
+		switch (mesh.format)
+		{
+		case texture_format::rgb:
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, mesh.texture_width, mesh.texture_height, 0, GL_RGB, GL_UNSIGNED_BYTE,
+			             mesh.texture.data());
+			break;
+		case texture_format::dxt1:
+			glCompressedTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, mesh.texture_width,
+			                       mesh.texture_height, 0, mesh.texture.size(), mesh.texture.data());
+			break;
+		}
+	}
+
+	void bufferMesh(mesh& mesh)
+	{
+		if (mesh.buffered) fprintf(stderr, "mesh already buffered\n"), abort();
+
+		glGenBuffers(1, &mesh.vertex_buffer);
+		glBindBuffer(GL_ARRAY_BUFFER, mesh.vertex_buffer);
+		glBufferData(GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(unsigned char), mesh.vertices.data(),
+		             GL_STATIC_DRAW);
+		glGenBuffers(1, &mesh.index_buffer);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.indices.size() * sizeof(unsigned short), mesh.indices.data(),
+		             GL_STATIC_DRAW);
+
+		glGenTextures(1, &mesh.texture_buffer);
+		glBindTexture(GL_TEXTURE_2D, mesh.texture_buffer);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); // GL_NEAREST
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		meshTexImage2d(mesh);
+
+		mesh.buffered = true;
+	}
+
+	void bindAndDrawMesh(const mesh& mesh, uint8_t octant_mask, const gl_ctx_t& ctx)
+	{
+		float uv_offset[2]{};
+		uv_offset[0] = mesh.uv_offset[0];
+		uv_offset[1] = mesh.uv_offset[1];
+
+		float uv_scale[2]{};
+		uv_scale[0] = mesh.uv_scale[0];
+		uv_scale[1] = mesh.uv_scale[1];
+
+		glUniform2fv(ctx.uv_offset_loc, 1, uv_offset);
+		glUniform2fv(ctx.uv_scale_loc, 1, uv_scale);
+		int v[8] = {
+			(octant_mask >> 0) & 1, (octant_mask >> 1) & 1, (octant_mask >> 2) & 1, (octant_mask >> 3) & 1,
+			(octant_mask >> 4) & 1, (octant_mask >> 5) & 1, (octant_mask >> 6) & 1, (octant_mask >> 7) & 1
+		};
+		glUniform1iv(ctx.octant_mask_loc, 8, v);
+		glUniform1i(ctx.texture_loc, 0);
+		glBindTexture(GL_TEXTURE_2D, mesh.texture_buffer);
+		glBindBuffer(GL_ARRAY_BUFFER, mesh.vertex_buffer);
+
+		glVertexAttribPointer(ctx.position_loc, 3, GL_UNSIGNED_BYTE, GL_FALSE, 8, (void*)0);
+		glVertexAttribPointer(ctx.octant_loc, 1, GL_UNSIGNED_BYTE, GL_FALSE, 8, (void*)3);
+		glVertexAttribPointer(ctx.texcoords_loc, 2, GL_UNSIGNED_SHORT, GL_FALSE, 8, (void*)4);
+
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
+		glDrawElements(GL_TRIANGLE_STRIP, mesh.indices.size(), GL_UNSIGNED_SHORT, NULL);
+	}
+
+	void unbufferMesh(mesh& mesh)
+	{
+		if (!mesh.buffered) fprintf(stderr, "mesh isn't buffered\n"), abort();
+
+		mesh.buffered = false;
+
+		glDeleteTextures(1, &mesh.texture_buffer); // auto: glBindTexture(GL_TEXTURE_2D, 0);
+		glDeleteBuffers(1, &mesh.index_buffer); // auto: glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glDeleteBuffers(1, &mesh.vertex_buffer); // auto: glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	}
+
+	void checkCompileShaderError(GLuint shader)
+	{
+		GLint is_compiled = 0;
+		glGetShaderiv(shader, GL_COMPILE_STATUS, &is_compiled);
+		if (is_compiled == GL_TRUE) return;
+		GLint max_len = 0;
+		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &max_len);
+		std::vector<GLchar> error_log(max_len);
+		glGetShaderInfoLog(shader, max_len, &max_len, &error_log[0]);
+		puts(error_log.data());
+		glDeleteShader(shader);
+		abort();
+	}
+
+	GLuint makeShader(const char* vert_src, const char* frag_src)
+	{
+		GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
+		glShaderSource(vert_shader, 1, &vert_src, NULL);
+		glCompileShader(vert_shader);
+		checkCompileShaderError(vert_shader);
+		GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
+		glShaderSource(frag_shader, 1, &frag_src, NULL);
+		glCompileShader(frag_shader);
+		checkCompileShaderError(frag_shader);
+		GLuint program = glCreateProgram();
+		glAttachShader(program, vert_shader);
+		glAttachShader(program, frag_shader);
+		glLinkProgram(program);
+		glDetachShader(program, vert_shader);
+		glDetachShader(program, frag_shader);
+		glDeleteShader(vert_shader);
+		glDeleteShader(frag_shader);
+		return program;
+	}
+
+	void initGL(gl_ctx_t& ctx)
+	{
+		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
+		ctx.program = makeShader(
+			"uniform mat4 transform;"
+			"uniform vec2 uv_offset;"
+			"uniform vec2 uv_scale;"
+			"uniform bool octant_mask[8];"
+			"attribute vec3 position;"
+			"attribute float octant;"
+			"attribute vec2 texcoords;"
+			"varying vec2 v_texcoords;"
+			"void main() {"
+			"	float mask = octant_mask[int(octant)] ? 0.0 : 1.0;"
+			"	v_texcoords = (texcoords + uv_offset) * uv_scale * mask;"
+			"	gl_Position = transform * vec4(position, 1.0) * mask;"
+			"}",
+
+			"#ifdef GL_ES\n"
+			"precision mediump float;\n"
+			"#endif\n"
+			"uniform sampler2D texture;"
+			"varying vec2 v_texcoords;"
+			"void main() {"
+			"	gl_FragColor = vec4(texture2D(texture, v_texcoords).rgb, 1.0);"
+			"}"
+		);
+		glUseProgram(ctx.program);
+		ctx.transform_loc = glGetUniformLocation(ctx.program, "transform");
+		ctx.uv_offset_loc = glGetUniformLocation(ctx.program, "uv_offset");
+		ctx.uv_scale_loc = glGetUniformLocation(ctx.program, "uv_scale");
+		ctx.octant_mask_loc = glGetUniformLocation(ctx.program, "octant_mask");
+		ctx.texture_loc = glGetUniformLocation(ctx.program, "texture");
+		ctx.position_loc = glGetAttribLocation(ctx.program, "position");
+		ctx.octant_loc = glGetAttribLocation(ctx.program, "octant");
+		ctx.texcoords_loc = glGetAttribLocation(ctx.program, "texcoords");
+
+		glEnableVertexAttribArray(ctx.position_loc);
+		glEnableVertexAttribArray(ctx.octant_loc);
+		glEnableVertexAttribArray(ctx.texcoords_loc);
+	}
+
+
+	void run_frame(window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction, gl_ctx_t& ctx)
 	{
 		if (window.is_key_pressed(GLFW_KEY_ESCAPE))
 		{
@@ -152,7 +324,7 @@ namespace
 
 		// movement
 		auto speed_amp = fmin(2600, pow(fmax(0, (altitude - 500) / 10000) + 1, 1.337)) / 6;
-		auto mag = 10 * (static_cast<double>(window.get_last_frame_time()) / 17.0) * (1 + key_boost_pressed * 40) *
+		auto mag = 10 * (window.get_last_frame_time() / 17000.0) * (1 + (key_boost_pressed ? 40 : 0)) *
 			speed_amp;
 		auto sideways = glm::normalize(glm::cross(direction, up));
 		auto forwards = direction * mag;
@@ -160,10 +332,10 @@ namespace
 		auto left = -sideways * mag;
 		auto right = sideways * mag;
 		auto new_eye = eye
-			+ static_cast<double>(key_up_pressed) * forwards
-			+ static_cast<double>(key_down_pressed) * backwards
-			+ static_cast<double>(key_left_pressed) * left
-			+ static_cast<double>(key_right_pressed) * right;
+			+ (key_up_pressed ? 1.0 : 0) * forwards
+			+ (key_down_pressed ? 1.0 : 0) * backwards
+			+ (key_left_pressed ? 1.0 : 0) * left
+			+ (key_right_pressed ? 1.0 : 0) * right;
 		auto pot_altitude = glm::length(new_eye) - planet_radius;
 		if (pot_altitude < 1000 * 1000 * 10)
 		{
@@ -253,20 +425,59 @@ namespace
 		{
 			n.second->fetch();
 		}
+
+
+		// 8-bit octant mask flags of nodes
+		std::map<std::string, uint8_t> mask_map;
+
+		for (auto kv = potential_nodes.rbegin(); kv != potential_nodes.rend(); ++kv)
+		{
+			// reverse order
+			auto full_path = kv->first;
+			auto node = kv->second;
+			auto level = strlen(full_path.c_str());
+			assert(level > 0);
+			assert(node->can_have_data);
+			if (!node->is_ready()) continue;
+
+			// set octant mask of previous node
+			auto octant = (int)(full_path[level - 1] - '0');
+			auto prev = full_path.substr(0, level - 1);
+			mask_map[prev] |= 1 << octant;
+
+			// skip if node is masked completely
+			if (mask_map[full_path] == 0xff) continue;
+
+			// float transform matrix
+			const auto transform = viewprojection * node->matrix_globe_from_mesh;
+			glm::mat4 transform_float = transform;
+
+			// buffer, bind, draw
+			glUniformMatrix4fv(ctx.transform_loc, 1, GL_FALSE, &transform_float[0][0]);
+			for (auto& mesh : node->meshes)
+			{
+				if (!mesh.buffered) bufferMesh(mesh);
+				bindAndDrawMesh(mesh, mask_map[full_path], ctx);
+			}
+		}
 	}
 }
 
 int main(int argc, char** argv)
 {
-	const rocktree rocktree{"earth"};
 	window window(800, 600, "game");
+
+	const rocktree rocktree{"earth"};
 
 	glm::dvec3 eye{4134696.707, 611925.83, 4808504.534};
 	glm::dvec3 direction{0.219862, -0.419329, 0.012226};
 
+	gl_ctx_t ctx{};
+	initGL(ctx);
+
 	window.show([&]
 	{
-		run_frame(window, rocktree, eye, direction);
+		run_frame(window, rocktree, eye, direction, ctx);
 	});
 
 	return 0;

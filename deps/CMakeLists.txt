@@ -1,6 +1,7 @@
 add_subdirectory(glm)
 add_subdirectory(glfw)
 add_subdirectory(glew-cmake)
+add_subdirectory(crn)
 
 ##########################################
 
@@ -18,3 +19,10 @@ option(protobuf_BUILD_PROTOBUF_BINARIES "" ON)
 option(protobuf_BUILD_SHARED_LIBS "" OFF)
 option(ABSL_PROPAGATE_CXX_STD "" ON)
 add_subdirectory(protobuf)
+
+##########################################
+
+add_library(stb INTERFACE)
+target_include_directories(stb INTERFACE
+    "${CMAKE_CURRENT_LIST_DIR}/stb"
+)
