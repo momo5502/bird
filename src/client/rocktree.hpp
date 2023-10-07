@@ -69,6 +69,7 @@ private:
 		fresh,
 		fetching,
 		ready,
+		failed,
 	};
 
 	std::atomic<state> state_{state::fresh};

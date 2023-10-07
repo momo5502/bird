@@ -11,6 +11,7 @@
 #include <stb_image.h>
 
 #include <crn.h>
+#include <ranges>
 
 using namespace geo_globetrotter_proto_rocktree;
 
@@ -34,7 +35,7 @@ namespace
 
 	std::string build_cache_url(const std::string_view& planet, const std::string_view& path)
 	{
-		static constexpr char base_url[] = "../cache/";
+		static constexpr char base_url[] = R"(C:\Users\mauri\source\repos\bird\build\vs2022\cache/)";
 
 		std::string url{};
 		// base_url nullterminator and slash cancel out
@@ -108,8 +109,15 @@ void rocktree_object::fetch()
 
 	this->get_rocktree().task_manager_.schedule([this]
 	{
-		this->populate();
-		this->state_ = state::ready;
+		try
+		{
+			this->populate();
+			this->state_ = state::ready;
+		}
+		catch (...)
+		{
+			this->state_ = state::failed;
+		}
 	}, this->is_high_priority());
 }
 
@@ -394,7 +402,7 @@ void node::populate()
 	NodeData node_data{};
 	if (!data || !node_data.ParseFromString(*data))
 	{
-		return;
+		throw std::runtime_error{""};
 	}
 
 	for (int i = 0; i < 4; ++i)
@@ -420,7 +428,7 @@ void node::populate()
 			m.uv_scale[0] = mesh.uv_offset_and_scale(2);
 			m.uv_scale[1] = mesh.uv_offset_and_scale(3);
 		}
-		else if (false)
+		else
 		{
 			//m.uv_offset[1] -= 1 / m.uv_scale[1];
 			//m.uv_scale[1] *= -1;
@@ -519,17 +527,17 @@ bool bulk::can_be_removed() const
 		return true;
 	}
 
-	for (const auto& bulk : this->bulks)
+	for (const auto& bulk : this->bulks | std::views::values)
 	{
-		if (!bulk.second->can_be_removed())
+		if (!bulk->can_be_removed())
 		{
 			return false;
 		}
 	}
 
-	for (const auto& node : this->nodes)
+	for (const auto& node : this->nodes | std::views::values)
 	{
-		if (!node.second->can_be_removed())
+		if (!node->can_be_removed())
 		{
 			return false;
 		}
@@ -554,20 +562,20 @@ oriented_bounding_box unpack_obb(const std::string& packed, const glm::vec3& hea
 
 	const auto* center_data = reinterpret_cast<const int16_t*>(data);
 
-	obb.center[0] = static_cast<float>(center_data[0]) * meters_per_texel + head_node_center[0];
-	obb.center[1] = static_cast<float>(center_data[1]) * meters_per_texel + head_node_center[1];
-	obb.center[2] = static_cast<float>(center_data[2]) * meters_per_texel + head_node_center[2];
+	obb.center[0] = static_cast<double>(center_data[0]) * meters_per_texel + head_node_center[0];
+	obb.center[1] = static_cast<double>(center_data[1]) * meters_per_texel + head_node_center[1];
+	obb.center[2] = static_cast<double>(center_data[2]) * meters_per_texel + head_node_center[2];
 
-	obb.extents[0] = static_cast<float>(data[6]) * meters_per_texel;
-	obb.extents[1] = static_cast<float>(data[7]) * meters_per_texel;
-	obb.extents[2] = static_cast<float>(data[8]) * meters_per_texel;
+	obb.extents[0] = static_cast<double>(data[6]) * meters_per_texel;
+	obb.extents[1] = static_cast<double>(data[7]) * meters_per_texel;
+	obb.extents[2] = static_cast<double>(data[8]) * meters_per_texel;
 
 	glm::dvec3 euler{};
 	const auto* euler_data = reinterpret_cast<const int16_t*>(data + 9);
 
-	euler[0] = static_cast<float>(euler_data[0]) * glm::pi<double>() / 32768.0;
-	euler[1] = static_cast<float>(euler_data[1]) * glm::pi<double>() / 65536.0;
-	euler[2] = static_cast<float>(euler_data[2]) * glm::pi<double>() / 32768.0;
+	euler[0] = static_cast<double>(euler_data[0]) * glm::pi<double>() / 32768.0;
+	euler[1] = static_cast<double>(euler_data[1]) * glm::pi<double>() / 65536.0;
+	euler[2] = static_cast<double>(euler_data[2]) * glm::pi<double>() / 32768.0;
 
 	const double c0 = cos(euler[0]);
 	const double s0 = sin(euler[0]);
@@ -597,7 +605,7 @@ void bulk::populate()
 	BulkMetadata bulk_meta{};
 	if (!data || !bulk_meta.ParseFromString(*data))
 	{
-		return;
+		throw std::runtime_error{""};
 	}
 
 	this->head_node_center[0] = bulk_meta.head_node_center(0);

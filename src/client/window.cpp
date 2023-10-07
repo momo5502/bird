@@ -45,6 +45,9 @@ void window::create(const int width, const int height, const std::string& title)
 	glfwWindowHint(GLFW_SAMPLES, 4);
 	glfwWindowHint(GLFW_DEPTH_BITS, 32);
 
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+
 	this->handle_ = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
 	if (!this->handle_)
 	{

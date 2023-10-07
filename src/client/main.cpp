@@ -1,3 +1,5 @@
+#include <ranges>
+
 #include "std_include.hpp"
 #include "window.hpp"
 #include "rocktree.hpp"
@@ -65,7 +67,7 @@ namespace
 
 		for (int i = 0; i < 6; i++)
 		{
-			auto plane4 = planes[i];
+			const auto& plane4 = planes[i];
 			auto plane3 = glm::dvec3(plane4[0], plane4[1], plane4[2]);
 
 			auto abs_plane = (obb_orientation_t * plane3);
@@ -137,16 +139,8 @@ namespace
 
 	void bindAndDrawMesh(const mesh& mesh, uint8_t octant_mask, const gl_ctx_t& ctx)
 	{
-		float uv_offset[2]{};
-		uv_offset[0] = mesh.uv_offset[0];
-		uv_offset[1] = mesh.uv_offset[1];
-
-		float uv_scale[2]{};
-		uv_scale[0] = mesh.uv_scale[0];
-		uv_scale[1] = mesh.uv_scale[1];
-
-		glUniform2fv(ctx.uv_offset_loc, 1, uv_offset);
-		glUniform2fv(ctx.uv_scale_loc, 1, uv_scale);
+		glUniform2fv(ctx.uv_offset_loc, 1, &mesh.uv_offset[0]);
+		glUniform2fv(ctx.uv_scale_loc, 1, &mesh.uv_scale[0]);
 		int v[8] = {
 			(octant_mask >> 0) & 1, (octant_mask >> 1) & 1, (octant_mask >> 2) & 1, (octant_mask >> 3) & 1,
 			(octant_mask >> 4) & 1, (octant_mask >> 5) & 1, (octant_mask >> 6) & 1, (octant_mask >> 7) & 1
@@ -183,7 +177,7 @@ namespace
 		GLint max_len = 0;
 		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &max_len);
 		std::vector<GLchar> error_log(max_len);
-		glGetShaderInfoLog(shader, max_len, &max_len, &error_log[0]);
+		glGetShaderInfoLog(shader, max_len, &max_len, error_log.data());
 		puts(error_log.data());
 		glDeleteShader(shader);
 		abort();
@@ -293,7 +287,6 @@ namespace
 
 		paint_sky(altitude);
 
-
 		const auto horizon = sqrt(altitude * (2 * planet_radius + altitude));
 		auto near = horizon > 370000 ? altitude / 2 : 1;
 		auto far = horizon;
@@ -302,7 +295,7 @@ namespace
 		const glm::dmat4 projection = glm::perspective(fov, aspect_ratio, near, far);
 
 		// rotation
-		double mouse_x, mouse_y;
+		double mouse_x{}, mouse_y{};
 		glfwGetCursorPos(window, &mouse_x, &mouse_y);
 		glfwSetCursorPos(window, 0, 0);
 		double yaw = mouse_x * 0.005;
@@ -426,15 +419,14 @@ namespace
 			n.second->fetch();
 		}
 
-
 		// 8-bit octant mask flags of nodes
 		std::map<std::string, uint8_t> mask_map;
 
-		for (auto kv = potential_nodes.rbegin(); kv != potential_nodes.rend(); ++kv)
+		for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))
 		{
 			// reverse order
-			auto full_path = kv->first;
-			auto node = kv->second;
+			auto full_path = potential_node.first;
+			auto node = potential_node.second;
 			auto level = strlen(full_path.c_str());
 			assert(level > 0);
 			assert(node->can_have_data);
