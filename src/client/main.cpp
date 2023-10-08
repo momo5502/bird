@@ -84,98 +84,7 @@ namespace
 		return result;
 	}
 
-
-	struct gl_ctx_t
-	{
-		GLuint program;
-		GLint transform_loc;
-		GLint uv_offset_loc;
-		GLint uv_scale_loc;
-		GLint octant_mask_loc;
-		GLint texture_loc;
-		GLint position_loc;
-		GLint octant_loc;
-		GLint texcoords_loc;
-	};
-
-	void meshTexImage2d(const mesh& mesh)
-	{
-		switch (mesh.format)
-		{
-		case texture_format::rgb:
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, mesh.texture_width, mesh.texture_height, 0, GL_RGB, GL_UNSIGNED_BYTE,
-			             mesh.texture.data());
-			break;
-		case texture_format::dxt1:
-			glCompressedTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, mesh.texture_width,
-			                       mesh.texture_height, 0, static_cast<GLsizei>(mesh.texture.size()),
-			                       mesh.texture.data());
-			break;
-		}
-	}
-
-	void bufferMesh(mesh& mesh)
-	{
-		if (mesh.buffered) fprintf(stderr, "mesh already buffered\n"), abort();
-
-		glGenBuffers(1, &mesh.vertex_buffer);
-		glBindBuffer(GL_ARRAY_BUFFER, mesh.vertex_buffer);
-		glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizei>(mesh.vertices.size()) * sizeof(unsigned char),
-		             mesh.vertices.data(),
-		             GL_STATIC_DRAW);
-		glGenBuffers(1, &mesh.index_buffer);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizei>(mesh.indices.size()) * sizeof(unsigned short),
-		             mesh.indices.data(),
-		             GL_STATIC_DRAW);
-
-		glGenTextures(1, &mesh.texture_buffer);
-		glBindTexture(GL_TEXTURE_2D, mesh.texture_buffer);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-		meshTexImage2d(mesh);
-
-		mesh.buffered = true;
-	}
-
-	void bindAndDrawMesh(const mesh& mesh, uint8_t octant_mask, const gl_ctx_t& ctx)
-	{
-		glUniform2fv(ctx.uv_offset_loc, 1, &mesh.uv_offset[0]);
-		glUniform2fv(ctx.uv_scale_loc, 1, &mesh.uv_scale[0]);
-		int v[8] = {
-			(octant_mask >> 0) & 1, (octant_mask >> 1) & 1, (octant_mask >> 2) & 1, (octant_mask >> 3) & 1,
-			(octant_mask >> 4) & 1, (octant_mask >> 5) & 1, (octant_mask >> 6) & 1, (octant_mask >> 7) & 1
-		};
-		glUniform1iv(ctx.octant_mask_loc, 8, v);
-		glUniform1i(ctx.texture_loc, 0);
-		glBindTexture(GL_TEXTURE_2D, mesh.texture_buffer);
-		glBindBuffer(GL_ARRAY_BUFFER, mesh.vertex_buffer);
-
-		glVertexAttribPointer(ctx.position_loc, 3, GL_UNSIGNED_BYTE, GL_FALSE, 8, static_cast<void*>(0));
-		glVertexAttribPointer(ctx.octant_loc, 1, GL_UNSIGNED_BYTE, GL_FALSE, 8, reinterpret_cast<void*>(3));
-		glVertexAttribPointer(ctx.texcoords_loc, 2, GL_UNSIGNED_SHORT, GL_FALSE, 8, reinterpret_cast<void*>(4));
-
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
-		glDrawElements(GL_TRIANGLE_STRIP, static_cast<GLsizei>(mesh.indices.size()), GL_UNSIGNED_SHORT, nullptr);
-	}
-
-	void unbufferMesh(mesh& mesh)
-	{
-		if (!mesh.buffered) fprintf(stderr, "mesh isn't buffered\n"), abort();
-
-		mesh.buffered = false;
-
-		glDeleteTextures(1, &mesh.texture_buffer); // auto: glBindTexture(GL_TEXTURE_2D, 0);
-		glDeleteBuffers(1, &mesh.index_buffer); // auto: glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glDeleteBuffers(1, &mesh.vertex_buffer); // auto: glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	}
-
-	void checkCompileShaderError(GLuint shader)
+	void checkCompileShaderError(const GLuint shader)
 	{
 		GLint is_compiled = 0;
 		glGetShaderiv(shader, GL_COMPILE_STATUS, &is_compiled);
@@ -355,7 +264,7 @@ namespace
 		std::map<std::string, bulk*> potential_bulks;
 
 		// node culling and level of detail using breadth-first search
-		for (;;)
+		while (true)
 		{
 			for (const auto& entry : valid)
 			{
@@ -420,9 +329,9 @@ namespace
 			next_valid.clear();
 		}
 
-		for (const auto& n : potential_nodes)
+		for (const auto& val : potential_nodes | std::views::values)
 		{
-			n.second->fetch();
+			val->fetch();
 		}
 
 		// 8-bit octant mask flags of nodes
@@ -439,23 +348,21 @@ namespace
 			if (!node->is_ready()) continue;
 
 			// set octant mask of previous node
-			auto octant = (int)(full_path[level - 1] - '0');
+			auto octant = full_path[level - 1] - '0';
 			auto prev = full_path.substr(0, level - 1);
 			mask_map[prev] |= 1 << octant;
 
+			const auto mask = mask_map[full_path];
+
 			// skip if node is masked completely
-			if (mask_map[full_path] == 0xff) continue;
+			if (mask == 0xff) continue;
 
-			// float transform matrix
-			const auto transform = viewprojection * node->matrix_globe_from_mesh;
-			glm::mat4 transform_float = transform;
+			glm::mat4 transform = viewprojection * node->matrix_globe_from_mesh;
 
-			// buffer, bind, draw
-			glUniformMatrix4fv(ctx.transform_loc, 1, GL_FALSE, &transform_float[0][0]);
+			glUniformMatrix4fv(ctx.transform_loc, 1, GL_FALSE, &transform[0][0]);
 			for (auto& mesh : node->meshes)
 			{
-				if (!mesh.buffered) bufferMesh(mesh);
-				bindAndDrawMesh(mesh, mask_map[full_path], ctx);
+				mesh.draw(ctx, mask);
 			}
 		}
 	}

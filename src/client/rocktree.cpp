@@ -314,7 +314,7 @@ void node::populate()
 
 	for (const auto& mesh : node_data.meshes())
 	{
-		::mesh m;
+		mesh_data m{};
 
 		m.indices = unpackIndices(mesh.indices());
 		m.vertices = unpackVertices(mesh.vertices());
@@ -379,7 +379,6 @@ void node::populate()
 		m.texture_width = texture.width();
 		m.texture_height = texture.height();
 
-		m.buffered = false;
 		this->meshes.emplace_back(std::move(m));
 	}
 }

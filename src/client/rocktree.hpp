@@ -1,6 +1,7 @@
 #pragma once
 
 #include "task_manager.hpp"
+#include "mesh.hpp"
 
 class rocktree;
 
@@ -81,31 +82,6 @@ struct oriented_bounding_box
 	glm::dvec3 center{};
 	glm::dvec3 extents{};
 	glm::dmat3 orientation{};
-};
-
-enum class texture_format : int
-{
-	rgb,
-	dxt1,
-};
-
-struct mesh
-{
-	std::vector<uint8_t> vertices{};
-	std::vector<uint16_t> indices{};
-
-	glm::vec2 uv_offset{};
-	glm::vec2 uv_scale{};
-
-	std::vector<uint8_t> texture{};
-	texture_format format{};
-	int texture_width{};
-	int texture_height{};
-
-	GLuint vertex_buffer{};
-	GLuint index_buffer{};
-	GLuint texture_buffer{};
-	bool buffered{};
 };
 
 class node final : public rocktree_object
