@@ -13,7 +13,7 @@
 [submodule "deps/protobuf"]
 	path = deps/protobuf
 	url = https://github.com/protocolbuffers/protobuf.git
-	branch = 24.x
+	branch = 21.x
 [submodule "deps/stb"]
 	path = deps/stb
 	url = https://github.com/nothings/stb.git
