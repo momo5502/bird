@@ -226,10 +226,15 @@ std::vector<uint16_t> unpackIndices(const std::string& packed)
 	const auto triangle_strip_len = unpackVarInt(packed, &offset);
 	auto triangle_strip = std::vector<uint16_t>(triangle_strip_len);
 	auto num_non_degenerate_triangles = 0;
-	for (int zeros = 0, a, b = 0, c = 0, i = 0; i < triangle_strip_len; i++)
+	for (int zeros = 0, a, b = 0, c = 0, i = 0; i < triangle_strip_len; ++i)
 	{
 		const int val = unpackVarInt(packed, &offset);
-		triangle_strip[i] = (a = b, b = c, c = zeros - val);
+
+		a = b;
+		b = c;
+		c = zeros - val;
+
+		triangle_strip[i] = static_cast<uint16_t>(c);
 		if (a != b && a != c && b != c) num_non_degenerate_triangles++;
 		if (0 == val) zeros++;
 	}
