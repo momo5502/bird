@@ -187,12 +187,80 @@ namespace
 
 		const auto planet_radius = planetoid->radius;
 
-		const auto key_up_pressed = window.is_key_pressed(GLFW_KEY_UP) || window.is_key_pressed(GLFW_KEY_W);
-		const auto key_left_pressed = window.is_key_pressed(GLFW_KEY_LEFT) || window.is_key_pressed(GLFW_KEY_A);
-		const auto key_down_pressed = window.is_key_pressed(GLFW_KEY_DOWN) || window.is_key_pressed(GLFW_KEY_S);
-		const auto key_right_pressed = window.is_key_pressed(GLFW_KEY_RIGHT) || window.is_key_pressed(GLFW_KEY_D);
-		const auto key_boost_pressed = window.is_key_pressed(GLFW_KEY_LEFT_SHIFT) || window.is_key_pressed(
-			GLFW_KEY_RIGHT_SHIFT);
+		auto key_up_pressed = (window.is_key_pressed(GLFW_KEY_UP) || window.is_key_pressed(GLFW_KEY_W)) ? 1.0 : 0.0;
+		auto key_left_pressed = (window.is_key_pressed(GLFW_KEY_LEFT) || window.is_key_pressed(GLFW_KEY_A)) ? 1.0 : 0.0;
+		auto key_down_pressed = (window.is_key_pressed(GLFW_KEY_DOWN) || window.is_key_pressed(GLFW_KEY_S)) ? 1.0 : 0.0;
+		auto key_right_pressed = (window.is_key_pressed(GLFW_KEY_RIGHT) || window.is_key_pressed(GLFW_KEY_D))
+			                         ? 1.0
+			                         : 0.0;
+		auto key_boost_pressed = (window.is_key_pressed(GLFW_KEY_LEFT_SHIFT) || window.is_key_pressed(
+			                         GLFW_KEY_RIGHT_SHIFT))
+			                         ? 1.0
+			                         : 0.0;
+
+		double mouse_x{}, mouse_y{};
+		glfwGetCursorPos(window, &mouse_x, &mouse_y);
+		glfwSetCursorPos(window, 0, 0);
+
+		if (glfwJoystickPresent(GLFW_JOYSTICK_1) && false)
+		{
+			int count;
+			const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &count);
+
+			if (axes && count > 5)
+			{
+				auto left_x = axes[0];
+				auto left_y = axes[1];
+				auto right_x = axes[2];
+				//auto right_y = axes[3];
+				//auto right_y = axes[4];
+				auto right_y = axes[5];
+
+				auto limit_value = [](float& value, const float deadzone)
+				{
+					if (value >= deadzone)
+					{
+						value = (value - deadzone) / (1.0f - deadzone);
+					}
+					else if (value <= -deadzone)
+					{
+						value = (value + deadzone) / (1.0f - deadzone);
+					}
+					else
+					{
+						value = 0.0;
+					}
+				};
+
+				constexpr auto limit = 0.1f;
+				limit_value(left_x, limit);
+				limit_value(left_y, limit);
+				limit_value(right_x, limit);
+				limit_value(right_y, limit);
+
+				key_right_pressed = std::max(left_x, 0.0f);
+				key_left_pressed = std::abs(std::min(left_x, 0.0f));
+
+				key_down_pressed = std::max(left_y, 0.0f);
+				key_up_pressed = std::abs(std::min(left_y, 0.0f));
+
+				mouse_x = right_x * 10.0;
+				mouse_y = right_y * 10.0;
+			}
+
+			const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &count);
+			if (buttons && count > 10)
+			{
+				enum ps4_button
+				{
+					x = 1,
+					r2 = 7,
+					l3 = 10,
+				};
+
+				key_boost_pressed = buttons[ps4_button::l3] || buttons[ps4_button::r2] ? 1.0 : 0.0;
+			}
+		}
 
 		GLint viewport[4]{};
 		glGetIntegerv(GL_VIEWPORT, viewport);
@@ -220,15 +288,14 @@ namespace
 		const glm::dmat4 projection = glm::perspective(fov, aspect_ratio, near_val, far_val);
 
 		// rotation
-		double mouse_x{}, mouse_y{};
-		glfwGetCursorPos(window, &mouse_x, &mouse_y);
-		glfwSetCursorPos(window, 0, 0);
 		double yaw = mouse_x * 0.005;
 		double pitch = -mouse_y * 0.005;
 		const auto overhead = glm::dot(direction, -up);
 
 		if ((overhead > 0.99 && pitch < 0) || (overhead < -0.99 && pitch > 0))
+		{
 			pitch = 0;
+		}
 
 		auto pitch_axis = glm::cross(direction, up);
 		auto yaw_axis = glm::cross(direction, pitch_axis);
@@ -242,7 +309,7 @@ namespace
 
 		// movement
 		auto speed_amp = fmin(2600, pow(fmax(0, (altitude - 500) / 10000) + 1, 1.337)) / 6;
-		auto mag = 10 * (static_cast<double>(window.get_last_frame_time()) / 17000.0) * (1 + (key_boost_pressed ? 40 : 0)) *
+		auto mag = 10 * (static_cast<double>(window.get_last_frame_time()) / 17000.0) * (1 + key_boost_pressed * 40) *
 			speed_amp;
 		auto sideways = glm::normalize(glm::cross(direction, up));
 		auto forwards = direction * mag;
@@ -250,10 +317,10 @@ namespace
 		auto left = -sideways * mag;
 		auto right = sideways * mag;
 		auto new_eye = eye
-			+ (key_up_pressed ? 1.0 : 0) * forwards
-			+ (key_down_pressed ? 1.0 : 0) * backwards
-			+ (key_left_pressed ? 1.0 : 0) * left
-			+ (key_right_pressed ? 1.0 : 0) * right;
+			+ key_up_pressed * forwards
+			+ key_down_pressed * backwards
+			+ key_left_pressed * left
+			+ key_right_pressed * right;
 		auto pot_altitude = glm::length(new_eye) - planet_radius;
 		if (pot_altitude < 1000 * 1000 * 10)
 		{
@@ -339,11 +406,6 @@ namespace
 			next_valid.clear();
 		}
 
-		for (const auto& val : potential_nodes | std::views::values)
-		{
-			val->fetch();
-		}
-
 		// 8-bit octant mask flags of nodes
 		std::map<std::string, uint8_t> mask_map;
 
@@ -352,10 +414,14 @@ namespace
 			// reverse order
 			auto full_path = potential_node.first;
 			auto node = potential_node.second;
-			auto level = strlen(full_path.c_str());
+			auto level = full_path.size();
+
 			assert(level > 0);
 			assert(node->can_have_data);
-			if (!node->is_ready()) continue;
+			if (!node->can_be_used())
+			{
+				continue;
+			}
 
 			// set octant mask of previous node
 			auto octant = full_path[level - 1] - '0';
