@@ -113,8 +113,8 @@ public:
 	bulk(rocktree& rocktree, uint32_t epoch, std::string path = {});
 
 	glm::dvec3 head_node_center{};
-	std::map<std::string, std::unique_ptr<node>> nodes;
-	std::map<std::string, std::unique_ptr<bulk>> bulks;
+	std::map<std::string, std::unique_ptr<node>> nodes{};
+	std::map<std::string, std::unique_ptr<bulk>> bulks{};
 
 	bool can_be_removed() const override;
 

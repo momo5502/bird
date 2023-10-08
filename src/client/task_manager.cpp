@@ -50,34 +50,42 @@ void task_manager::schedule(task t, const bool is_high_priority)
 
 void task_manager::work()
 {
+	auto should_wake_up = [this]
+	{
+		return this->stop_ || !this->tasks_.empty();
+	};
+
 	while (true)
 	{
 		std::unique_lock<std::mutex> lock{this->mutex_};
-		this->condition_variable_.wait_for(lock, 1s, [this]
+
+		if (!should_wake_up())
 		{
-			return this->stop_ || !this->tasks_.empty();
-		});
+			this->condition_variable_.wait_for(lock, 1s, should_wake_up);
+		}
 
 		if (this->stop_)
 		{
 			break;
 		}
 
-		if (!this->tasks_.empty())
+		if (this->tasks_.empty())
 		{
-			auto task = std::move(this->tasks_.front());
-			this->tasks_.pop_front();
+			continue;
+		}
 
-			lock.unlock();
+		auto task = std::move(this->tasks_.front());
+		this->tasks_.pop_front();
 
-			try
-			{
-				task();
-			}
-			catch (const std::exception& e)
-			{
-				puts(e.what());
-			}
+		lock.unlock();
+
+		try
+		{
+			task();
+		}
+		catch (const std::exception& e)
+		{
+			puts(e.what());
 		}
 	}
 }

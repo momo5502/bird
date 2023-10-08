@@ -35,9 +35,6 @@ void window::init_glew()
 	{
 		throw std::runtime_error("Unable to initialize glew");
 	}
-
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
 }
 
 void window::create(const int width, const int height, const std::string& title)
@@ -62,7 +59,7 @@ void window::create(const int width, const int height, const std::string& title)
 
 	glViewport(0, 0, width, height);
 
-	glEnable(GL_DEPTH_TEST);
+	/*glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	glClearDepth(1);
 
@@ -70,9 +67,10 @@ void window::create(const int width, const int height, const std::string& title)
 	glDisable(GL_POINT_SMOOTH);
 	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-	glHint(GL_POINT_SMOOTH_HINT, GL_FASTEST);
+	glHint(GL_POINT_SMOOTH_HINT, GL_FASTEST);*/
 
 	glfwSetInputMode(this->handle_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetCursorPos(this->handle_, 0, 0);
 }
 
 void window::size_callback(const int width, const int height)

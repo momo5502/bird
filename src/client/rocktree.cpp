@@ -312,6 +312,8 @@ void node::populate()
 		}
 	}
 
+	this->meshes.reserve(static_cast<size_t>(node_data.meshes_size()));
+
 	for (const auto& mesh : node_data.meshes())
 	{
 		mesh_data m{};
@@ -381,6 +383,8 @@ void node::populate()
 
 		this->meshes.emplace_back(std::move(m));
 	}
+
+	this->meshes.shrink_to_fit();
 }
 
 bulk::bulk(rocktree& rocktree, const uint32_t epoch, std::string path)
