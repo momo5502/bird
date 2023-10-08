@@ -108,7 +108,8 @@ namespace
 			break;
 		case texture_format::dxt1:
 			glCompressedTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, mesh.texture_width,
-			                       mesh.texture_height, 0, static_cast<GLsizei>(mesh.texture.size()), mesh.texture.data());
+			                       mesh.texture_height, 0, static_cast<GLsizei>(mesh.texture.size()),
+			                       mesh.texture.data());
 			break;
 		}
 	}
@@ -119,11 +120,13 @@ namespace
 
 		glGenBuffers(1, &mesh.vertex_buffer);
 		glBindBuffer(GL_ARRAY_BUFFER, mesh.vertex_buffer);
-		glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizei>(mesh.vertices.size()) * sizeof(unsigned char), mesh.vertices.data(),
+		glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizei>(mesh.vertices.size()) * sizeof(unsigned char),
+		             mesh.vertices.data(),
 		             GL_STATIC_DRAW);
 		glGenBuffers(1, &mesh.index_buffer);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizei>(mesh.indices.size()) * sizeof(unsigned short), mesh.indices.data(),
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizei>(mesh.indices.size()) * sizeof(unsigned short),
+		             mesh.indices.data(),
 		             GL_STATIC_DRAW);
 
 		glGenTextures(1, &mesh.texture_buffer);
@@ -153,12 +156,12 @@ namespace
 		glBindTexture(GL_TEXTURE_2D, mesh.texture_buffer);
 		glBindBuffer(GL_ARRAY_BUFFER, mesh.vertex_buffer);
 
-		glVertexAttribPointer(ctx.position_loc, 3, GL_UNSIGNED_BYTE, GL_FALSE, 8, (void*)0);
-		glVertexAttribPointer(ctx.octant_loc, 1, GL_UNSIGNED_BYTE, GL_FALSE, 8, (void*)3);
-		glVertexAttribPointer(ctx.texcoords_loc, 2, GL_UNSIGNED_SHORT, GL_FALSE, 8, (void*)4);
+		glVertexAttribPointer(ctx.position_loc, 3, GL_UNSIGNED_BYTE, GL_FALSE, 8, static_cast<void*>(0));
+		glVertexAttribPointer(ctx.octant_loc, 1, GL_UNSIGNED_BYTE, GL_FALSE, 8, reinterpret_cast<void*>(3));
+		glVertexAttribPointer(ctx.texcoords_loc, 2, GL_UNSIGNED_SHORT, GL_FALSE, 8, reinterpret_cast<void*>(4));
 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
-		glDrawElements(GL_TRIANGLE_STRIP, mesh.indices.size(), GL_UNSIGNED_SHORT, NULL);
+		glDrawElements(GL_TRIANGLE_STRIP, static_cast<GLsizei>(mesh.indices.size()), GL_UNSIGNED_SHORT, nullptr);
 	}
 
 	void unbufferMesh(mesh& mesh)

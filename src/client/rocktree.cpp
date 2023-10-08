@@ -2,13 +2,21 @@
 
 #include "rocktree.hpp"
 
+#pragma warning(push)
+#pragma warning(disable: 4100)
+#pragma warning(disable: 4127)
+#pragma warning(disable: 4244)
+#pragma warning(disable: 4458)
+#pragma warning(disable: 4702)
+#pragma warning(disable: 4996)
 #include <rocktree.pb.h>
-
-#include <utils/io.hpp>
-#include <utils/http.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#pragma warning(pop)
+
+#include <utils/io.hpp>
+#include <utils/http.hpp>
 
 #include <crn.h>
 #include <ranges>
@@ -134,7 +142,7 @@ node::node(rocktree& rocktree, const uint32_t epoch, std::string path, const tex
 // unpackVarInt unpacks variable length integer from proto (like coded_stream.h)
 int unpackVarInt(const std::string& packed, int* index)
 {
-	auto data = (uint8_t*)packed.data();
+	auto data = (const uint8_t*)packed.data();
 	auto size = packed.size();
 	int c = 0, d = 1, e;
 	do
@@ -162,7 +170,7 @@ static_assert((sizeof(vertex_t) == 8), "vertex_t size must be 8");
 // unpackVertices unpacks vertices XYZ to new 8-byte-per-vertex array
 std::vector<uint8_t> unpackVertices(const std::string& packed)
 {
-	auto data = (uint8_t*)packed.data();
+	auto data = reinterpret_cast<const uint8_t*>(packed.data());
 	auto count = packed.size() / 3;
 	auto vertices = std::vector<uint8_t>(count * sizeof(vertex_t));
 	auto vtx = (vertex_t*)vertices.data();
@@ -180,24 +188,30 @@ std::vector<uint8_t> unpackVertices(const std::string& packed)
 void unpackTexCoords(const std::string& packed, uint8_t* vertices, size_t vertices_len, glm::vec2& uv_offset,
                      glm::vec2& uv_scale)
 {
-	auto data = (uint8_t*)packed.data();
-	auto count = vertices_len / sizeof(vertex_t);
+	auto data = reinterpret_cast<const uint8_t*>(packed.data());
+	const auto count = vertices_len / sizeof(vertex_t);
+
 	assert(count * 4 == (packed.size() - 4) && packed.size() >= 4);
-	auto u_mod = 1 + *(uint16_t*)(data + 0);
-	auto v_mod = 1 + *(uint16_t*)(data + 2);
+
+	const auto u_mod = 1 + *reinterpret_cast<const uint16_t*>(data + 0);
+	const auto v_mod = 1 + *reinterpret_cast<const uint16_t*>(data + 2);
 	data += 4;
-	auto vtx = (vertex_t*)vertices;
+	const auto vtx = reinterpret_cast<vertex_t*>(vertices);
+
 	auto u = 0, v = 0;
 	for (size_t i = 0; i < count; i++)
 	{
-		vtx[i].u = u = (u + data[count * 0 + i] + (data[count * 2 + i] << 8)) % u_mod;
-		vtx[i].v = v = (v + data[count * 1 + i] + (data[count * 3 + i] << 8)) % v_mod;
+		u = (u + data[count * 0 + i] + (data[count * 2 + i] << 8)) % u_mod;
+		v = (v + data[count * 1 + i] + (data[count * 3 + i] << 8)) % v_mod;
+
+		vtx[i].u = static_cast<uint16_t>(u);
+		vtx[i].v = static_cast<uint16_t>(v);
 	}
 
 	uv_offset[0] = 0.5;
 	uv_offset[1] = 0.5;
-	uv_scale[0] = 1.0 / u_mod;
-	uv_scale[1] = 1.0 / v_mod;
+	uv_scale[0] = static_cast<float>(1.0 / u_mod);
+	uv_scale[1] = static_cast<float>(1.0 / v_mod);
 }
 
 // unpackIndices unpacks indices to triangle strip
@@ -220,7 +234,8 @@ std::vector<uint16_t> unpackIndices(const std::string& packed)
 }
 
 // unpackOctantMaskAndOctantCountsAndLayerBounds unpacks the octant mask for vertices (W) and layer bounds and octant counts
-void unpackOctantMaskAndOctantCountsAndLayerBounds(const std::string& packed, const uint16_t* indices, size_t indices_len,
+void unpackOctantMaskAndOctantCountsAndLayerBounds(const std::string& packed, const uint16_t* indices,
+                                                   size_t indices_len,
                                                    uint8_t* vertices, size_t vertices_len, int layer_bounds[10])
 {
 	// todo: octant counts
@@ -322,7 +337,8 @@ void node::populate()
 		{
 			auto data = reinterpret_cast<uint8_t*>(tex.data());
 			int width, height, comp;
-			unsigned char* pixels = stbi_load_from_memory(&data[0], static_cast<int>(tex.size()), &width, &height, &comp, 0);
+			unsigned char* pixels = stbi_load_from_memory(&data[0], static_cast<int>(tex.size()), &width, &height,
+			                                              &comp, 0);
 			assert(pixels != NULL);
 			assert(width == texture.width() && height == texture.height() && comp == 3);
 			m.texture = std::vector<uint8_t>(pixels, pixels + width * height * comp);
@@ -336,7 +352,7 @@ void node::populate()
 			auto dst_size = crn_get_decompressed_size(src, static_cast<uint32_t>(src_size), 0);
 			assert(dst_size == ((texture.width() + 3) / 4) * ((texture.height() + 3) / 4) * 8);
 			m.texture = std::vector<uint8_t>(dst_size);
-			crn_decompress(src,static_cast<uint32_t>(src_size), m.texture.data(), dst_size, 0);
+			crn_decompress(src, static_cast<uint32_t>(src_size), m.texture.data(), dst_size, 0);
 			m.format = texture_format::dxt1;
 		}
 		else
