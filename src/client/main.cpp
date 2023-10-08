@@ -4,6 +4,8 @@
 #include "window.hpp"
 #include "rocktree.hpp"
 
+#include <utils/nt.hpp>
+
 namespace
 {
 	void paint_sky(const double altitude)
@@ -202,7 +204,7 @@ namespace
 		glfwGetCursorPos(window, &mouse_x, &mouse_y);
 		glfwSetCursorPos(window, 0, 0);
 
-		if (glfwJoystickPresent(GLFW_JOYSTICK_1) && false)
+		if (glfwJoystickPresent(GLFW_JOYSTICK_1))
 		{
 			int count;
 			const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &count);
@@ -216,7 +218,7 @@ namespace
 				//auto right_y = axes[4];
 				auto right_y = axes[5];
 
-				auto limit_value = [](float& value, const float deadzone)
+				const auto limit_value = [](float& value, const float deadzone)
 				{
 					if (value >= deadzone)
 					{
@@ -238,14 +240,19 @@ namespace
 				limit_value(right_x, limit);
 				limit_value(right_y, limit);
 
-				key_right_pressed = std::max(left_x, 0.0f);
-				key_left_pressed = std::abs(std::min(left_x, 0.0f));
+				const auto assign_max = [](double& value, const double new_value)
+				{
+					value = std::max(value, new_value);
+				};
 
-				key_down_pressed = std::max(left_y, 0.0f);
-				key_up_pressed = std::abs(std::min(left_y, 0.0f));
+				assign_max(key_right_pressed, std::max(left_x, 0.0f));
+				assign_max(key_left_pressed, std::abs(std::min(left_x, 0.0f)));
 
-				mouse_x = right_x * 10.0;
-				mouse_y = right_y * 10.0;
+				assign_max(key_down_pressed, std::max(left_y, 0.0f));
+				assign_max(key_up_pressed, std::abs(std::min(left_y, 0.0f)));
+
+				mouse_x += right_x * 10.0;
+				mouse_y += right_y * 10.0;
 			}
 
 			const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &count);
@@ -442,10 +449,37 @@ namespace
 			}
 		}
 	}
+
+	void trigger_high_performance_gpu_switch()
+	{
+#ifdef _WIN32
+		const auto key = utils::nt::open_or_create_registry_key(
+			HKEY_CURRENT_USER, R"(Software\Microsoft\DirectX\UserGpuPreferences)");
+		if (!key)
+		{
+			return;
+		}
+
+		const auto self = utils::nt::library::get_by_address(&trigger_high_performance_gpu_switch);
+		const auto path = self.get_path().make_preferred().wstring();
+
+		if (RegQueryValueExW(key, path.data(), nullptr, nullptr, nullptr, nullptr) != ERROR_FILE_NOT_FOUND)
+		{
+			return;
+		}
+
+		const std::wstring data = L"GpuPreference=2;";
+		RegSetValueExW(key, self.get_path().make_preferred().wstring().data(), 0, REG_SZ,
+		               reinterpret_cast<const BYTE*>(data.data()),
+		               static_cast<DWORD>((data.size() + 1u) * 2));
+#endif
+	}
 }
 
 int main(int /*argc*/, char** /*argv*/)
 {
+	trigger_high_performance_gpu_switch();
+
 	window window(800, 600, "game");
 
 	const rocktree rocktree{"earth"};
