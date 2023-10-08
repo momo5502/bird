@@ -19,9 +19,19 @@ struct gl_ctx_t
 	GLint texcoords_loc;
 };
 
+#pragma pack(push, 1)
+struct vertex
+{
+	uint8_t x, y, z; // position
+	uint8_t w; // octant mask
+	uint16_t u, v; // texture coordinates
+};
+#pragma pack(pop)
+static_assert((sizeof(vertex) == 8), "vertex size must be 8");
+
 struct mesh_data
 {
-	std::vector<uint8_t> vertices{};
+	std::vector<vertex> vertices{};
 	std::vector<uint16_t> indices{};
 
 	glm::vec2 uv_offset{};

@@ -45,7 +45,7 @@ mesh_buffers::mesh_buffers(const mesh_data& mesh)
 {
 	glGenBuffers(1, &this->vertex_buffer_);
 	glBindBuffer(GL_ARRAY_BUFFER, this->vertex_buffer_);
-	glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizei>(mesh.vertices.size() * sizeof(unsigned char)),
+	glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizei>(mesh.vertices.size() * sizeof(vertex)),
 	             mesh.vertices.data(), GL_STATIC_DRAW);
 
 	glGenBuffers(1, &this->index_buffer_);

@@ -138,7 +138,7 @@ node::node(rocktree& rocktree, const uint32_t epoch, std::string path, const tex
 }
 
 // unpackVarInt unpacks variable length integer from proto (like coded_stream.h)
-int unpackVarInt(const std::string& packed, int* index)
+int unpack_var_int(const std::string& packed, int* index)
 {
 	const auto* data = reinterpret_cast<const uint8_t*>(packed.data());
 	const auto size = packed.size();
@@ -160,47 +160,42 @@ int unpackVarInt(const std::string& packed, int* index)
 	return c;
 }
 
-// vertex is a packed struct for an 8-byte-per-vertex array
-#pragma pack(push, 1)
-struct vertex_t
-{
-	uint8_t x, y, z; // position
-	uint8_t w; // octant mask
-	uint16_t u, v; // texture coordinates
-};
-#pragma pack(pop)
-static_assert((sizeof(vertex_t) == 8), "vertex_t size must be 8");
-
 // unpackVertices unpacks vertices XYZ to new 8-byte-per-vertex array
-std::vector<uint8_t> unpackVertices(const std::string& packed)
+std::vector<vertex> unpack_vertices(const std::string& packed)
 {
-	auto data = reinterpret_cast<const uint8_t*>(packed.data());
-	auto count = packed.size() / 3;
-	auto vertices = std::vector<uint8_t>(count * sizeof(vertex_t));
-	auto vtx = (vertex_t*)vertices.data();
-	uint8_t x = 0, y = 0, z = 0; // 8 bit for % 0x100
-	for (auto i = 0; i < count; i++)
+	const auto count = packed.size() / 3;
+	const auto data = reinterpret_cast<const uint8_t*>(packed.data());
+
+	uint8_t x = 0, y = 0, z = 0;
+
+	auto vertices = std::vector<vertex>(count);
+
+	for (size_t i = 0; i < count; i++)
 	{
-		vtx[i].x = x += data[count * 0 + i];
-		vtx[i].y = y += data[count * 1 + i];
-		vtx[i].z = z += data[count * 2 + i];
+		x += data[count * 0 + i];
+		y += data[count * 1 + i];
+		z += data[count * 2 + i];
+
+		vertices[i].x = x;
+		vertices[i].y = y;
+		vertices[i].z = z;
 	}
+
 	return vertices;
 }
 
 // unpackTexCoords unpacks texture coordinates UV to 8-byte-per-vertex-array
-void unpackTexCoords(const std::string& packed, uint8_t* vertices, size_t vertices_len, glm::vec2& uv_offset,
-                     glm::vec2& uv_scale)
+void unpack_tex_coords(const std::string& packed, std::vector<vertex>& vertices, glm::vec2& uv_offset,
+                       glm::vec2& uv_scale)
 {
+	const auto count = vertices.size();
 	auto data = reinterpret_cast<const uint8_t*>(packed.data());
-	const auto count = vertices_len / sizeof(vertex_t);
 
 	assert(count * 4 == (packed.size() - 4) && packed.size() >= 4);
 
 	const auto u_mod = 1 + *reinterpret_cast<const uint16_t*>(data + 0);
 	const auto v_mod = 1 + *reinterpret_cast<const uint16_t*>(data + 2);
 	data += 4;
-	const auto vtx = reinterpret_cast<vertex_t*>(vertices);
 
 	auto u = 0, v = 0;
 	for (size_t i = 0; i < count; i++)
@@ -208,27 +203,28 @@ void unpackTexCoords(const std::string& packed, uint8_t* vertices, size_t vertic
 		u = (u + data[count * 0 + i] + (data[count * 2 + i] << 8)) % u_mod;
 		v = (v + data[count * 1 + i] + (data[count * 3 + i] << 8)) % v_mod;
 
-		vtx[i].u = static_cast<uint16_t>(u);
-		vtx[i].v = static_cast<uint16_t>(v);
+		vertices[i].u = static_cast<uint16_t>(u);
+		vertices[i].v = static_cast<uint16_t>(v);
 	}
 
 	uv_offset[0] = 0.5;
 	uv_offset[1] = 0.5;
+
 	uv_scale[0] = static_cast<float>(1.0 / u_mod);
 	uv_scale[1] = static_cast<float>(1.0 / v_mod);
 }
 
 // unpackIndices unpacks indices to triangle strip
-std::vector<uint16_t> unpackIndices(const std::string& packed)
+std::vector<uint16_t> unpack_indices(const std::string& packed)
 {
 	auto offset = 0;
 
-	const auto triangle_strip_len = unpackVarInt(packed, &offset);
+	const auto triangle_strip_len = unpack_var_int(packed, &offset);
 	auto triangle_strip = std::vector<uint16_t>(triangle_strip_len);
 	auto num_non_degenerate_triangles = 0;
 	for (int zeros = 0, a, b = 0, c = 0, i = 0; i < triangle_strip_len; ++i)
 	{
-		const int val = unpackVarInt(packed, &offset);
+		const int val = unpack_var_int(packed, &offset);
 
 		a = b;
 		b = c;
@@ -243,13 +239,13 @@ std::vector<uint16_t> unpackIndices(const std::string& packed)
 }
 
 // unpackOctantMaskAndOctantCountsAndLayerBounds unpacks the octant mask for vertices (W) and layer bounds and octant counts
-void unpackOctantMaskAndOctantCountsAndLayerBounds(const std::string& packed, const uint16_t* indices,
-                                                   size_t indices_len,
-                                                   uint8_t* vertices, size_t vertices_len, int layer_bounds[10])
+void unpack_octant_mask_and_octant_counts_and_layer_bounds(const std::string& packed,
+                                                           const std::vector<uint16_t>& indices,
+                                                           std::vector<vertex>& vertices, int layer_bounds[10])
 {
 	// todo: octant counts
 	auto offset = 0;
-	auto len = unpackVarInt(packed, &offset);
+	auto len = unpack_var_int(packed, &offset);
 	auto idx_i = 0;
 	auto k = 0;
 	auto m = 0;
@@ -263,16 +259,16 @@ void unpackOctantMaskAndOctantCountsAndLayerBounds(const std::string& packed, co
 				layer_bounds[m++] = k;
 			}
 		}
-		auto v = unpackVarInt(packed, &offset);
+		auto v = unpack_var_int(packed, &offset);
 		for (auto j = 0; j < v; j++)
 		{
 			const auto idx = indices[idx_i++];
-			if (idx < indices_len)
+			if (idx < indices.size())
 			{
 				const auto vtx_i = idx;
-				if (vtx_i < vertices_len / sizeof(vertex_t))
+				if (vtx_i < vertices.size())
 				{
-					reinterpret_cast<vertex_t*>(vertices)[vtx_i].w = i & 7;
+					vertices[vtx_i].w = i & 7;
 				}
 			}
 		}
@@ -301,7 +297,7 @@ void node::populate()
 	NodeData node_data{};
 	if (!data || !node_data.ParseFromString(*data))
 	{
-		throw std::runtime_error{""};
+		throw std::runtime_error{"Failed to fetch node"};
 	}
 
 	if (node_data.matrix_globe_from_mesh_size() == 16)
@@ -321,10 +317,10 @@ void node::populate()
 	{
 		mesh_data m{};
 
-		m.indices = unpackIndices(mesh.indices());
-		m.vertices = unpackVertices(mesh.vertices());
+		m.indices = unpack_indices(mesh.indices());
+		m.vertices = unpack_vertices(mesh.vertices());
 
-		unpackTexCoords(mesh.texture_coordinates(), m.vertices.data(), m.vertices.size(), m.uv_offset, m.uv_scale);
+		unpack_tex_coords(mesh.texture_coordinates(), m.vertices, m.uv_offset, m.uv_scale);
 		if (mesh.uv_offset_and_scale_size() == 4)
 		{
 			m.uv_offset[0] = mesh.uv_offset_and_scale(0);
@@ -339,9 +335,8 @@ void node::populate()
 		}
 
 		int layer_bounds[10];
-		unpackOctantMaskAndOctantCountsAndLayerBounds(mesh.layer_and_octant_counts(), m.indices.data(),
-		                                              m.indices.size(), m.vertices.data(), m.vertices.size(),
-		                                              layer_bounds);
+		unpack_octant_mask_and_octant_counts_and_layer_bounds(mesh.layer_and_octant_counts(), m.indices, m.vertices,
+		                                                      layer_bounds);
 		assert(0 <= layer_bounds[3] && layer_bounds[3] <= m.indices.size());
 		//m.indices_len = layer_bounds[3]; // enable
 		m.indices.resize(layer_bounds[3]);
@@ -511,7 +506,7 @@ void bulk::populate()
 	BulkMetadata bulk_meta{};
 	if (!data || !bulk_meta.ParseFromString(*data))
 	{
-		throw std::runtime_error{""};
+		throw std::runtime_error{"Failed to fetch bulk"};
 	}
 
 	this->head_node_center[0] = bulk_meta.head_node_center(0);
