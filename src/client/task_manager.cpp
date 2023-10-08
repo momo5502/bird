@@ -36,7 +36,7 @@ task_manager::~task_manager()
 
 void task_manager::schedule(task t, const bool is_high_priority)
 {
-	std::lock_guard<std::mutex> _{this->mutex_};
+	std::unique_lock<std::mutex> lock{this->mutex_};
 
 	if (is_high_priority)
 	{
@@ -46,6 +46,9 @@ void task_manager::schedule(task t, const bool is_high_priority)
 	{
 		this->tasks_.push_back(std::move(t));
 	}
+
+	lock.unlock();
+	this->condition_variable_.notify_one();
 }
 
 void task_manager::work()

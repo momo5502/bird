@@ -304,11 +304,14 @@ void node::populate()
 		throw std::runtime_error{""};
 	}
 
-	for (int i = 0; i < 4; ++i)
+	if (node_data.matrix_globe_from_mesh_size() == 16)
 	{
-		for (int j = 0; j < 4; ++j)
+		for (int i = 0; i < 4; ++i)
 		{
-			this->matrix_globe_from_mesh[i][j] = node_data.matrix_globe_from_mesh(4 * i + j);
+			for (int j = 0; j < 4; ++j)
+			{
+				this->matrix_globe_from_mesh[i][j] = node_data.matrix_globe_from_mesh(4 * i + j);
+			}
 		}
 	}
 
