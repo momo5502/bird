@@ -265,7 +265,7 @@ namespace
 					l3 = 10,
 				};
 
-				key_boost_pressed = buttons[ps4_button::l3] || buttons[ps4_button::r2] ? 1.0 : 0.0;
+				key_boost_pressed = buttons[ps4_button::l3] || buttons[ps4_button::r2] ? 1.0 : key_boost_pressed;
 			}
 		}
 
