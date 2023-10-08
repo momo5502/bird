@@ -187,6 +187,8 @@ function(momo_target_set_warnings_as_errors target)
   target_compile_options(${target} PRIVATE
     $<$<COMPILE_LANGUAGE:C>:$<$<CONFIG:RELEASE>:${compile_options}>>
     $<$<COMPILE_LANGUAGE:CXX>:$<$<CONFIG:RELEASE>:${compile_options}>>
+    $<$<COMPILE_LANGUAGE:C>:$<$<CONFIG:RELWITHDEBINFO>:${compile_options}>>
+    $<$<COMPILE_LANGUAGE:CXX>:$<$<CONFIG:RELWITHDEBINFO>:${compile_options}>>
   )
 endfunction()
 
