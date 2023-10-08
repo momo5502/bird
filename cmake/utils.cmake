@@ -31,10 +31,10 @@ endfunction()
 ##########################################
 
 function(momo_target_set_folder folder target)
-  get_target_property(CURRENT_FOLDER ${target} FOLDER)
-  if(NOT CURRENT_FOLDER)
+  #get_target_property(CURRENT_FOLDER ${target} FOLDER)
+  #if(NOT CURRENT_FOLDER)
     set_target_properties(${target} PROPERTIES FOLDER "${folder}")
-  endif()
+  #endif()
 endfunction()
 
 ##########################################

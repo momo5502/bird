@@ -1,7 +1,11 @@
 add_subdirectory(glm)
 add_subdirectory(glfw)
-add_subdirectory(glew-cmake)
 add_subdirectory(crn)
+
+##########################################
+
+option(glew-cmake_BUILD_SHARED "" OFF)
+add_subdirectory(glew-cmake)
 
 ##########################################
 
