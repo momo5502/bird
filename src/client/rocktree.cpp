@@ -6,13 +6,11 @@
 #pragma warning(disable: 4100)
 #pragma warning(disable: 4127)
 #pragma warning(disable: 4244)
-#pragma warning(disable: 4458)
-#pragma warning(disable: 4702)
-#pragma warning(disable: 4996)
-#include <rocktree.pb.h>
-
+#pragma warning(disable: 6262)
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+#include <rocktree.pb.h>
 #pragma warning(pop)
 
 #include <utils/io.hpp>
@@ -142,17 +140,23 @@ node::node(rocktree& rocktree, const uint32_t epoch, std::string path, const tex
 // unpackVarInt unpacks variable length integer from proto (like coded_stream.h)
 int unpackVarInt(const std::string& packed, int* index)
 {
-	auto data = (const uint8_t*)packed.data();
-	auto size = packed.size();
-	int c = 0, d = 1, e;
+	const auto* data = reinterpret_cast<const uint8_t*>(packed.data());
+	const auto size = packed.size();
+
+	int c = 0, d = 1, e{};
 	do
 	{
-		assert(*index < size);
+		if (*index >= size)
+		{
+			break;
+		}
+
 		e = data[(*index)++];
 		c += (e & 0x7F) * d;
 		d <<= 7;
 	}
 	while (e & 0x80);
+
 	return c;
 }
 
@@ -219,12 +223,12 @@ std::vector<uint16_t> unpackIndices(const std::string& packed)
 {
 	auto offset = 0;
 
-	auto triangle_strip_len = unpackVarInt(packed, &offset);
+	const auto triangle_strip_len = unpackVarInt(packed, &offset);
 	auto triangle_strip = std::vector<uint16_t>(triangle_strip_len);
 	auto num_non_degenerate_triangles = 0;
 	for (int zeros = 0, a, b = 0, c = 0, i = 0; i < triangle_strip_len; i++)
 	{
-		int val = unpackVarInt(packed, &offset);
+		const int val = unpackVarInt(packed, &offset);
 		triangle_strip[i] = (a = b, b = c, c = zeros - val);
 		if (a != b && a != c && b != c) num_non_degenerate_triangles++;
 		if (0 == val) zeros++;
@@ -249,17 +253,23 @@ void unpackOctantMaskAndOctantCountsAndLayerBounds(const std::string& packed, co
 	{
 		if (0 == i % 8)
 		{
-			assert(m < 10);
-			layer_bounds[m++] = k;
+			if (m < 10)
+			{
+				layer_bounds[m++] = k;
+			}
 		}
 		auto v = unpackVarInt(packed, &offset);
 		for (auto j = 0; j < v; j++)
 		{
-			auto idx = indices[idx_i++];
-			assert(0 <= idx && idx < indices_len);
-			auto vtx_i = idx;
-			assert(0 <= vtx_i && vtx_i < vertices_len / sizeof(vertex_t));
-			((vertex_t*)vertices)[vtx_i].w = i & 7;
+			const auto idx = indices[idx_i++];
+			if (idx < indices_len)
+			{
+				const auto vtx_i = idx;
+				if (vtx_i < vertices_len / sizeof(vertex_t))
+				{
+					reinterpret_cast<vertex_t*>(vertices)[vtx_i].w = i & 7;
+				}
+			}
 		}
 		k += v;
 	}
@@ -335,9 +345,9 @@ void node::populate()
 		// maybe: keep compressed in memory?
 		if (texture.format() == Texture_Format_JPG)
 		{
-			auto data = reinterpret_cast<uint8_t*>(tex.data());
+			auto tex_data = reinterpret_cast<uint8_t*>(tex.data());
 			int width, height, comp;
-			unsigned char* pixels = stbi_load_from_memory(&data[0], static_cast<int>(tex.size()), &width, &height,
+			unsigned char* pixels = stbi_load_from_memory(&tex_data[0], static_cast<int>(tex.size()), &width, &height,
 			                                              &comp, 0);
 			assert(pixels != NULL);
 			assert(width == texture.width() && height == texture.height() && comp == 3);
@@ -380,7 +390,7 @@ struct node_data_path_and_flags
 {
 	std::string path{};
 	uint32_t flags{};
-	uint32_t level{};
+	int level{};
 };
 
 node_data_path_and_flags unpack_path_and_flags(const NodeMetadata& node_meta)
@@ -388,7 +398,7 @@ node_data_path_and_flags unpack_path_and_flags(const NodeMetadata& node_meta)
 	node_data_path_and_flags result{};
 	auto path_id = node_meta.path_and_flags();
 
-	result.level = 1 + (path_id & 3);
+	result.level = static_cast<int>(1 + (path_id & 3));
 	path_id >>= 2;
 	for (int i = 0; i < result.level; i++)
 	{
@@ -546,7 +556,7 @@ void bulk::populate()
 		n->can_have_data = has_data;
 		n->meters_per_texel = node_meta.has_meters_per_texel()
 			                      ? node_meta.meters_per_texel()
-			                      : bulk_meta.meters_per_texel(static_cast<int>(aux.level) - 1);
+			                      : bulk_meta.meters_per_texel(aux.level - 1);
 		n->obb = unpack_obb(node_meta.oriented_bounding_box(), this->head_node_center, n->meters_per_texel);
 
 		this->nodes[aux.path] = std::move(n);

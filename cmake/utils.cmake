@@ -153,6 +153,8 @@ function(momo_target_disable_warnings target)
   )
 
   momo_target_c_and_cxx_compile_options(${target} PRIVATE ${compile_options})
+
+  set_target_properties(${target} PROPERTIES MOMO_WARNINGS_DISABLE ON)
 endfunction()
 
 ##########################################
@@ -168,6 +170,11 @@ endfunction()
 function(momo_target_set_warnings_as_errors target)
   get_target_property(target_type ${target} TYPE)
   if(("${target_type}" STREQUAL "INTERFACE_LIBRARY") OR ("${target_type}" STREQUAL "UTILITY"))
+    return()
+  endif()
+
+  get_target_property(warnings_disabled ${target} MOMO_WARNINGS_DISABLE)
+  if(warnings_disabled)
     return()
   endif()
 

@@ -364,7 +364,7 @@ namespace
 
 				if (!cur.empty() && cur.size() % 4 == 0)
 				{
-					auto rel = cur.substr(floor((cur.size() - 1) / 4) * 4, 4);
+					auto rel = cur.substr(((cur.size() - 1) / 4) * 4, 4);
 					auto bulk_kv = bulk->bulks.find(rel);
 					auto has_bulk = bulk_kv != bulk->bulks.end();
 					if (!has_bulk) continue;
@@ -380,7 +380,7 @@ namespace
 				for (const auto& o : octs)
 				{
 					auto nxt = cur + o;
-					auto nxt_rel = nxt.substr(floor((nxt.size() - 1) / 4) * 4, 4);
+					auto nxt_rel = nxt.substr(((nxt.size() - 1) / 4) * 4, 4);
 					auto node_kv = bulk->nodes.find(nxt_rel);
 					if (node_kv == bulk->nodes.end()) // node at "nxt" doesn't exist
 						continue;
@@ -461,7 +461,7 @@ namespace
 	}
 }
 
-int main(int argc, char** argv)
+int main(int /*argc*/, char** /*argv*/)
 {
 	window window(800, 600, "game");
 

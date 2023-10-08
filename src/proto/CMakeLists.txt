@@ -16,3 +16,5 @@ target_link_libraries(proto PUBLIC
 target_include_directories(proto INTERFACE
     "${CMAKE_CURRENT_BINARY_DIR}"
 )
+
+momo_target_disable_warnings(proto)
