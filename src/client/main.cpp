@@ -4,9 +4,6 @@
 #include "window.hpp"
 #include "rocktree.hpp"
 
-#undef near
-#undef far
-
 namespace
 {
 	void paint_sky(const double altitude)
@@ -60,7 +57,7 @@ namespace
 		obb_frustum_outside = 1,
 	};
 
-	obb_frustum classifyObbFrustum(const oriented_bounding_box& obb, const std::array<glm::dvec4, 6>& planes)
+	obb_frustum classify_obb_frustum(const oriented_bounding_box& obb, const std::array<glm::dvec4, 6>& planes)
 	{
 		auto result = obb_frustum_inside;
 		const auto obb_orientation_t = glm::transpose(obb.orientation);
@@ -84,46 +81,58 @@ namespace
 		return result;
 	}
 
-	void checkCompileShaderError(const GLuint shader)
+	void check_compile_shader_error(const GLuint shader)
 	{
 		GLint is_compiled = 0;
 		glGetShaderiv(shader, GL_COMPILE_STATUS, &is_compiled);
 		if (is_compiled == GL_TRUE) return;
+
 		GLint max_len = 0;
 		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &max_len);
-		std::vector<GLchar> error_log(max_len);
+
+		std::string error_log{};
+		error_log.resize(max_len);
+
 		glGetShaderInfoLog(shader, max_len, &max_len, error_log.data());
-		puts(error_log.data());
+		error_log.push_back(0);
+
 		glDeleteShader(shader);
-		abort();
+
+		throw std::runtime_error(std::move(error_log));
 	}
 
-	GLuint makeShader(const char* vert_src, const char* frag_src)
+	GLuint make_shader(const char* vert_src, const char* frag_src)
 	{
-		GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
-		glShaderSource(vert_shader, 1, &vert_src, NULL);
+		const auto vert_shader = glCreateShader(GL_VERTEX_SHADER);
+		glShaderSource(vert_shader, 1, &vert_src, nullptr);
 		glCompileShader(vert_shader);
-		checkCompileShaderError(vert_shader);
-		GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-		glShaderSource(frag_shader, 1, &frag_src, NULL);
+		check_compile_shader_error(vert_shader);
+
+		const auto frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
+		glShaderSource(frag_shader, 1, &frag_src, nullptr);
 		glCompileShader(frag_shader);
-		checkCompileShaderError(frag_shader);
-		GLuint program = glCreateProgram();
+		check_compile_shader_error(frag_shader);
+
+		const auto program = glCreateProgram();
+
 		glAttachShader(program, vert_shader);
 		glAttachShader(program, frag_shader);
 		glLinkProgram(program);
+
 		glDetachShader(program, vert_shader);
 		glDetachShader(program, frag_shader);
+
 		glDeleteShader(vert_shader);
 		glDeleteShader(frag_shader);
+
 		return program;
 	}
 
-	void initGL(gl_ctx_t& ctx)
+	void init_gl(gl_ctx_t& ctx)
 	{
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_CULL_FACE);
-		ctx.program = makeShader(
+		ctx.program = make_shader(
 			"uniform mat4 transform;"
 			"uniform vec2 uv_offset;"
 			"uniform vec2 uv_scale;"
@@ -161,7 +170,6 @@ namespace
 		glEnableVertexAttribArray(ctx.octant_loc);
 		glEnableVertexAttribArray(ctx.texcoords_loc);
 	}
-
 
 	void run_frame(window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction, gl_ctx_t& ctx)
 	{
@@ -203,11 +211,13 @@ namespace
 		paint_sky(altitude);
 
 		const auto horizon = sqrt(altitude * (2 * planet_radius + altitude));
-		auto near = horizon > 370000 ? altitude / 2 : 1;
-		auto far = horizon;
-		if (near >= far) near = far - 1;
-		if (isnan(far) || far < near) far = near + 1;
-		const glm::dmat4 projection = glm::perspective(fov, aspect_ratio, near, far);
+		auto near_val = horizon > 370000 ? altitude / 2 : 1;
+		auto far_val = horizon;
+
+		if (near_val >= far_val) near_val = far_val - 1;
+		if (isnan(far_val) || far_val < near_val) far_val = near_val + 1;
+
+		const glm::dmat4 projection = glm::perspective(fov, aspect_ratio, near_val, far_val);
 
 		// rotation
 		double mouse_x{}, mouse_y{};
@@ -232,7 +242,7 @@ namespace
 
 		// movement
 		auto speed_amp = fmin(2600, pow(fmax(0, (altitude - 500) / 10000) + 1, 1.337)) / 6;
-		auto mag = 10 * (window.get_last_frame_time() / 17000.0) * (1 + (key_boost_pressed ? 40 : 0)) *
+		auto mag = 10 * (static_cast<double>(window.get_last_frame_time()) / 17000.0) * (1 + (key_boost_pressed ? 40 : 0)) *
 			speed_amp;
 		auto sideways = glm::normalize(glm::cross(direction, up));
 		auto forwards = direction * mag;
@@ -297,7 +307,7 @@ namespace
 
 					// cull outside frustum using obb
 					// todo: check if it could cull more
-					if (obb_frustum_outside == classifyObbFrustum(node->obb, frustum_planes))
+					if (obb_frustum_outside == classify_obb_frustum(node->obb, frustum_planes))
 					{
 						continue;
 					}
@@ -378,7 +388,7 @@ int main(int /*argc*/, char** /*argv*/)
 	glm::dvec3 direction{0.219862, -0.419329, 0.012226};
 
 	gl_ctx_t ctx{};
-	initGL(ctx);
+	init_gl(ctx);
 
 	window.show([&]
 	{
