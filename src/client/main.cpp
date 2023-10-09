@@ -399,12 +399,12 @@ namespace
 						if (texels_per_meter > r) continue;
 					}
 
-					next_valid.emplace_back(nxt, bulk);
-
 					if (node->can_have_data)
 					{
 						potential_nodes[nxt] = node;
 					}
+
+					next_valid.emplace_back(std::move(nxt), bulk);
 				}
 			}
 
@@ -419,8 +419,8 @@ namespace
 		for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))
 		{
 			// reverse order
-			auto full_path = potential_node.first;
-			auto node = potential_node.second;
+			const auto& full_path = potential_node.first;
+			auto* node = potential_node.second;
 			auto level = full_path.size();
 
 			assert(level > 0);
@@ -433,7 +433,7 @@ namespace
 			// set octant mask of previous node
 			auto octant = full_path[level - 1] - '0';
 			auto prev = full_path.substr(0, level - 1);
-			mask_map[prev] |= 1 << octant;
+			mask_map[std::move(prev)] |= 1 << octant;
 
 			const auto mask = mask_map[full_path];
 
