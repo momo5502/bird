@@ -340,12 +340,11 @@ namespace
 
 		auto frustum_planes = get_frustum_planes(viewprojection); // for obb culling
 
-		const std::string octs[] = {"0", "1", "2", "3", "4", "5", "6", "7"};
-		std::vector<std::pair<std::string, bulk*>> valid{{"", current_bulk}};
-		std::vector<std::pair<std::string, bulk*>> next_valid{};
+		std::vector<std::pair<octant_identifier, bulk*>> valid{{{}, current_bulk}};
+		std::vector<std::pair<octant_identifier, bulk*>> next_valid{};
 
-		std::map<std::string, node*> potential_nodes;
-		std::map<std::string, bulk*> potential_bulks;
+		std::map<octant_identifier, node*> potential_nodes;
+		std::map<octant_identifier, bulk*> potential_bulks;
 
 		// node culling and level of detail using breadth-first search
 		while (true)
@@ -355,9 +354,10 @@ namespace
 				const auto& cur = entry.first;
 				auto* bulk = entry.second;
 
-				if (!cur.empty() && cur.size() % 4 == 0)
+				const auto cur_size = cur.size();
+				if (cur_size > 0 && cur_size % 4 == 0)
 				{
-					auto rel = cur.substr(((cur.size() - 1) / 4) * 4, 4);
+					auto rel = cur.substr(((cur_size - 1) / 4) * 4, 4);
 					auto bulk_kv = bulk->bulks.find(rel);
 					auto has_bulk = bulk_kv != bulk->bulks.end();
 					if (!has_bulk) continue;
@@ -370,7 +370,7 @@ namespace
 
 				potential_bulks[cur] = bulk;
 
-				for (const auto& o : octs)
+				for (uint8_t o = 0; o < 8; ++o)
 				{
 					auto nxt = cur + o;
 					auto nxt_rel = nxt.substr(((nxt.size() - 1) / 4) * 4, 4);
@@ -414,7 +414,7 @@ namespace
 		}
 
 		// 8-bit octant mask flags of nodes
-		std::map<std::string, uint8_t> mask_map;
+		std::map<octant_identifier, uint8_t> mask_map;
 
 		for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))
 		{
@@ -431,7 +431,7 @@ namespace
 			}
 
 			// set octant mask of previous node
-			auto octant = full_path[level - 1] - '0';
+			auto octant = full_path[level - 1];
 			auto prev = full_path.substr(0, level - 1);
 			mask_map[std::move(prev)] |= 1 << octant;
 

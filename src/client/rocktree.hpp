@@ -3,7 +3,183 @@
 #include "task_manager.hpp"
 #include "mesh.hpp"
 
+#include "uint128_t.hpp"
+
 class rocktree;
+
+class octant_identifier
+{
+public:
+	static constexpr size_t MAX_LEVELS = 42;
+	static_assert(MAX_LEVELS * 3 + 1 <= sizeof(uint128_t) * 8);
+
+	octant_identifier(const uint128_t& value = 0)
+		: value_(value)
+	{
+	}
+
+	octant_identifier(const std::string& str)
+	{
+		for (auto& val : str)
+		{
+			this->add(val - '0');
+		}
+	}
+
+	size_t size() const
+	{
+		for (uint64_t i = 0; i < MAX_LEVELS; ++i)
+		{
+			const auto current_level = MAX_LEVELS - i;
+			const auto current_bit = current_level * 3;
+			const auto active_mask = uint128_t(1) << current_bit;
+
+			if ((this->value_ & active_mask) != 0)
+			{
+				return current_level;
+			}
+		}
+
+		return 0;
+	}
+
+	uint8_t operator[](const size_t index) const
+	{
+		if (index >= MAX_LEVELS)
+		{
+			return 0;
+		}
+
+		const auto current_bits = index * 3;
+		const auto mask_bits = current_bits + 3;
+
+		const auto mask = (uint128_t(1) << mask_bits) - 1;
+
+		const auto value = this->value_ & mask;
+		return static_cast<uint8_t>((value >> current_bits).Low());
+	}
+
+	octant_identifier operator+(const uint8_t value) const
+	{
+		octant_identifier new_value = *this;
+		new_value.add(value);
+
+		return new_value;
+	}
+
+	std::string to_string() const
+	{
+		const auto current_size = this->size();
+
+		std::string res{};
+		res.reserve(current_size);
+
+		for (size_t i = 0; i < current_size; ++i)
+		{
+			res.push_back(static_cast<char>('0' + (*this)[i]));
+		}
+
+		return res;
+	}
+
+	octant_identifier substr(const size_t start, const size_t length) const
+	{
+		octant_identifier new_value{};
+
+		const auto max = this->size();
+
+		for (size_t i = start; i < (start + length) && i < max; ++i)
+		{
+			new_value.add((*this)[i]);
+		}
+
+		return new_value;
+	}
+
+	uint128_t get() const
+	{
+		return this->value_;
+	}
+
+
+	/*****************************************************************************
+	 *
+	 ****************************************************************************/
+
+	bool operator==(const octant_identifier& obj) const
+	{
+		return this->value_ == obj.value_;
+	}
+
+	/*****************************************************************************
+	 *
+	 ****************************************************************************/
+
+	bool operator!=(const octant_identifier& obj) const
+	{
+		return !(*this == obj);
+	}
+
+	/*****************************************************************************
+	 *
+	 ****************************************************************************/
+
+	bool operator<(const octant_identifier& obj) const
+	{
+		return this->value_ < obj.value_;
+	}
+
+	/*****************************************************************************
+	 *
+	 ****************************************************************************/
+
+	bool operator>(const octant_identifier& obj) const
+	{
+		return obj < *this;
+	}
+
+	/*****************************************************************************
+	 *
+	 ****************************************************************************/
+
+	bool operator<=(const octant_identifier& obj) const
+	{
+		return *this == obj || *this < obj;
+	}
+
+	/*****************************************************************************
+	 *
+	 ****************************************************************************/
+
+	bool operator>=(const octant_identifier& obj) const
+	{
+		return *this == obj || *this > obj;
+	}
+
+private:
+	void add(const uint8_t value)
+	{
+		const auto current_size = this->size();
+		if (current_size == MAX_LEVELS)
+		{
+			return;
+		}
+
+		const auto level_bit = (current_size + 1) * 3;
+		const auto level_flag = uint128_t(1) << level_bit;
+
+		const auto value_bit = current_size * 3;
+		const auto value_mask = (uint128_t(1) << value_bit) - 1;
+
+		const auto current_value = this->value_ & value_mask;
+
+		const auto new_value = uint128_t(value & 7) << value_bit;
+
+		this->value_ = (new_value | current_value | level_flag);
+	}
+
+	uint128_t value_{0};
+};
 
 class rocktree_object
 {
@@ -113,8 +289,8 @@ public:
 	bulk(rocktree& rocktree, uint32_t epoch, std::string path = {});
 
 	glm::dvec3 head_node_center{};
-	std::map<std::string, std::unique_ptr<node>> nodes{};
-	std::map<std::string, std::unique_ptr<bulk>> bulks{};
+	std::map<octant_identifier, std::unique_ptr<node>> nodes{};
+	std::map<octant_identifier, std::unique_ptr<bulk>> bulks{};
 
 	bool can_be_removed() const override;
 
