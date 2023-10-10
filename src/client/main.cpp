@@ -1,5 +1,3 @@
-#include <ranges>
-
 #include "std_include.hpp"
 #include "window.hpp"
 #include "rocktree.hpp"
@@ -337,93 +335,75 @@ namespace
 		const auto view = glm::lookAt(eye, eye + direction, up);
 		const auto viewprojection = projection * view;
 
+		auto frustum_planes = get_frustum_planes(viewprojection);
 
-		auto frustum_planes = get_frustum_planes(viewprojection); // for obb culling
-
-		static size_t last_valid_size = 0, last_next_valid_size = 0;
-
-		std::vector<std::pair<octant_identifier<>, bulk*>> valid{};
-		valid.reserve(last_valid_size);
-		valid.emplace_back(octant_identifier{}, current_bulk);
-
-		std::vector<std::pair<octant_identifier<>, bulk*>> next_valid{};
-		next_valid.reserve(last_next_valid_size);
+		std::queue<std::pair<octant_identifier<>, bulk*>> valid{};
+		valid.emplace(octant_identifier{}, current_bulk);
 
 		std::map<octant_identifier<>, node*> potential_nodes;
-		std::map<octant_identifier<>, bulk*> potential_bulks;
 
-		// node culling and level of detail using breadth-first search
-		while (true)
+		while (!valid.empty())
 		{
-			for (const auto& entry : valid)
+			auto& entry = valid.front();
+
+			const auto cur = entry.first;
+			auto* bulk = entry.second;
+
+			valid.pop();
+
+			const auto cur_size = cur.size();
+			if (cur_size > 0 && cur_size % 4 == 0)
 			{
-				const auto& cur = entry.first;
-				auto* bulk = entry.second;
+				auto rel = cur.substr(((cur_size - 1) / 4) * 4, 4);
+				auto bulk_kv = bulk->bulks.find(rel);
+				auto has_bulk = bulk_kv != bulk->bulks.end();
+				if (!has_bulk) continue;
+				auto b = bulk_kv->second.get();
 
-				const auto cur_size = cur.size();
-				if (cur_size > 0 && cur_size % 4 == 0)
-				{
-					auto rel = cur.substr(((cur_size - 1) / 4) * 4, 4);
-					auto bulk_kv = bulk->bulks.find(rel);
-					auto has_bulk = bulk_kv != bulk->bulks.end();
-					if (!has_bulk) continue;
-					auto b = bulk_kv->second.get();
-					potential_bulks[cur] = b;
-
-					if (!b->can_be_used()) continue;
-					bulk = b;
-				}
-
-				potential_bulks[cur] = bulk;
-
-				for (uint8_t o = 0; o < 8; ++o)
-				{
-					auto nxt = cur + o;
-					auto nxt_rel = nxt.substr(((nxt.size() - 1) / 4) * 4, 4);
-					auto node_kv = bulk->nodes.find(nxt_rel);
-					if (node_kv == bulk->nodes.end()) // node at "nxt" doesn't exist
-						continue;
-					auto node = node_kv->second.get();
-
-					// cull outside frustum using obb
-					// todo: check if it could cull more
-					if (obb_frustum_outside == classify_obb_frustum(node->obb, frustum_planes))
-					{
-						continue;
-					}
-
-					{
-						const auto vec = eye + glm::length(eye - node->obb.center) * direction;
-						constexpr auto identity = glm::identity<glm::dmat4>();
-						const auto t = glm::translate(identity, vec);
-
-						auto m = viewprojection * t;
-						auto s = m[3][3];
-						auto texels_per_meter = 1.0f / node->meters_per_texel;
-						auto wh = 768; // width < height ? width : height;
-						auto r = (2.0 * (1.0 / s)) * wh;
-						if (texels_per_meter > r) continue;
-					}
-
-					if (node->can_have_data)
-					{
-						potential_nodes[nxt] = node;
-					}
-
-					next_valid.emplace_back(std::move(nxt), bulk);
-				}
+				if (!b->can_be_used()) continue;
+				bulk = b;
 			}
 
-			if (next_valid.empty()) break;
+			for (uint8_t o = 0; o < 8; ++o)
+			{
+				auto nxt = cur + o;
+				auto nxt_rel = nxt.substr(((nxt.size() - 1) / 4) * 4, 4);
+				auto node_kv = bulk->nodes.find(nxt_rel);
+				if (node_kv == bulk->nodes.end()) // node at "nxt" doesn't exist
+					continue;
+				auto node = node_kv->second.get();
 
-			valid = std::move(next_valid);
+				// cull outside frustum using obb
+				// todo: check if it could cull more
+				if (obb_frustum_outside == classify_obb_frustum(node->obb, frustum_planes))
+				{
+					continue;
+				}
 
-			next_valid = {};
-			next_valid.reserve(valid.size());
+				{
+					const auto vec = eye + glm::length(eye - node->obb.center) * direction;
+					constexpr auto identity = glm::identity<glm::dmat4>();
+					const auto t = glm::translate(identity, vec);
+
+					auto m = viewprojection * t;
+					auto s = m[3][3];
+					auto texels_per_meter = 1.0f / node->meters_per_texel;
+					auto wh = 768; // width < height ? width : height;
+					auto r = (2.0 * (1.0 / s)) * wh;
+					if (texels_per_meter > r) continue;
+				}
+
+				if (node->can_have_data)
+				{
+					potential_nodes[nxt] = node;
+				}
+
+				valid.emplace(std::move(nxt), bulk);
+			}
 		}
 
 		// 8-bit octant mask flags of nodes
-		std::map<octant_identifier<>, uint8_t> mask_map;
+		std::map<octant_identifier<>, uint8_t> mask_map{};
 
 		for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))
 		{

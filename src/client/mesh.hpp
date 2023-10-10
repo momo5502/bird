@@ -31,12 +31,11 @@ static_assert((sizeof(vertex) == 8), "vertex size must be 8");
 
 struct mesh_data
 {
-	std::vector<vertex> vertices{};
-	std::vector<uint16_t> indices{};
-
 	glm::vec2 uv_offset{};
 	glm::vec2 uv_scale{};
 
+	std::vector<vertex> vertices{};
+	std::vector<uint16_t> indices{};
 	std::vector<uint8_t> texture{};
 	texture_format format{};
 	int texture_width{};
