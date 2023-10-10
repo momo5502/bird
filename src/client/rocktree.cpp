@@ -376,8 +376,8 @@ void node::populate()
 			abort();
 		}
 
-		m.texture_width = texture.width();
-		m.texture_height = texture.height();
+		m.texture_width = static_cast<int>(texture.width());
+		m.texture_height = static_cast<int>(texture.height());
 
 		this->meshes.emplace_back(std::move(m));
 	}
