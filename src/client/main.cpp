@@ -340,8 +340,14 @@ namespace
 
 		auto frustum_planes = get_frustum_planes(viewprojection); // for obb culling
 
-		std::vector<std::pair<octant_identifier<>, bulk*>> valid{{{}, current_bulk}};
+		static size_t last_valid_size = 0, last_next_valid_size = 0;
+
+		std::vector<std::pair<octant_identifier<>, bulk*>> valid{};
+		valid.reserve(last_valid_size);
+		valid.emplace_back(0, current_bulk);
+
 		std::vector<std::pair<octant_identifier<>, bulk*>> next_valid{};
+		next_valid.reserve(last_next_valid_size);
 
 		std::map<octant_identifier<>, node*> potential_nodes;
 		std::map<octant_identifier<>, bulk*> potential_bulks;
@@ -409,8 +415,11 @@ namespace
 			}
 
 			if (next_valid.empty()) break;
-			valid = next_valid;
-			next_valid.clear();
+
+			valid = std::move(next_valid);
+
+			next_valid = {};
+			next_valid.reserve(valid.size());
 		}
 
 		// 8-bit octant mask flags of nodes

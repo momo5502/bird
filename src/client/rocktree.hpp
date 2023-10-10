@@ -11,8 +11,7 @@ template <typename Base = uint128_t>
 class octant_identifier
 {
 public:
-	static constexpr size_t MAX_LEVELS = 42;
-	static_assert(MAX_LEVELS * 3 + 1 <= sizeof(Base) * 8);
+	static constexpr size_t max_levels = ((sizeof(Base) * 8) - 1) / 3;
 
 	octant_identifier(const Base& value = 0)
 		: value_(value)
@@ -29,9 +28,9 @@ public:
 
 	size_t size() const
 	{
-		for (uint64_t i = 0; i < MAX_LEVELS; ++i)
+		for (uint64_t i = 0; i < max_levels; ++i)
 		{
-			const auto current_level = MAX_LEVELS - i;
+			const auto current_level = max_levels - i;
 			const auto current_bit = current_level * 3;
 			const auto active_mask = Base(1) << current_bit;
 
@@ -46,7 +45,7 @@ public:
 
 	uint8_t operator[](const size_t index) const
 	{
-		if (index >= MAX_LEVELS)
+		if (index >= max_levels)
 		{
 			return 0;
 		}
@@ -173,7 +172,7 @@ private:
 	void add(const uint8_t value)
 	{
 		const auto current_size = this->size();
-		if (current_size == MAX_LEVELS)
+		if (current_size == max_levels)
 		{
 			return;
 		}
