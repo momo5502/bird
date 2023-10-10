@@ -340,11 +340,11 @@ namespace
 
 		auto frustum_planes = get_frustum_planes(viewprojection); // for obb culling
 
-		std::vector<std::pair<octant_identifier, bulk*>> valid{{{}, current_bulk}};
-		std::vector<std::pair<octant_identifier, bulk*>> next_valid{};
+		std::vector<std::pair<octant_identifier<>, bulk*>> valid{{{}, current_bulk}};
+		std::vector<std::pair<octant_identifier<>, bulk*>> next_valid{};
 
-		std::map<octant_identifier, node*> potential_nodes;
-		std::map<octant_identifier, bulk*> potential_bulks;
+		std::map<octant_identifier<>, node*> potential_nodes;
+		std::map<octant_identifier<>, bulk*> potential_bulks;
 
 		// node culling and level of detail using breadth-first search
 		while (true)
@@ -414,7 +414,7 @@ namespace
 		}
 
 		// 8-bit octant mask flags of nodes
-		std::map<octant_identifier, uint8_t> mask_map;
+		std::map<octant_identifier<>, uint8_t> mask_map;
 
 		for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))
 		{

@@ -7,13 +7,14 @@
 
 class rocktree;
 
+template <typename Base = uint128_t>
 class octant_identifier
 {
 public:
 	static constexpr size_t MAX_LEVELS = 42;
-	static_assert(MAX_LEVELS * 3 + 1 <= sizeof(uint128_t) * 8);
+	static_assert(MAX_LEVELS * 3 + 1 <= sizeof(Base) * 8);
 
-	octant_identifier(const uint128_t& value = 0)
+	octant_identifier(const Base& value = 0)
 		: value_(value)
 	{
 	}
@@ -32,7 +33,7 @@ public:
 		{
 			const auto current_level = MAX_LEVELS - i;
 			const auto current_bit = current_level * 3;
-			const auto active_mask = uint128_t(1) << current_bit;
+			const auto active_mask = Base(1) << current_bit;
 
 			if ((this->value_ & active_mask) != 0)
 			{
@@ -53,10 +54,12 @@ public:
 		const auto current_bits = index * 3;
 		const auto mask_bits = current_bits + 3;
 
-		const auto mask = (uint128_t(1) << mask_bits) - 1;
+		const auto mask = (Base(1) << mask_bits) - 1;
 
 		const auto value = this->value_ & mask;
-		return static_cast<uint8_t>((value >> current_bits).Low());
+		const auto result = value >> current_bits;
+
+		return static_cast<uint8_t>(result);
 	}
 
 	octant_identifier operator+(const uint8_t value) const
@@ -84,16 +87,26 @@ public:
 
 	octant_identifier substr(const size_t start, const size_t length) const
 	{
-		octant_identifier new_value{};
-
-		const auto max = this->size();
-
-		for (size_t i = start; i < (start + length) && i < max; ++i)
+		const auto end = std::min(start + length, this->size());
+		if (start >= end)
 		{
-			new_value.add((*this)[i]);
+			return {};
 		}
 
-		return new_value;
+		const auto new_length = end - start;
+
+		const auto current_bits = end * 3;
+
+		const auto mask = (Base(1) << current_bits) - 1;
+		const auto maked_value = this->value_ & mask;
+
+		const auto start_bits = start * 3;
+		const auto value = maked_value >> start_bits;
+
+		const auto length_bit = new_length * 3;
+		const auto length_flag = (Base(1) << length_bit);
+
+		return value | length_flag;
 	}
 
 	uint128_t get() const
@@ -166,19 +179,19 @@ private:
 		}
 
 		const auto level_bit = (current_size + 1) * 3;
-		const auto level_flag = uint128_t(1) << level_bit;
+		const auto level_flag = Base(1) << level_bit;
 
 		const auto value_bit = current_size * 3;
-		const auto value_mask = (uint128_t(1) << value_bit) - 1;
+		const auto value_mask = (Base(1) << value_bit) - 1;
 
 		const auto current_value = this->value_ & value_mask;
 
-		const auto new_value = uint128_t(value & 7) << value_bit;
+		const auto new_value = Base(value & 7) << value_bit;
 
 		this->value_ = (new_value | current_value | level_flag);
 	}
 
-	uint128_t value_{0};
+	Base value_{0};
 };
 
 class rocktree_object
@@ -289,8 +302,8 @@ public:
 	bulk(rocktree& rocktree, uint32_t epoch, std::string path = {});
 
 	glm::dvec3 head_node_center{};
-	std::map<octant_identifier, std::unique_ptr<node>> nodes{};
-	std::map<octant_identifier, std::unique_ptr<bulk>> bulks{};
+	std::map<octant_identifier<>, std::unique_ptr<node>> nodes{};
+	std::map<octant_identifier<>, std::unique_ptr<bulk>> bulks{};
 
 	bool can_be_removed() const override;
 

@@ -3,377 +3,273 @@
 #include <cstdint>
 #include <cstring>
 
-/*****************************************************************************
- *
- ****************************************************************************/
-
 template <typename Base>
-class GenericUInt {
+class generic_uint
+{
 public:
-  using SelfType = GenericUInt<Base>;
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  GenericUInt(const SelfType&) = default;
-  GenericUInt(SelfType&&) noexcept = default;
-
-  SelfType& operator=(const SelfType&) = default;
-  SelfType& operator=(SelfType&&) noexcept = default;
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  template <typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-  GenericUInt(const T& value)
-  {
-    mData[0] = Base(value);
-    mData[1] = Base{};
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  template <typename T, std::enable_if_t<sizeof(T) < sizeof(Base), bool> = true>
-  GenericUInt(const GenericUInt<T>& value)
-  {
-    mData[0] = Base(value);
-    mData[1] = Base{};
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  template <typename T, std::enable_if_t<sizeof(T) < sizeof(Base), bool> = true>
-  SelfType& operator=(const GenericUInt<T>& value)
-  {
-    mData[0] = Base(value);
-    mData[1] = Base{};
-
-    return *this;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  GenericUInt(Base lowerBits = 0, Base higherBits = 0)
-  {
-    static_assert(sizeof(*this) == (sizeof(Base) * 2), "Bad size");
-
-    mData[0] = lowerBits;
-    mData[1] = higherBits;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  bool operator==(const SelfType& obj) const
-  {
-    return mData[0] == obj.mData[0] && mData[1] == obj.mData[1];
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  bool operator!=(const SelfType& obj) const
-  {
-    return !(*this == obj);
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  bool operator<(const SelfType& obj) const
-  {
-    if (mData[1] != obj.mData[1]) {
-      return mData[1] < obj.mData[1];
-    }
-
-    return mData[0] < obj.mData[0];
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  bool operator>(const SelfType& obj) const
-  {
-    return obj < *this;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  bool operator<=(const SelfType& obj) const
-  {
-    return *this == obj || *this < obj;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  bool operator>=(const SelfType& obj) const
-  {
-    return *this == obj || *this > obj;
-  }
-
-  /*****************************************************************************
-   * @brief It seems that - at least on Intel - shift operands are modulo'ed
-   *        on overflow.
-   *        So  1ULL << 64 == 1ULL << 0
-   *        and 1ULL << 65 == 1ULL << 1
-   *        Therefore we need to handle that. Especially on edge cases
-   *        when shifting 0 bytes. The carry operation results in a right
-   *        shift of 64, which is not the same as zeroing the value.
-   ****************************************************************************/
-
-  SelfType operator<<(uint64_t shift) const
-  {
-    constexpr auto baseBits = (sizeof(Base) * 8);
-    constexpr auto selfBits = (sizeof(SelfType) * 8);
-
-    shift %= selfBits;
-
-    if (shift == 0) {
-      return *this;
-    }
-
-    SelfType newValue{};
-    if (shift >= baseBits) {
-      newValue.mData[0] = 0;
-      newValue.mData[1] = mData[0] << (shift - baseBits);
-    }
-    else {
-      newValue.mData[0] = mData[0] << shift;
-      newValue.mData[1] = mData[1] << shift;
-
-      const auto inverseShift = (baseBits - shift);
-      newValue.mData[1] |= mData[0] >> inverseShift;
-    }
-
-    return newValue;
-  }
-
-  /*****************************************************************************
-   * @brief Same as left shift...
-   ****************************************************************************/
-
-  SelfType operator>>(uint64_t shift) const
-  {
-    constexpr auto baseBits = (sizeof(Base) * 8);
-    constexpr auto selfBits = (sizeof(SelfType) * 8);
-
-    shift %= selfBits;
-
-    if (shift == 0) {
-      return *this;
-    }
-
-    SelfType newValue{};
-    if (shift >= baseBits) {
-      newValue.mData[1] = 0;
-      newValue.mData[0] = mData[1] >> (shift - baseBits);
-    }
-    else {
-      newValue.mData[1] = mData[1] >> shift;
-      newValue.mData[0] = mData[0] >> shift;
-      newValue.mData[0] |= mData[1] << (baseBits - shift);
-    }
-
-    return newValue;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType operator|(const SelfType& obj) const
-  {
-    SelfType newValue{};
-    newValue.mData[0] = mData[0] | obj.mData[0];
-    newValue.mData[1] = mData[1] | obj.mData[1];
-
-    return newValue;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType& operator|=(const SelfType& obj)
-  {
-    *this = *this | obj;
-    return *this;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType operator&(const SelfType& obj) const
-  {
-    SelfType newValue{};
-    newValue.mData[0] = mData[0] & obj.mData[0];
-    newValue.mData[1] = mData[1] & obj.mData[1];
-
-    return newValue;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType& operator&=(const SelfType& obj)
-  {
-    *this = *this & obj;
-    return *this;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType operator^(const SelfType& obj) const
-  {
-    SelfType newValue{};
-    newValue.mData[0] = mData[0] ^ obj.mData[0];
-    newValue.mData[1] = mData[1] ^ obj.mData[1];
-
-    return newValue;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType& operator^=(const SelfType& obj)
-  {
-    *this = *this ^ obj;
-    return *this;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType operator+(const SelfType& obj) const
-  {
-    SelfType newValue{};
-
-    newValue.mData[0] = mData[0] + obj.mData[0];
-    newValue.mData[1] = mData[1] + obj.mData[1];
-
-    if (newValue.mData[0] < mData[0] || newValue.mData[0] < obj.mData[0]) {
-      newValue.mData[1] += 1;
-    }
-
-    return newValue;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType& operator+=(const SelfType& obj)
-  {
-    *this = *this + obj;
-    return *this;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType operator~() const
-  {
-    Base maxBaseValue{};
-    memset(reinterpret_cast<void*>(&maxBaseValue), 0xFF, sizeof(maxBaseValue));
-
-    return *this ^ SelfType(maxBaseValue, maxBaseValue);
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType operator-() const
-  {
-    return (~(*this)) + 1;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType operator-(const SelfType& obj) const
-  {
-    return *this + (-obj);
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  SelfType& operator-=(const SelfType& obj)
-  {
-    *this = *this - obj;
-    return *this;
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  Base Low() const
-  {
-    return mData[0];
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  Base High() const
-  {
-    return mData[1];
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  explicit operator uint64_t() const
-  {
-    return mData[0];
-  }
-
-  /*****************************************************************************
-   *
-   ****************************************************************************/
-
-  explicit operator uint32_t() const
-  {
-    return static_cast<uint32_t>(mData[0]);
-  }
+	using self_type = generic_uint<Base>;
+
+	generic_uint(const self_type&) = default;
+	generic_uint(self_type&&) noexcept = default;
+
+	self_type& operator=(const self_type&) = default;
+	self_type& operator=(self_type&&) noexcept = default;
+
+	template <typename T, std::enable_if_t<std::is_integral_v<T>, bool>  = true>
+	generic_uint(const T& value)
+	{
+		data_[0] = Base(value);
+		data_[1] = Base{};
+	}
+
+	template <typename T, std::enable_if_t<sizeof(T) < sizeof(Base), bool>  = true>
+	generic_uint(const generic_uint<T>& value)
+	{
+		data_[0] = Base(value);
+		data_[1] = Base{};
+	}
+
+	template <typename T, std::enable_if_t<sizeof(T) < sizeof(Base), bool>  = true>
+	self_type& operator=(const generic_uint<T>& value)
+	{
+		data_[0] = Base(value);
+		data_[1] = Base{};
+
+		return *this;
+	}
+
+	generic_uint(Base lower_bits = 0, Base higher_bits = 0)
+	{
+		static_assert(sizeof(*this) == (sizeof(Base) * 2), "Bad size");
+
+		data_[0] = lower_bits;
+		data_[1] = higher_bits;
+	}
+
+	bool operator==(const self_type& obj) const
+	{
+		return data_[0] == obj.data_[0] && data_[1] == obj.data_[1];
+	}
+
+	bool operator!=(const self_type& obj) const
+	{
+		return !(*this == obj);
+	}
+
+	bool operator<(const self_type& obj) const
+	{
+		if (data_[1] != obj.data_[1])
+		{
+			return data_[1] < obj.data_[1];
+		}
+
+		return data_[0] < obj.data_[0];
+	}
+
+	bool operator>(const self_type& obj) const
+	{
+		return obj < *this;
+	}
+
+	bool operator<=(const self_type& obj) const
+	{
+		return *this == obj || *this < obj;
+	}
+
+	bool operator>=(const self_type& obj) const
+	{
+		return *this == obj || *this > obj;
+	}
+
+	self_type operator<<(uint64_t shift) const
+	{
+		constexpr auto base_bits = (sizeof(Base) * 8);
+		constexpr auto self_bits = (sizeof(self_type) * 8);
+
+		shift %= self_bits;
+
+		if (shift == 0)
+		{
+			return *this;
+		}
+
+		self_type new_value{};
+		if (shift >= base_bits)
+		{
+			new_value.data_[0] = 0;
+			new_value.data_[1] = data_[0] << (shift - base_bits);
+		}
+		else
+		{
+			new_value.data_[0] = data_[0] << shift;
+			new_value.data_[1] = data_[1] << shift;
+
+			const auto inverseShift = (base_bits - shift);
+			new_value.data_[1] |= data_[0] >> inverseShift;
+		}
+
+		return new_value;
+	}
+
+	self_type operator>>(uint64_t shift) const
+	{
+		constexpr auto base_bits = (sizeof(Base) * 8);
+		constexpr auto self_bits = (sizeof(self_type) * 8);
+
+		shift %= self_bits;
+
+		if (shift == 0)
+		{
+			return *this;
+		}
+
+		self_type new_value{};
+		if (shift >= base_bits)
+		{
+			new_value.data_[1] = 0;
+			new_value.data_[0] = data_[1] >> (shift - base_bits);
+		}
+		else
+		{
+			new_value.data_[1] = data_[1] >> shift;
+			new_value.data_[0] = data_[0] >> shift;
+			new_value.data_[0] |= data_[1] << (base_bits - shift);
+		}
+
+		return new_value;
+	}
+
+	self_type operator|(const self_type& obj) const
+	{
+		self_type newValue{};
+		newValue.data_[0] = data_[0] | obj.data_[0];
+		newValue.data_[1] = data_[1] | obj.data_[1];
+
+		return newValue;
+	}
+
+	self_type& operator|=(const self_type& obj)
+	{
+		*this = *this | obj;
+		return *this;
+	}
+
+	self_type operator&(const self_type& obj) const
+	{
+		self_type new_value{};
+		new_value.data_[0] = data_[0] & obj.data_[0];
+		new_value.data_[1] = data_[1] & obj.data_[1];
+
+		return new_value;
+	}
+
+	self_type& operator&=(const self_type& obj)
+	{
+		*this = *this & obj;
+		return *this;
+	}
+
+	self_type operator^(const self_type& obj) const
+	{
+		self_type new_value{};
+		new_value.data_[0] = data_[0] ^ obj.data_[0];
+		new_value.data_[1] = data_[1] ^ obj.data_[1];
+
+		return new_value;
+	}
+
+	self_type& operator^=(const self_type& obj)
+	{
+		*this = *this ^ obj;
+		return *this;
+	}
+
+	self_type operator+(const self_type& obj) const
+	{
+		self_type new_value{};
+
+		new_value.data_[0] = data_[0] + obj.data_[0];
+		new_value.data_[1] = data_[1] + obj.data_[1];
+
+		if (new_value.data_[0] < data_[0] || new_value.data_[0] < obj.data_[0])
+		{
+			new_value.data_[1] += 1;
+		}
+
+		return new_value;
+	}
+
+	self_type& operator+=(const self_type& obj)
+	{
+		*this = *this + obj;
+		return *this;
+	}
+
+	self_type operator~() const
+	{
+		static_assert(std::is_trivially_copyable_v<Base>);
+
+		Base max_base_value{};
+		memset(reinterpret_cast<void*>(&max_base_value), 0xFF, sizeof(max_base_value));
+
+		return *this ^ self_type(max_base_value, max_base_value);
+	}
+
+
+	self_type operator-() const
+	{
+		return (~(*this)) + 1;
+	}
+
+	self_type operator-(const self_type& obj) const
+	{
+		return *this + (-obj);
+	}
+
+	self_type& operator-=(const self_type& obj)
+	{
+		*this = *this - obj;
+		return *this;
+	}
+
+	Base low() const
+	{
+		return data_[0];
+	}
+
+	Base high() const
+	{
+		return data_[1];
+	}
+
+	explicit operator uint64_t() const
+	{
+		return data_[0];
+	}
+
+	explicit operator uint32_t() const
+	{
+		return static_cast<uint32_t>(data_[0]);
+	}
+
+	explicit operator uint16_t() const
+	{
+		return static_cast<uint16_t>(data_[0]);
+	}
+
+	explicit operator uint8_t() const
+	{
+		return static_cast<uint8_t>(data_[0]);
+	}
 
 private:
-  Base mData[2]{};
+	Base data_[2]{};
 };
 
 /*****************************************************************************
  *
  ****************************************************************************/
 
-using uint128_t = GenericUInt<uint64_t>;
-using uint256_t = GenericUInt<uint128_t>;
-using uint512_t = GenericUInt<uint256_t>;
+using uint128_t = generic_uint<uint64_t>;
+using uint256_t = generic_uint<uint128_t>;
+using uint512_t = generic_uint<uint256_t>;
