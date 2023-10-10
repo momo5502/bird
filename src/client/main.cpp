@@ -344,7 +344,7 @@ namespace
 
 		std::vector<std::pair<octant_identifier<>, bulk*>> valid{};
 		valid.reserve(last_valid_size);
-		valid.emplace_back(0, current_bulk);
+		valid.emplace_back(octant_identifier{}, current_bulk);
 
 		std::vector<std::pair<octant_identifier<>, bulk*>> next_valid{};
 		next_valid.reserve(last_next_valid_size);

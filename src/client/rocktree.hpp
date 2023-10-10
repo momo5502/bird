@@ -11,9 +11,12 @@ template <typename Base = uint128_t>
 class octant_identifier
 {
 public:
-	static constexpr size_t max_levels = ((sizeof(Base) * 8) - 1) / 3;
+	static constexpr size_t store_bits = sizeof(uint8_t) * 8;
+	static constexpr size_t max_encodable_levels = ((sizeof(Base) * 8) - store_bits) / 3;
+	static constexpr size_t max_storable_levels = ((1 << store_bits));
+	static constexpr size_t max_levels = std::min(max_encodable_levels, max_storable_levels);
 
-	octant_identifier(const Base& value = 0)
+	octant_identifier(const Base& value = {})
 		: value_(value)
 	{
 	}
@@ -28,26 +31,15 @@ public:
 
 	size_t size() const
 	{
-		for (uint64_t i = 0; i < max_levels; ++i)
-		{
-			const auto current_level = max_levels - i;
-			const auto current_bit = current_level * 3;
-			const auto active_mask = Base(1) << current_bit;
-
-			if ((this->value_ & active_mask) != 0)
-			{
-				return current_level;
-			}
-		}
-
-		return 0;
+		constexpr auto size_bit = (sizeof(Base) - 1) * 8;
+		return static_cast<size_t>(this->value_ >> size_bit);
 	}
 
 	uint8_t operator[](const size_t index) const
 	{
 		if (index >= max_levels)
 		{
-			return 0;
+			throw std::runtime_error("Out of bounds access");
 		}
 
 		const auto current_bits = index * 3;
@@ -102,66 +94,37 @@ public:
 		const auto start_bits = start * 3;
 		const auto value = maked_value >> start_bits;
 
-		const auto length_bit = new_length * 3;
-		const auto length_flag = (Base(1) << length_bit);
+		octant_identifier new_value{};
+		new_value.value_ = value;
+		new_value.set_size(new_length);
 
-		return value | length_flag;
+		return new_value;
 	}
-
-	uint128_t get() const
-	{
-		return this->value_;
-	}
-
-
-	/*****************************************************************************
-	 *
-	 ****************************************************************************/
 
 	bool operator==(const octant_identifier& obj) const
 	{
 		return this->value_ == obj.value_;
 	}
 
-	/*****************************************************************************
-	 *
-	 ****************************************************************************/
-
 	bool operator!=(const octant_identifier& obj) const
 	{
 		return !(*this == obj);
 	}
-
-	/*****************************************************************************
-	 *
-	 ****************************************************************************/
 
 	bool operator<(const octant_identifier& obj) const
 	{
 		return this->value_ < obj.value_;
 	}
 
-	/*****************************************************************************
-	 *
-	 ****************************************************************************/
-
 	bool operator>(const octant_identifier& obj) const
 	{
 		return obj < *this;
 	}
 
-	/*****************************************************************************
-	 *
-	 ****************************************************************************/
-
 	bool operator<=(const octant_identifier& obj) const
 	{
 		return *this == obj || *this < obj;
 	}
-
-	/*****************************************************************************
-	 *
-	 ****************************************************************************/
 
 	bool operator>=(const octant_identifier& obj) const
 	{
@@ -169,25 +132,27 @@ public:
 	}
 
 private:
+	void set_size(const size_t size)
+	{
+		if (size > max_levels)
+		{
+			throw std::runtime_error("Exceeded limit of " + std::to_string(max_levels) + "levels");
+		}
+
+		constexpr auto size_bit = (sizeof(Base) - 1) * 8;
+
+		this->value_ &= (Base(1) << size_bit) - 1;
+		this->value_ |= Base(size) << size_bit;
+	}
+
 	void add(const uint8_t value)
 	{
 		const auto current_size = this->size();
-		if (current_size == max_levels)
-		{
-			return;
-		}
-
-		const auto level_bit = (current_size + 1) * 3;
-		const auto level_flag = Base(1) << level_bit;
-
 		const auto value_bit = current_size * 3;
-		const auto value_mask = (Base(1) << value_bit) - 1;
-
-		const auto current_value = this->value_ & value_mask;
-
 		const auto new_value = Base(value & 7) << value_bit;
 
-		this->value_ = (new_value | current_value | level_flag);
+		this->value_ |= new_value;
+		this->set_size(current_size + 1);
 	}
 
 	Base value_{0};
