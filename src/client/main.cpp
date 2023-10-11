@@ -3,6 +3,7 @@
 #include "rocktree.hpp"
 
 #include <utils/nt.hpp>
+#include <utils/concurrency.hpp>
 
 namespace
 {
@@ -171,13 +172,38 @@ namespace
 		glEnableVertexAttribArray(ctx.texcoords_loc);
 	}
 
-	void run_frame(window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction, gl_ctx_t& ctx)
+	void run_frame(window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction, gl_ctx_t& ctx,
+	               utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer)
 	{
 		if (window.is_key_pressed(GLFW_KEY_ESCAPE))
 		{
 			window.close();
 			return;
 		}
+
+		static double prevTime = 0;
+		auto crntTime = glfwGetTime();
+		auto timeDiff = crntTime - prevTime;
+		static unsigned int counter = 0;
+
+		counter++;
+
+		if (timeDiff >= 1.0 / 4)
+		{
+			// Creates new title
+			std::string FPS = std::to_string(((int)((1.0 / timeDiff) * counter * 10)) * 0.1);
+			std::string ms = std::to_string(((int)((timeDiff / counter) * 1000 * 10)) * 0.1);
+			std::string newTitle = "game - " + FPS + "FPS / " + ms + "ms";
+			glfwSetWindowTitle(window, newTitle.c_str());
+
+			// Resets times and counter
+			prevTime = crntTime;
+			counter = 0;
+
+			// Use this if you have disabled VSync
+			//camera.Inputs(window);
+		}
+
 
 		const auto planetoid = rocktree.get_planetoid();
 		if (!planetoid || !planetoid->is_ready()) return;
@@ -342,6 +368,8 @@ namespace
 
 		std::map<octant_identifier<>, node*> potential_nodes;
 
+		const auto start = std::chrono::high_resolution_clock::now();
+
 		while (!valid.empty())
 		{
 			auto& entry = valid.front();
@@ -356,12 +384,16 @@ namespace
 			{
 				auto rel = cur.substr(((cur_size - 1) / 4) * 4, 4);
 				auto bulk_kv = bulk->bulks.find(rel);
-				auto has_bulk = bulk_kv != bulk->bulks.end();
-				if (!has_bulk) continue;
-				auto b = bulk_kv->second.get();
+				if (bulk_kv == bulk->bulks.end())
+				{
+					continue;
+				}
 
-				if (!b->can_be_used()) continue;
-				bulk = b;
+				bulk = bulk_kv->second.get();
+				if (!bulk->can_be_used())
+				{
+					continue;
+				}
 			}
 
 			for (uint8_t o = 0; o < 8; ++o)
@@ -369,9 +401,12 @@ namespace
 				auto nxt = cur + o;
 				auto nxt_rel = nxt.substr(((nxt.size() - 1) / 4) * 4, 4);
 				auto node_kv = bulk->nodes.find(nxt_rel);
-				if (node_kv == bulk->nodes.end()) // node at "nxt" doesn't exist
+				if (node_kv == bulk->nodes.end())
+				{
 					continue;
-				auto node = node_kv->second.get();
+				}
+
+				auto* node = node_kv->second.get();
 
 				// cull outside frustum using obb
 				// todo: check if it could cull more
@@ -402,9 +437,16 @@ namespace
 			}
 		}
 
+		std::unordered_set<node*> new_nodes_to_buffer{};
+		const auto loop1_duration = std::chrono::high_resolution_clock::now() - start;
+
 		// 8-bit octant mask flags of nodes
 		std::map<octant_identifier<>, uint8_t> mask_map{};
+		static std::unordered_set<mesh*> last_drawn_meshes{};
+		std::unordered_set<mesh*> drawn_meshes{};
+		drawn_meshes.reserve(last_drawn_meshes.size());
 
+		const auto start2 = std::chrono::high_resolution_clock::now();
 		for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))
 		{
 			// reverse order
@@ -419,10 +461,18 @@ namespace
 				continue;
 			}
 
+			if (!node->is_buffered())
+			{
+				new_nodes_to_buffer.emplace(node);
+				continue;
+			}
+
 			// set octant mask of previous node
 			auto octant = full_path[level - 1];
 			auto prev = full_path.substr(0, level - 1);
-			mask_map[std::move(prev)] |= 1 << octant;
+
+			auto& prev_entry = mask_map[prev];
+			prev_entry |= 1 << octant;
 
 			const auto mask = mask_map[full_path];
 
@@ -431,11 +481,40 @@ namespace
 
 			glm::mat4 transform = viewprojection * node->matrix_globe_from_mesh;
 
+			bool unmask = false;
+
 			glUniformMatrix4fv(ctx.transform_loc, 1, GL_FALSE, &transform[0][0]);
 			for (auto& mesh : node->meshes)
 			{
 				mesh.draw(ctx, mask);
 			}
+
+			if (unmask)
+			{
+				//prev_entry &= ~(1 << octant);
+			}
+		}
+
+		nodes_to_buffer.access([&](std::unordered_set<::node*>& nodes)
+		{
+			for (auto* n : new_nodes_to_buffer)
+			{
+				nodes.emplace(n);
+			}
+		});
+
+		const auto loop2_duration = std::chrono::high_resolution_clock::now() - start2;
+
+		//if (ms > 100 * 1000)
+		{
+			const auto diff1 = std::chrono::duration_cast<std::chrono::milliseconds>(loop1_duration).count();
+			const auto diff2 = std::chrono::duration_cast<std::chrono::milliseconds>(loop2_duration).count();
+
+			if (diff1 >= 5 || diff2 >= 5)
+				printf(
+					"loop1: %lld | loop2: %lld\n", diff1, diff2
+
+				);
 		}
 	}
 
@@ -463,13 +542,55 @@ namespace
 		               static_cast<DWORD>((data.size() + 1u) * 2));
 #endif
 	}
+
+	void bufferer(const std::atomic_bool& shutdown_flag, window& window,
+	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer)
+	{
+		window.use_shared_context([&]
+		{
+			while (!shutdown_flag)
+			{
+				auto* node_to_buffer = nodes_to_buffer.access<node*>([](std::unordered_set<node*>& nodes) -> node* {
+					if (nodes.empty())
+					{
+						return nullptr;
+					}
+
+					const auto entry = nodes.begin();
+					auto* n = *entry;
+					nodes.erase(entry);
+
+					return n;
+				});
+
+				if (node_to_buffer)
+				{
+					node_to_buffer->buffer_meshes();
+				}
+				else
+				{
+					std::this_thread::sleep_for(10ms);
+				}
+			}
+		});
+	}
 }
 
 int main(int /*argc*/, char** /*argv*/)
 {
+	SetThreadPriority(GetCurrentThread(), ABOVE_NORMAL_PRIORITY_CLASS);
+
 	trigger_high_performance_gpu_switch();
 
-	window window(800, 600, "game");
+	window window(1280, 800, "game");
+
+	utils::concurrency::container<std::unordered_set<node*>> nodes_to_buffer{};
+
+	std::atomic_bool shutdown{false};
+	std::thread buffer_thread([&]
+	{
+		bufferer(shutdown, window, nodes_to_buffer);
+	});
 
 	const rocktree rocktree{"earth"};
 
@@ -481,8 +602,11 @@ int main(int /*argc*/, char** /*argv*/)
 
 	window.show([&]
 	{
-		run_frame(window, rocktree, eye, direction, ctx);
+		run_frame(window, rocktree, eye, direction, ctx, nodes_to_buffer);
 	});
+
+	shutdown = true;
+	buffer_thread.join();
 
 	return 0;
 }
