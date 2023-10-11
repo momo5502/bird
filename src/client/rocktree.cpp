@@ -137,6 +137,23 @@ node::node(rocktree& rocktree, const uint32_t epoch, std::string path, const tex
 {
 }
 
+void node::buffer_meshes()
+{
+	for (auto& m : this->meshes)
+	{
+		m.buffer();
+	}
+
+	glFinish();
+
+	this->buffered_ = true;
+}
+
+bool node::is_buffered() const
+{
+	return this->buffered_;
+}
+
 // unpackVarInt unpacks variable length integer from proto (like coded_stream.h)
 int unpack_var_int(const std::string& packed, int* index)
 {

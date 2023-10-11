@@ -28,17 +28,21 @@ mesh::mesh(mesh_data mesh_data)
 
 void mesh::draw(const gl_ctx_t& ctx, const uint8_t octant_mask)
 {
-	if (!this->buffered_mesh_)
-	{
-		this->buffered_mesh_ = std::make_unique<mesh_buffers>(this->mesh_data_);
-	}
-
+	this->buffer();
 	this->buffered_mesh_->draw(ctx, octant_mask, this->mesh_data_);
 }
 
 void mesh::unbuffer()
 {
 	this->buffered_mesh_ = {};
+}
+
+void mesh::buffer()
+{
+	if (!this->buffered_mesh_)
+	{
+		this->buffered_mesh_ = std::make_unique<mesh_buffers>(this->mesh_data_);
+	}
 }
 
 mesh_buffers::mesh_buffers(const mesh_data& mesh)

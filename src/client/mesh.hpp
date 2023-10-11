@@ -69,6 +69,7 @@ public:
 
 	void draw(const gl_ctx_t& ctx, uint8_t octant_mask);
 	void unbuffer();
+	void buffer();
 
 private:
 	mesh_data mesh_data_{};

@@ -248,9 +248,13 @@ public:
 	oriented_bounding_box obb{};
 	glm::dmat4 matrix_globe_from_mesh{};
 
+	void buffer_meshes();
+	bool is_buffered() const;
+
 	std::vector<mesh> meshes{};
 
 private:
+	std::atomic_bool buffered_{false};
 	uint32_t epoch_{};
 	std::string path_{};
 

@@ -2,6 +2,8 @@
 
 #include "window.hpp"
 
+#include <utils/finally.hpp>
+
 window::window(const int width, const int height, const std::string& title)
 {
 	this->init_glfw();
@@ -50,6 +52,10 @@ void window::create(const int width, const int height, const std::string& title)
 	{
 		throw std::runtime_error("Unable to create window");
 	}
+
+	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+
+	this->shared_handle_ = glfwCreateWindow(640, 480, "", nullptr, this->handle_);
 
 	glfwSetWindowUserPointer(this->handle_, this);
 	glfwMakeContextCurrent(this->handle_);
@@ -113,6 +119,20 @@ bool window::is_key_pressed(const int key) const
 long long window::get_last_frame_time() const
 {
 	return this->last_frame_time_;
+}
+
+void window::use_shared_context(const std::function<void()>& callback)
+{
+	std::lock_guard<std::mutex> lock{this->shared_context_mutex_};
+	auto old_context = glfwGetCurrentContext();
+	const auto _ = utils::finally([&old_context]
+	{
+		glfwMakeContextCurrent(old_context);
+	});
+
+	glfwMakeContextCurrent(this->shared_handle_);
+
+	callback();
 }
 
 void window::update_frame_times()

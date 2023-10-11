@@ -15,8 +15,12 @@ public:
 
 	long long get_last_frame_time() const;
 
+	void use_shared_context(const std::function<void()>& callback);
+
 private:
+	std::mutex shared_context_mutex_{};
 	GLFWwindow* handle_ = nullptr;
+	GLFWwindow* shared_handle_ = nullptr;
 
 	long long last_frame_time_{};
 	std::chrono::system_clock::time_point last_frame_ = std::chrono::system_clock::now();
