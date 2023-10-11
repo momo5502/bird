@@ -225,72 +225,66 @@ namespace
 			                         : 0.0;
 
 		double mouse_x{}, mouse_y{};
-		glfwGetCursorPos(window, &mouse_x, &mouse_y);
-		glfwSetCursorPos(window, 0, 0);
-
-		if (glfwJoystickPresent(GLFW_JOYSTICK_1))
+		if (!utils::nt::is_wine())
 		{
-			int count;
-			const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &count);
+			glfwGetCursorPos(window, &mouse_x, &mouse_y);
+			glfwSetCursorPos(window, 0, 0);
+		}
 
-			if (axes && count > 5)
+		GLFWgamepadstate state{};
+		if (glfwJoystickIsGamepad(GLFW_JOYSTICK_1) && glfwGetGamepadState(GLFW_JOYSTICK_1, &state))
+		{
+			auto left_x = state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
+			auto left_y = state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
+			auto right_x = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X];
+			auto right_y = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y];
+			auto right_trigger = (state.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER] + 1.0f) / 2.0f;
+			double rt = right_trigger;
+
+			if (state.buttons[GLFW_GAMEPAD_BUTTON_CIRCLE] == GLFW_PRESS)
 			{
-				auto left_x = axes[0];
-				auto left_y = axes[1];
-				auto right_x = axes[2];
-				//auto right_y = axes[3];
-				//auto right_y = axes[4];
-				auto right_y = axes[5];
-
-				const auto limit_value = [](float& value, const float deadzone)
-				{
-					if (value >= deadzone)
-					{
-						value = (value - deadzone) / (1.0f - deadzone);
-					}
-					else if (value <= -deadzone)
-					{
-						value = (value + deadzone) / (1.0f - deadzone);
-					}
-					else
-					{
-						value = 0.0;
-					}
-				};
-
-				constexpr auto limit = 0.1f;
-				limit_value(left_x, limit);
-				limit_value(left_y, limit);
-				limit_value(right_x, limit);
-				limit_value(right_y, limit);
-
-				const auto assign_max = [](double& value, const double new_value)
-				{
-					value = std::max(value, new_value);
-				};
-
-				assign_max(key_right_pressed, std::max(left_x, 0.0f));
-				assign_max(key_left_pressed, std::abs(std::min(left_x, 0.0f)));
-
-				assign_max(key_down_pressed, std::max(left_y, 0.0f));
-				assign_max(key_up_pressed, std::abs(std::min(left_y, 0.0f)));
-
-				mouse_x += right_x * 10.0;
-				mouse_y += right_y * 10.0;
+				window.close();
+				return;
 			}
 
-			const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &count);
-			if (buttons && count > 10)
+			const auto limit_value = [](float& value, const float deadzone)
 			{
-				enum ps4_button
+				if (value >= deadzone)
 				{
-					x = 1,
-					r2 = 7,
-					l3 = 10,
-				};
+					value = (value - deadzone) / (1.0f - deadzone);
+				}
+				else if (value <= -deadzone)
+				{
+					value = (value + deadzone) / (1.0f - deadzone);
+				}
+				else
+				{
+					value = 0.0;
+				}
+			};
 
-				key_boost_pressed = buttons[ps4_button::l3] || buttons[ps4_button::r2] ? 1.0 : key_boost_pressed;
-			}
+			constexpr auto limit = 0.1f;
+			limit_value(left_x, limit);
+			limit_value(left_y, limit);
+			limit_value(right_x, limit);
+			limit_value(right_y, limit);
+			limit_value(right_trigger, limit);
+
+			const auto assign_max = [](double& value, const double new_value)
+			{
+				value = std::max(value, new_value);
+			};
+
+			assign_max(key_right_pressed, std::max(left_x, 0.0f));
+			assign_max(key_left_pressed, std::abs(std::min(left_x, 0.0f)));
+
+			assign_max(key_down_pressed, std::max(left_y, 0.0f));
+			assign_max(key_up_pressed, std::abs(std::min(left_y, 0.0f)));
+
+			mouse_x += right_x * 10.0;
+			mouse_y += right_y * 10.0;
+
+			key_boost_pressed = right_trigger + key_boost_pressed;
 		}
 
 		GLint viewport[4]{};
@@ -578,6 +572,11 @@ namespace
 
 int main(int /*argc*/, char** /*argv*/)
 {
+	if (utils::nt::is_wine())
+	{
+		ShowWindow(GetConsoleWindow(), SW_HIDE);
+	}
+
 	SetThreadPriority(GetCurrentThread(), ABOVE_NORMAL_PRIORITY_CLASS);
 
 	trigger_high_performance_gpu_switch();
