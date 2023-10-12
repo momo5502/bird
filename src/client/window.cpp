@@ -93,7 +93,7 @@ void window::show(const std::function<void()>& frame_callback)
 {
 	while (this->handle_ && !glfwWindowShouldClose(this->handle_))
 	{
-		glfwPollEvents();
+		glfwWaitEventsTimeout(0.005);
 
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
