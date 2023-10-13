@@ -239,7 +239,6 @@ namespace
 			auto right_x = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X];
 			auto right_y = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y];
 			auto right_trigger = (state.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER] + 1.0f) / 2.0f;
-			double rt = right_trigger;
 
 			if (state.buttons[GLFW_GAMEPAD_BUTTON_CIRCLE] == GLFW_PRESS)
 			{
@@ -422,7 +421,7 @@ namespace
 					if (texels_per_meter > r) continue;
 				}
 
-				if (node->can_have_data)
+				if (node->can_have_data && node->can_be_used())
 				{
 					potential_nodes[nxt] = node;
 				}
@@ -450,10 +449,6 @@ namespace
 
 			assert(level > 0);
 			assert(node->can_have_data);
-			if (!node->can_be_used())
-			{
-				continue;
-			}
 
 			if (!node->is_buffered())
 			{

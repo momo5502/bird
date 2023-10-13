@@ -41,7 +41,7 @@ namespace
 
 	std::string build_cache_url(const std::string_view& planet, const std::string_view& path)
 	{
-		static constexpr char base_url[] = R"(C:\Users\mauri\source\repos\bird\build\vs2022\cache/)";
+		static constexpr char base_url[] = R"(cache/)";
 
 		std::string url{};
 		// base_url nullterminator and slash cancel out
@@ -67,13 +67,12 @@ namespace
 		}
 	}
 
-
 	std::optional<std::string> fetch_google_data(const std::string_view& planet, const std::string_view& path,
-	                                             bool use_cache = true)
+	                                             bool prefer_cache = true)
 	{
 		const auto cache_url = build_cache_url(planet, path);
 		std::string data{};
-		if (use_cache && utils::io::read_file(cache_url, &data))
+		if (prefer_cache && utils::io::read_file(cache_url, &data))
 		{
 			return data;
 		}
@@ -81,9 +80,13 @@ namespace
 		const auto url = build_google_url(planet, path);
 		auto fetched_data = fetch_data(url);
 
-		if (use_cache && fetched_data)
+		if (fetched_data)
 		{
 			utils::io::write_file(cache_url, *fetched_data);
+		}
+		else if (utils::io::read_file(cache_url, &data))
+		{
+			return data;
 		}
 
 		return fetched_data;
