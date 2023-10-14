@@ -131,6 +131,10 @@ namespace
 
 	void init_gl(gl_ctx_t& ctx)
 	{
+		GLuint vao = 0;
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);
+
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_CULL_FACE);
 		ctx.program = make_shader(

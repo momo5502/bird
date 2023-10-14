@@ -4,11 +4,32 @@
 
 #include <utils/finally.hpp>
 
+namespace
+{
+	void init_glfw()
+	{
+		if (glfwInit() != GLFW_TRUE)
+		{
+			throw std::runtime_error("Unable to initialize glfw");
+		}
+	}
+
+	void init_glew()
+	{
+		glewExperimental = true;
+
+		if (glewInit() != GLEW_OK)
+		{
+			throw std::runtime_error("Unable to initialize glew");
+		}
+	}
+}
+
 window::window(const int width, const int height, const std::string& title)
 {
-	this->init_glfw();
+	init_glfw();
 	this->create(width, height, title);
-	this->init_glew();
+	init_glew();
 }
 
 window::~window()
@@ -21,31 +42,13 @@ window::operator GLFWwindow*() const
 	return this->handle_;
 }
 
-void window::init_glfw()
-{
-	if (glfwInit() != GLFW_TRUE)
-	{
-		throw std::runtime_error("Unable to initialize glfw");
-	}
-}
-
-void window::init_glew()
-{
-	glewExperimental = true;
-
-	if (glewInit() != GLEW_OK)
-	{
-		throw std::runtime_error("Unable to initialize glew");
-	}
-}
-
 void window::create(const int width, const int height, const std::string& title)
 {
 	glfwWindowHint(GLFW_SAMPLES, 4);
 	glfwWindowHint(GLFW_DEPTH_BITS, 32);
 
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 
 	this->handle_ = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
 	if (!this->handle_)

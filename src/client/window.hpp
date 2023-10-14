@@ -29,9 +29,6 @@ private:
 
 	void create(int width, int height, const std::string& title);
 
-	void init_glfw();
-	void init_glew();
-
 	static void size_callback(int width, int height);
 	static void size_callback_static(GLFWwindow* window, int width, int height);
 };
