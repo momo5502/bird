@@ -26,7 +26,7 @@ mesh::mesh(mesh_data mesh_data)
 {
 }
 
-void mesh::draw(const gl_ctx_t& ctx, const uint8_t octant_mask)
+void mesh::draw(const shader_context& ctx, const uint8_t octant_mask)
 {
 	this->buffer();
 	this->buffered_mesh_->draw(ctx, octant_mask, this->mesh_data_);
@@ -76,7 +76,7 @@ mesh_buffers::~mesh_buffers()
 	glDeleteBuffers(1, &this->vertex_buffer_);
 }
 
-void mesh_buffers::draw(const gl_ctx_t& ctx, const uint8_t octant_mask, const mesh_data& mesh) const
+void mesh_buffers::draw(const shader_context& ctx, const uint8_t octant_mask, const mesh_data& mesh) const
 {
 	glUniform2fv(ctx.uv_offset_loc, 1, &mesh.uv_offset[0]);
 	glUniform2fv(ctx.uv_scale_loc, 1, &mesh.uv_scale[0]);

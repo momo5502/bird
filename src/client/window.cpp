@@ -68,15 +68,8 @@ void window::create(const int width, const int height, const std::string& title)
 
 	glViewport(0, 0, width, height);
 
-	/*glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
-	glClearDepth(1);
-
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDisable(GL_POINT_SMOOTH);
-	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-	glHint(GL_POINT_SMOOTH_HINT, GL_FASTEST);*/
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
 
 	glfwSetInputMode(this->handle_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glfwSetCursorPos(this->handle_, 0, 0);

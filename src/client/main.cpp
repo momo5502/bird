@@ -82,101 +82,8 @@ namespace
 		return result;
 	}
 
-	void check_compile_shader_error(const GLuint shader)
-	{
-		GLint is_compiled = 0;
-		glGetShaderiv(shader, GL_COMPILE_STATUS, &is_compiled);
-		if (is_compiled == GL_TRUE) return;
-
-		GLint max_len = 0;
-		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &max_len);
-
-		std::string error_log{};
-		error_log.resize(max_len);
-
-		glGetShaderInfoLog(shader, max_len, &max_len, error_log.data());
-		error_log.push_back(0);
-
-		glDeleteShader(shader);
-
-		throw std::runtime_error(std::move(error_log));
-	}
-
-	GLuint make_shader(const char* vert_src, const char* frag_src)
-	{
-		const auto vert_shader = glCreateShader(GL_VERTEX_SHADER);
-		glShaderSource(vert_shader, 1, &vert_src, nullptr);
-		glCompileShader(vert_shader);
-		check_compile_shader_error(vert_shader);
-
-		const auto frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-		glShaderSource(frag_shader, 1, &frag_src, nullptr);
-		glCompileShader(frag_shader);
-		check_compile_shader_error(frag_shader);
-
-		const auto program = glCreateProgram();
-
-		glAttachShader(program, vert_shader);
-		glAttachShader(program, frag_shader);
-		glLinkProgram(program);
-
-		glDetachShader(program, vert_shader);
-		glDetachShader(program, frag_shader);
-
-		glDeleteShader(vert_shader);
-		glDeleteShader(frag_shader);
-
-		return program;
-	}
-
-	void init_gl(gl_ctx_t& ctx)
-	{
-		GLuint vao = 0;
-		glGenVertexArrays(1, &vao);
-		glBindVertexArray(vao);
-
-		glEnable(GL_DEPTH_TEST);
-		glEnable(GL_CULL_FACE);
-		ctx.program = make_shader(
-			"uniform mat4 transform;"
-			"uniform vec2 uv_offset;"
-			"uniform vec2 uv_scale;"
-			"uniform bool octant_mask[8];"
-			"attribute vec3 position;"
-			"attribute float octant;"
-			"attribute vec2 texcoords;"
-			"varying vec2 v_texcoords;"
-			"void main() {"
-			"	float mask = octant_mask[int(octant)] ? 0.0 : 1.0;"
-			"	v_texcoords = (texcoords + uv_offset) * uv_scale * mask;"
-			"	gl_Position = transform * vec4(position, 1.0) * mask;"
-			"}",
-
-			"#ifdef GL_ES\n"
-			"precision mediump float;\n"
-			"#endif\n"
-			"uniform sampler2D texture;"
-			"varying vec2 v_texcoords;"
-			"void main() {"
-			"	gl_FragColor = vec4(texture2D(texture, v_texcoords).rgb, 1.0);"
-			"}"
-		);
-		glUseProgram(ctx.program);
-		ctx.transform_loc = glGetUniformLocation(ctx.program, "transform");
-		ctx.uv_offset_loc = glGetUniformLocation(ctx.program, "uv_offset");
-		ctx.uv_scale_loc = glGetUniformLocation(ctx.program, "uv_scale");
-		ctx.octant_mask_loc = glGetUniformLocation(ctx.program, "octant_mask");
-		ctx.texture_loc = glGetUniformLocation(ctx.program, "texture");
-		ctx.position_loc = glGetAttribLocation(ctx.program, "position");
-		ctx.octant_loc = glGetAttribLocation(ctx.program, "octant");
-		ctx.texcoords_loc = glGetAttribLocation(ctx.program, "texcoords");
-
-		glEnableVertexAttribArray(ctx.position_loc);
-		glEnableVertexAttribArray(ctx.octant_loc);
-		glEnableVertexAttribArray(ctx.texcoords_loc);
-	}
-
-	void run_frame(window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction, gl_ctx_t& ctx,
+	void run_frame(window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
+	              const shader_context& ctx,
 	               utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer)
 	{
 		if (window.is_key_pressed(GLFW_KEY_ESCAPE))
@@ -195,19 +102,15 @@ namespace
 		if (timeDiff >= 1.0 / 4)
 		{
 			// Creates new title
-			std::string FPS = std::to_string(((int)((1.0 / timeDiff) * counter * 10)) * 0.1);
-			std::string ms = std::to_string(((int)((timeDiff / counter) * 1000 * 10)) * 0.1);
+			std::string FPS = std::to_string(static_cast<int>((1.0 / timeDiff) * counter * 10) * 0.1);
+			std::string ms = std::to_string(static_cast<int>((timeDiff / counter) * 1000 * 10) * 0.1);
 			std::string newTitle = "game - " + FPS + "FPS / " + ms + "ms";
 			glfwSetWindowTitle(window, newTitle.c_str());
 
 			// Resets times and counter
 			prevTime = crntTime;
 			counter = 0;
-
-			// Use this if you have disabled VSync
-			//camera.Inputs(window);
 		}
-
 
 		const auto planetoid = rocktree.get_planetoid();
 		if (!planetoid || !planetoid->is_ready()) return;
@@ -474,17 +377,10 @@ namespace
 
 			glm::mat4 transform = viewprojection * node->matrix_globe_from_mesh;
 
-			bool unmask = false;
-
 			glUniformMatrix4fv(ctx.transform_loc, 1, GL_FALSE, &transform[0][0]);
 			for (auto& mesh : node->meshes)
 			{
 				mesh.draw(ctx, mask);
-			}
-
-			if (unmask)
-			{
-				//prev_entry &= ~(1 << octant);
 			}
 		}
 
@@ -536,12 +432,12 @@ namespace
 #endif
 	}
 
-	void bufferer(const std::atomic_bool& shutdown_flag, window& window,
+	void bufferer(const std::stop_token& token, window& window,
 	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer)
 	{
 		window.use_shared_context([&]
 		{
-			while (!shutdown_flag)
+			while (!token.stop_requested())
 			{
 				auto* node_to_buffer = nodes_to_buffer.access<node*>([](std::unordered_set<node*>& nodes) -> node* {
 					if (nodes.empty())
@@ -582,29 +478,24 @@ int main(int /*argc*/, char** /*argv*/)
 
 	window window(1280, 800, "game");
 
-	utils::concurrency::container<std::unordered_set<node*>> nodes_to_buffer{};
-
-	std::atomic_bool shutdown{false};
-	std::thread buffer_thread([&]
-	{
-		bufferer(shutdown, window, nodes_to_buffer);
-	});
+	const shader_context ctx{};
 
 	const rocktree rocktree{"earth"};
 
+	utils::concurrency::container<std::unordered_set<node*>> nodes_to_buffer{};
+
+	std::jthread buffer_thread([&](const std::stop_token& token)
+	{
+		bufferer(token, window, nodes_to_buffer);
+	});
+
 	glm::dvec3 eye{4134696.707, 611925.83, 4808504.534};
 	glm::dvec3 direction{0.219862, -0.419329, 0.012226};
-
-	gl_ctx_t ctx{};
-	init_gl(ctx);
 
 	window.show([&]
 	{
 		run_frame(window, rocktree, eye, direction, ctx, nodes_to_buffer);
 	});
-
-	shutdown = true;
-	buffer_thread.join();
 
 	return 0;
 }

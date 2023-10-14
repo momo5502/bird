@@ -1,22 +1,10 @@
 #pragma once
+#include "shader_context.hpp"
 
 enum class texture_format : int
 {
 	rgb,
 	dxt1,
-};
-
-struct gl_ctx_t
-{
-	GLuint program;
-	GLint transform_loc;
-	GLint uv_offset_loc;
-	GLint uv_scale_loc;
-	GLint octant_mask_loc;
-	GLint texture_loc;
-	GLint position_loc;
-	GLint octant_loc;
-	GLint texcoords_loc;
 };
 
 #pragma pack(push, 1)
@@ -54,7 +42,7 @@ public:
 	mesh_buffers& operator=(mesh_buffers&&) = delete;
 	mesh_buffers& operator=(const mesh_buffers&) = delete;
 
-	void draw(const gl_ctx_t& ctx, uint8_t octant_mask, const mesh_data& mesh) const;
+	void draw(const shader_context& ctx, uint8_t octant_mask, const mesh_data& mesh) const;
 
 private:
 	GLuint vertex_buffer_{};
@@ -67,7 +55,7 @@ class mesh
 public:
 	mesh(mesh_data mesh_data);
 
-	void draw(const gl_ctx_t& ctx, uint8_t octant_mask);
+	void draw(const shader_context& ctx, uint8_t octant_mask);
 	void unbuffer();
 	void buffer();
 
