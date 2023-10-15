@@ -15,6 +15,8 @@ public:
 
 	void schedule(task t, bool is_high_priority = false);
 
+	void stop();
+
 private:
 	bool stop_{false};
 

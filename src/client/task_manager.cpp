@@ -51,6 +51,24 @@ void task_manager::schedule(task t, const bool is_high_priority)
 	this->condition_variable_.notify_one();
 }
 
+void task_manager::stop()
+{
+	{
+		std::lock_guard<std::mutex> _{ this->mutex_ };
+		this->stop_ = true;
+	}
+
+	this->condition_variable_.notify_all();
+
+	for (auto& thread : this->threads_)
+	{
+		if (thread.joinable())
+		{
+			thread.join();
+		}
+	}
+}
+
 void task_manager::work()
 {
 	auto should_wake_up = [this]

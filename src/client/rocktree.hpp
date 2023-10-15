@@ -312,6 +312,7 @@ public:
 	friend rocktree_object;
 
 	rocktree(std::string planet);
+	~rocktree();
 
 	const std::string& get_planet() const
 	{

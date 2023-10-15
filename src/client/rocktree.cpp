@@ -684,3 +684,15 @@ rocktree::rocktree(std::string planet)
 	this->planetoid_ = std::make_unique<planetoid>(*this);
 	this->planetoid_->fetch();
 }
+
+rocktree::~rocktree()
+{
+	this->downloader_thread_.request_stop();
+
+	this->task_manager_.stop();
+
+	if (this->downloader_thread_.joinable())
+	{
+		this->downloader_thread_.join();
+	}
+}
