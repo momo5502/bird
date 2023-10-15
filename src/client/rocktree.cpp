@@ -67,29 +67,41 @@ namespace
 		}
 	}
 
-	std::optional<std::string> fetch_google_data(const std::string_view& planet, const std::string_view& path,
-	                                             bool prefer_cache = true)
+	void fetch_google_data(task_manager& manager, utils::http::downloader& downloader, const std::string_view& planet,
+	                       const std::string_view& path,
+	                       utils::http::result_function callback, bool prefer_cache = true)
 	{
-		const auto cache_url = build_cache_url(planet, path);
+		auto cache_url = build_cache_url(planet, path);
 		std::string data{};
 		if (prefer_cache && utils::io::read_file(cache_url, &data))
 		{
-			return data;
+			callback(std::move(data));
+			return;
 		}
+
 
 		const auto url = build_google_url(planet, path);
-		auto fetched_data = fetch_data(url);
-
-		if (fetched_data)
-		{
-			utils::io::write_file(cache_url, *fetched_data);
-		}
-		else if (utils::io::read_file(cache_url, &data))
-		{
-			return data;
-		}
-
-		return fetched_data;
+		downloader.download(
+			url, [c = std::move(callback), c_url = std::move(cache_url), &manager](utils::http::result result)
+			{
+				manager.schedule([cache_url = std::move(c_url), cb = std::move(c), r = std::move(result)]
+				{
+					std::string data{};
+					if (r)
+					{
+						utils::io::write_file(cache_url, *r);
+						cb(std::move(r));
+					}
+					else if (utils::io::read_file(cache_url, &data))
+					{
+						cb(std::move(data));
+					}
+					else
+					{
+						cb({});
+					}
+				});
+			});
 	}
 }
 
@@ -121,13 +133,46 @@ void rocktree_object::fetch()
 		try
 		{
 			this->populate();
-			this->state_ = state::ready;
 		}
 		catch (...)
 		{
 			this->state_ = state::failed;
 		}
 	}, this->is_high_priority());
+}
+
+void rocktree_object::mark_done(const bool success)
+{
+	this->state_ = success ? state::ready : state::failed;
+}
+
+task_manager& rocktree_object::get_manager() const
+{
+	return this->get_rocktree().task_manager_;
+}
+
+utils::http::downloader& rocktree_object::get_downloader() const
+{
+	return this->get_rocktree().downloader_;
+}
+
+void rocktree_object::fetch_data(const std::string_view& path, utils::http::result_function function,
+                                 const bool prefer_cache)
+{
+	fetch_google_data(this->get_manager(), this->get_downloader(), this->get_planet(), path,
+	                  [this, f = std::move(function)](utils::http::result res)
+	                  {
+		                  try
+		                  {
+			                  f(std::move(res));
+			                  this->mark_done(true);
+		                  }
+		                  catch (...)
+		                  {
+			                  this->mark_done(false);
+		                  }
+	                  },
+	                  prefer_cache);
 }
 
 node::node(rocktree& rocktree, const uint32_t epoch, std::string path, const texture_format format,
@@ -312,97 +357,99 @@ void node::populate()
 		                      : ("NodeData/pb=!1m2!1s" + this->path_ + "!2u" + std::to_string(
 			                      this->epoch_) + "!2e" + texture_format + "!4b0");
 
-	const auto data = fetch_google_data(this->get_planet(), url_path);
-
-	NodeData node_data{};
-	if (!data || !node_data.ParseFromString(*data))
+	this->fetch_data(url_path, [this](const utils::http::result& data)
 	{
-		throw std::runtime_error{"Failed to fetch node"};
-	}
-
-	if (node_data.matrix_globe_from_mesh_size() == 16)
-	{
-		for (int i = 0; i < 4; ++i)
+		NodeData node_data{};
+		if (!data || !node_data.ParseFromString(*data))
 		{
-			for (int j = 0; j < 4; ++j)
+			throw std::runtime_error{"Failed to fetch node"};
+		}
+
+		if (node_data.matrix_globe_from_mesh_size() == 16)
+		{
+			for (int i = 0; i < 4; ++i)
 			{
-				this->matrix_globe_from_mesh[i][j] = node_data.matrix_globe_from_mesh(4 * i + j);
+				for (int j = 0; j < 4; ++j)
+				{
+					this->matrix_globe_from_mesh[i][j] = node_data.matrix_globe_from_mesh(4 * i + j);
+				}
 			}
 		}
-	}
 
-	this->meshes.reserve(static_cast<size_t>(node_data.meshes_size()));
+		this->meshes.reserve(static_cast<size_t>(node_data.meshes_size()));
 
-	for (const auto& mesh : node_data.meshes())
-	{
-		mesh_data m{};
-
-		m.indices = unpack_indices(mesh.indices());
-		m.vertices = unpack_vertices(mesh.vertices());
-
-		unpack_tex_coords(mesh.texture_coordinates(), m.vertices, m.uv_offset, m.uv_scale);
-		if (mesh.uv_offset_and_scale_size() == 4)
+		for (const auto& mesh : node_data.meshes())
 		{
-			m.uv_offset[0] = mesh.uv_offset_and_scale(0);
-			m.uv_offset[1] = mesh.uv_offset_and_scale(1);
-			m.uv_scale[0] = mesh.uv_offset_and_scale(2);
-			m.uv_scale[1] = mesh.uv_offset_and_scale(3);
+			mesh_data m{};
+
+			m.indices = unpack_indices(mesh.indices());
+			m.vertices = unpack_vertices(mesh.vertices());
+
+			unpack_tex_coords(mesh.texture_coordinates(), m.vertices, m.uv_offset, m.uv_scale);
+			if (mesh.uv_offset_and_scale_size() == 4)
+			{
+				m.uv_offset[0] = mesh.uv_offset_and_scale(0);
+				m.uv_offset[1] = mesh.uv_offset_and_scale(1);
+				m.uv_scale[0] = mesh.uv_offset_and_scale(2);
+				m.uv_scale[1] = mesh.uv_offset_and_scale(3);
+			}
+			else
+			{
+				//m.uv_offset[1] -= 1 / m.uv_scale[1];
+				//m.uv_scale[1] *= -1;
+			}
+
+			int layer_bounds[10];
+			unpack_octant_mask_and_octant_counts_and_layer_bounds(mesh.layer_and_octant_counts(), m.indices, m.vertices,
+			                                                      layer_bounds);
+			assert(0 <= layer_bounds[3] && layer_bounds[3] <= m.indices.size());
+			//m.indices_len = layer_bounds[3]; // enable
+			m.indices.resize(layer_bounds[3]);
+
+			auto textures = mesh.texture();
+			assert(textures.size() == 1);
+			auto texture = textures[0];
+			assert(texture.data().size() == 1);
+			auto tex = texture.data()[0];
+
+			// maybe: keep compressed in memory?
+			if (texture.format() == Texture_Format_JPG)
+			{
+				auto tex_data = reinterpret_cast<uint8_t*>(tex.data());
+				int width, height, comp;
+				unsigned char* pixels = stbi_load_from_memory(&tex_data[0], static_cast<int>(tex.size()), &width,
+				                                              &height,
+				                                              &comp, 0);
+				assert(pixels != NULL);
+				assert(width == texture.width() && height == texture.height() && comp == 3);
+				m.texture = std::vector<uint8_t>(pixels, pixels + width * height * comp);
+				stbi_image_free(pixels);
+				m.format = texture_format::rgb;
+			}
+			else if (texture.format() == Texture_Format_CRN_DXT1)
+			{
+				auto src_size = tex.size();
+				auto src = reinterpret_cast<uint8_t*>(tex.data());
+				auto dst_size = crn_get_decompressed_size(src, static_cast<uint32_t>(src_size), 0);
+				assert(dst_size == ((texture.width() + 3) / 4) * ((texture.height() + 3) / 4) * 8);
+				m.texture = std::vector<uint8_t>(dst_size);
+				crn_decompress(src, static_cast<uint32_t>(src_size), m.texture.data(), dst_size, 0);
+				m.format = texture_format::dxt1;
+			}
+			else
+			{
+				fprintf(stderr, "unsupported texture format: %d\n", texture.format());
+				abort();
+			}
+
+			m.texture_width = static_cast<int>(texture.width());
+			m.texture_height = static_cast<int>(texture.height());
+
+			this->meshes.emplace_back(std::move(m));
 		}
-		else
-		{
-			//m.uv_offset[1] -= 1 / m.uv_scale[1];
-			//m.uv_scale[1] *= -1;
-		}
 
-		int layer_bounds[10];
-		unpack_octant_mask_and_octant_counts_and_layer_bounds(mesh.layer_and_octant_counts(), m.indices, m.vertices,
-		                                                      layer_bounds);
-		assert(0 <= layer_bounds[3] && layer_bounds[3] <= m.indices.size());
-		//m.indices_len = layer_bounds[3]; // enable
-		m.indices.resize(layer_bounds[3]);
-
-		auto textures = mesh.texture();
-		assert(textures.size() == 1);
-		auto texture = textures[0];
-		assert(texture.data().size() == 1);
-		auto tex = texture.data()[0];
-
-		// maybe: keep compressed in memory?
-		if (texture.format() == Texture_Format_JPG)
-		{
-			auto tex_data = reinterpret_cast<uint8_t*>(tex.data());
-			int width, height, comp;
-			unsigned char* pixels = stbi_load_from_memory(&tex_data[0], static_cast<int>(tex.size()), &width, &height,
-			                                              &comp, 0);
-			assert(pixels != NULL);
-			assert(width == texture.width() && height == texture.height() && comp == 3);
-			m.texture = std::vector<uint8_t>(pixels, pixels + width * height * comp);
-			stbi_image_free(pixels);
-			m.format = texture_format::rgb;
-		}
-		else if (texture.format() == Texture_Format_CRN_DXT1)
-		{
-			auto src_size = tex.size();
-			auto src = reinterpret_cast<uint8_t*>(tex.data());
-			auto dst_size = crn_get_decompressed_size(src, static_cast<uint32_t>(src_size), 0);
-			assert(dst_size == ((texture.width() + 3) / 4) * ((texture.height() + 3) / 4) * 8);
-			m.texture = std::vector<uint8_t>(dst_size);
-			crn_decompress(src, static_cast<uint32_t>(src_size), m.texture.data(), dst_size, 0);
-			m.format = texture_format::dxt1;
-		}
-		else
-		{
-			fprintf(stderr, "unsupported texture format: %d\n", texture.format());
-			abort();
-		}
-
-		m.texture_width = static_cast<int>(texture.width());
-		m.texture_height = static_cast<int>(texture.height());
-
-		this->meshes.emplace_back(std::move(m));
-	}
-
-	this->meshes.shrink_to_fit();
+		this->meshes.shrink_to_fit();
+	});
 }
 
 bulk::bulk(rocktree& rocktree, const uint32_t epoch, std::string path)
@@ -520,73 +567,77 @@ oriented_bounding_box unpack_obb(const std::string& packed, const glm::vec3& hea
 
 void bulk::populate()
 {
-	const auto data = fetch_google_data(this->get_planet(),
-	                                    "BulkMetadata/pb=!1m2!1s" + this->path_ + "!2u" + std::to_string(this->epoch_));
+	this->fetch_data("BulkMetadata/pb=!1m2!1s" + this->path_ + "!2u" + std::to_string(this->epoch_),
+	                 [this](const utils::http::result& data)
+	                 {
+		                 BulkMetadata bulk_meta{};
+		                 if (!data || !bulk_meta.ParseFromString(*data))
+		                 {
+			                 throw std::runtime_error{"Failed to fetch bulk"};
+		                 }
 
-	BulkMetadata bulk_meta{};
-	if (!data || !bulk_meta.ParseFromString(*data))
-	{
-		throw std::runtime_error{"Failed to fetch bulk"};
-	}
+		                 this->head_node_center[0] = bulk_meta.head_node_center(0);
+		                 this->head_node_center[1] = bulk_meta.head_node_center(1);
+		                 this->head_node_center[2] = bulk_meta.head_node_center(2);
 
-	this->head_node_center[0] = bulk_meta.head_node_center(0);
-	this->head_node_center[1] = bulk_meta.head_node_center(1);
-	this->head_node_center[2] = bulk_meta.head_node_center(2);
+		                 for (const auto& node_meta : bulk_meta.node_metadata())
+		                 {
+			                 const auto aux = unpack_path_and_flags(node_meta);
 
-	for (const auto& node_meta : bulk_meta.node_metadata())
-	{
-		const auto aux = unpack_path_and_flags(node_meta);
+			                 const bool has_data = !(aux.flags & NodeMetadata_Flags_NODATA);
+			                 const bool is_leaf = (aux.flags & NodeMetadata_Flags_LEAF);
+			                 const bool use_imagery_epoch = (aux.flags & NodeMetadata_Flags_USE_IMAGERY_EPOCH);
+			                 const bool has_bulk = aux.path.size() == 4 && !is_leaf;
+			                 const bool has_nodes = has_data || !is_leaf;
 
-		const bool has_data = !(aux.flags & NodeMetadata_Flags_NODATA);
-		const bool is_leaf = (aux.flags & NodeMetadata_Flags_LEAF);
-		const bool use_imagery_epoch = (aux.flags & NodeMetadata_Flags_USE_IMAGERY_EPOCH);
-		const bool has_bulk = aux.path.size() == 4 && !is_leaf;
-		const bool has_nodes = has_data || !is_leaf;
+			                 if (has_bulk)
+			                 {
+				                 auto epoch = node_meta.has_bulk_metadata_epoch()
+					                              ? node_meta.bulk_metadata_epoch()
+					                              : bulk_meta.head_node_key().epoch();
 
-		if (has_bulk)
-		{
-			auto epoch = node_meta.has_bulk_metadata_epoch()
-				             ? node_meta.bulk_metadata_epoch()
-				             : bulk_meta.head_node_key().epoch();
+				                 this->bulks[aux.path] = std::make_unique<bulk>(
+					                 this->get_rocktree(), epoch, this->path_ + aux.path);
+			                 }
 
-			this->bulks[aux.path] = std::make_unique<bulk>(this->get_rocktree(), epoch, this->path_ + aux.path);
-		}
+			                 if (!has_nodes || !node_meta.has_oriented_bounding_box())
+			                 {
+				                 continue;
+			                 }
 
-		if (!has_nodes || !node_meta.has_oriented_bounding_box())
-		{
-			continue;
-		}
+			                 const auto available_formats = node_meta.has_available_texture_formats()
+				                                                ? node_meta.available_texture_formats()
+				                                                : bulk_meta.default_available_texture_formats();
 
-		const auto available_formats = node_meta.has_available_texture_formats()
-			                               ? node_meta.available_texture_formats()
-			                               : bulk_meta.default_available_texture_formats();
+			                 auto texture_format = texture_format::dxt1;
+			                 if (available_formats & (1 << (Texture_Format_JPG - 1)))
+			                 {
+				                 texture_format = texture_format::rgb;
+			                 }
 
-		auto texture_format = texture_format::dxt1;
-		if (available_formats & (1 << (Texture_Format_JPG - 1)))
-		{
-			texture_format = texture_format::rgb;
-		}
+			                 std::optional<uint32_t> imagery_epoch{};
+			                 if (use_imagery_epoch)
+			                 {
+				                 imagery_epoch = node_meta.has_imagery_epoch()
+					                                 ? node_meta.imagery_epoch()
+					                                 : bulk_meta.default_imagery_epoch();
+			                 }
 
-		std::optional<uint32_t> imagery_epoch{};
-		if (use_imagery_epoch)
-		{
-			imagery_epoch = node_meta.has_imagery_epoch()
-				                ? node_meta.imagery_epoch()
-				                : bulk_meta.default_imagery_epoch();
-		}
+			                 auto n = std::make_unique<node>(this->get_rocktree(),
+			                                                 node_meta.has_epoch() ? node_meta.epoch() : this->epoch_,
+			                                                 this->path_ + aux.path, texture_format,
+			                                                 std::move(imagery_epoch));
 
-		auto n = std::make_unique<node>(this->get_rocktree(), node_meta.has_epoch() ? node_meta.epoch() : this->epoch_,
-		                                this->path_ + aux.path, texture_format,
-		                                std::move(imagery_epoch));
+			                 n->can_have_data = has_data;
+			                 n->meters_per_texel = node_meta.has_meters_per_texel()
+				                                       ? node_meta.meters_per_texel()
+				                                       : bulk_meta.meters_per_texel(aux.level - 1);
+			                 n->obb = unpack_obb(node_meta.oriented_bounding_box(), this->head_node_center,
+			                                     n->meters_per_texel);
 
-		n->can_have_data = has_data;
-		n->meters_per_texel = node_meta.has_meters_per_texel()
-			                      ? node_meta.meters_per_texel()
-			                      : bulk_meta.meters_per_texel(aux.level - 1);
-		n->obb = unpack_obb(node_meta.oriented_bounding_box(), this->head_node_center, n->meters_per_texel);
-
-		this->nodes[aux.path] = std::move(n);
-	}
+			                 this->nodes[aux.path] = std::move(n);
+		                 }
+	                 });
 }
 
 bool planetoid::can_be_removed() const
@@ -606,21 +657,29 @@ bool planetoid::can_be_removed() const
 
 void planetoid::populate()
 {
-	const auto data = fetch_google_data(this->get_planet(), "PlanetoidMetadata", false);
-
-	PlanetoidMetadata planetoid{};
-	if (!data || !planetoid.ParseFromString(*data))
+	this->fetch_data("PlanetoidMetadata", [this](const utils::http::result& data)
 	{
-		return;
-	}
+		PlanetoidMetadata planetoid{};
+		if (!data || !planetoid.ParseFromString(*data))
+		{
+			throw std::runtime_error{"Failed to fetch planetoid"};
+		}
 
-	this->radius = planetoid.radius();
-	this->root_bulk = std::make_unique<bulk>(this->get_rocktree(), planetoid.root_node_metadata().epoch());
-	this->root_bulk->fetch();
+		this->radius = planetoid.radius();
+		this->root_bulk = std::make_unique<bulk>(this->get_rocktree(), planetoid.root_node_metadata().epoch());
+		this->root_bulk->fetch();
+	}, false);
 }
 
 rocktree::rocktree(std::string planet)
 	: planet_(std::move(planet))
+	  , downloader_thread_([this](const std::stop_token& token)
+	  {
+		  while (!token.stop_requested())
+		  {
+			  this->downloader_.work(1s);
+		  }
+	  })
 {
 	this->planetoid_ = std::make_unique<planetoid>(*this);
 	this->planetoid_->fetch();

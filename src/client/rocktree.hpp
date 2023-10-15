@@ -4,6 +4,7 @@
 #include "mesh.hpp"
 
 #include "uint128_t.hpp"
+#include <utils/http.hpp>
 
 class rocktree;
 
@@ -212,10 +213,17 @@ public:
 protected:
 	virtual void populate() = 0;
 
+	void mark_done(bool success);
+
+	task_manager& get_manager() const;
+	utils::http::downloader& get_downloader() const;
+
 	virtual bool is_high_priority() const
 	{
 		return false;
 	}
+
+	void fetch_data(const std::string_view& path, utils::http::result_function function , bool prefer_cache = true);
 
 private:
 	enum class state
@@ -318,6 +326,9 @@ public:
 private:
 	std::string planet_{};
 	std::unique_ptr<planetoid> planetoid_{};
+
+	utils::http::downloader downloader_{};
+	std::jthread downloader_thread_{};
 
 	task_manager task_manager_{};
 };
