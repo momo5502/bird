@@ -83,7 +83,7 @@ namespace
 	}
 
 	void run_frame(window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
-	              const shader_context& ctx,
+	               const shader_context& ctx,
 	               utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer)
 	{
 		if (window.is_key_pressed(GLFW_KEY_ESCAPE))
