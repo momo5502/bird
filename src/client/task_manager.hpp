@@ -5,7 +5,7 @@ class task_manager
 public:
 	using task = std::function<void()>;
 
-	task_manager(size_t num_threads = std::max(1u, std::thread::hardware_concurrency() * 2));
+	task_manager(size_t num_threads = std::max(1u, std::thread::hardware_concurrency()));
 	~task_manager();
 
 	task_manager(task_manager&&) = delete;
