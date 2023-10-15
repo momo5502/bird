@@ -31,6 +31,7 @@ namespace utils::http
 		~downloader();
 
 		std::future<result> download(url_string url);
+		void download(url_string url, result_function function);
 
 		void work(std::chrono::milliseconds timeout);
 

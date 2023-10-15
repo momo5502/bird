@@ -236,7 +236,7 @@ namespace utils::http
 			CURLM* multi_request_{};
 			CURL* request_{};
 
-			void clear()
+			void clear() const
 			{
 				if (!this->request_)
 				{
@@ -263,7 +263,7 @@ namespace utils::http
 	class downloader::worker
 	{
 	public:
-		worker(const size_t max_requests = 30)
+		worker(const size_t max_requests = 50)
 			: max_requests_(max_requests)
 			  , request_(curl_multi_init())
 		{
@@ -413,23 +413,25 @@ namespace utils::http
 		auto promise = std::make_shared<std::promise<result>>();
 		auto future = promise->get_future();
 
-		auto query = std::make_pair<url_string, result_function>(
-			std::move(url), [p = std::move(promise)](result result)
-			{
-				p->set_value(std::move(result));
-			});
-
-		this->queue_.access([&query](query_queue& queue)
+		this->download(std::move(url), [p = std::move(promise)](result result)
 		{
-			queue.emplace(std::move(query));
+			p->set_value(std::move(result));
+		});
+
+		return future;
+	}
+
+	void downloader::download(url_string url, result_function function)
+	{
+		this->queue_.access([&](query_queue& queue)
+		{
+			queue.emplace(std::move(url), std::move(function));
 		});
 
 		std::atomic_thread_fence(std::memory_order_release);
 
 		this->worker_->wakeup();
 		this->cv_.notify_one();
-
-		return future;
 	}
 
 	void downloader::work(std::chrono::milliseconds timeout)
