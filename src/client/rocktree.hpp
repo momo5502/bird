@@ -218,7 +218,6 @@ public:
 
 	bool mark_for_deletion()
 	{
-		const auto state = this->state_.load();
 		if (!this->is_ready_or_failed())
 		{
 			return false;
