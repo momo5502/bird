@@ -194,6 +194,8 @@ public:
 
 	bool can_be_used()
 	{
+		this->last_use_ = std::chrono::steady_clock::now();
+
 		if (this->is_ready())
 		{
 			return true;
@@ -203,15 +205,37 @@ public:
 		return false;
 	}
 
-	virtual bool can_be_removed() const
+	bool mark_for_deletion()
 	{
-		return !this->is_fetching();
+		const auto state = this->state_.load();
+		if (state != state::ready && state != state::failed)
+		{
+			return false;
+		}
+
+		this->state_ = state::deleting;
+		return true;
 	}
+
+	bool try_perform_deletion()
+	{
+		if (this->state_ != state::deleting)
+		{
+			return false;
+		}
+
+		this->clear();
+		this->state_ = state::fresh;
+		return true;
+	}
+
+	bool was_used_within(const std::chrono::milliseconds& duration) const;
 
 	void fetch();
 
 protected:
 	virtual void populate() = 0;
+	virtual void clear() = 0;
 
 	void mark_done(bool success);
 
@@ -223,7 +247,7 @@ protected:
 		return false;
 	}
 
-	void fetch_data(const std::string_view& path, utils::http::result_function function , bool prefer_cache = true);
+	void fetch_data(const std::string_view& path, utils::http::result_function function, bool prefer_cache = true);
 
 private:
 	enum class state
@@ -231,9 +255,11 @@ private:
 		fresh,
 		fetching,
 		ready,
+		deleting,
 		failed,
 	};
 
+	std::atomic<std::chrono::steady_clock::time_point> last_use_{std::chrono::steady_clock::now()};
 	std::atomic<state> state_{state::fresh};
 	rocktree* rocktree_{};
 };
@@ -270,6 +296,7 @@ private:
 	std::optional<uint32_t> imagery_epoch_{};
 
 	void populate() override;
+	void clear() override;
 };
 
 class bulk final : public rocktree_object
@@ -281,8 +308,6 @@ public:
 	std::map<octant_identifier<>, std::unique_ptr<node>> nodes{};
 	std::map<octant_identifier<>, std::unique_ptr<bulk>> bulks{};
 
-	bool can_be_removed() const override;
-
 	const std::string& get_path() const;
 
 private:
@@ -290,6 +315,7 @@ private:
 	std::string path_{};
 
 	void populate() override;
+	void clear() override;
 };
 
 class planetoid final : public rocktree_object
@@ -300,10 +326,9 @@ public:
 	float radius{};
 	std::unique_ptr<bulk> root_bulk{};
 
-	bool can_be_removed() const override;
-
 private:
 	void populate() override;
+	void clear() override;
 };
 
 class rocktree

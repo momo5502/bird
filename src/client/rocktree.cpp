@@ -115,6 +115,11 @@ const std::string& rocktree_object::get_planet() const
 	return this->get_rocktree().get_planet();
 }
 
+bool rocktree_object::was_used_within(const std::chrono::milliseconds& duration) const
+{
+	return (std::chrono::steady_clock::now() - this->last_use_.load()) < duration;
+}
+
 void rocktree_object::fetch()
 {
 	if (is_ready())
@@ -452,6 +457,11 @@ void node::populate()
 	});
 }
 
+void node::clear()
+{
+	this->meshes.clear();
+}
+
 bulk::bulk(rocktree& rocktree, const uint32_t epoch, std::string path)
 	: rocktree_object(rocktree)
 	  , epoch_(epoch)
@@ -481,37 +491,6 @@ node_data_path_and_flags unpack_path_and_flags(const NodeMetadata& node_meta)
 	result.flags = path_id;
 
 	return result;
-}
-
-bool bulk::can_be_removed() const
-{
-	if (!rocktree_object::can_be_removed())
-	{
-		return false;
-	}
-
-	if (!this->is_ready())
-	{
-		return true;
-	}
-
-	for (const auto& bulk : this->bulks | std::views::values)
-	{
-		if (!bulk->can_be_removed())
-		{
-			return false;
-		}
-	}
-
-	for (const auto& node : this->nodes | std::views::values)
-	{
-		if (!node->can_be_removed())
-		{
-			return false;
-		}
-	}
-
-	return true;
 }
 
 const std::string& bulk::get_path() const
@@ -640,19 +619,10 @@ void bulk::populate()
 	                 });
 }
 
-bool planetoid::can_be_removed() const
+void bulk::clear()
 {
-	if (!rocktree_object::can_be_removed())
-	{
-		return false;
-	}
-
-	if (!this->is_ready())
-	{
-		return true;
-	}
-
-	return !this->root_bulk || this->root_bulk->can_be_removed();
+	this->nodes.clear();
+	this->bulks.clear();
 }
 
 void planetoid::populate()
@@ -669,6 +639,11 @@ void planetoid::populate()
 		this->root_bulk = std::make_unique<bulk>(this->get_rocktree(), planetoid.root_node_metadata().epoch());
 		this->root_bulk->fetch();
 	}, false);
+}
+
+void planetoid::clear()
+{
+	this->root_bulk = {};
 }
 
 rocktree::rocktree(std::string planet)

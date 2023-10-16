@@ -82,10 +82,14 @@ namespace
 		return result;
 	}
 
+	std::atomic_uint64_t frame_counter{0};
+
 	void run_frame(window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
 	               const shader_context& ctx,
 	               utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer)
 	{
+		++frame_counter;
+
 		if (window.is_key_pressed(GLFW_KEY_ESCAPE))
 		{
 			window.close();
@@ -113,10 +117,10 @@ namespace
 		}
 
 		const auto planetoid = rocktree.get_planetoid();
-		if (!planetoid || !planetoid->is_ready()) return;
+		if (!planetoid || !planetoid->can_be_used()) return;
 
 		auto* current_bulk = planetoid->root_bulk.get();
-		if (!current_bulk || !current_bulk->is_ready()) return;
+		if (!current_bulk || !current_bulk->can_be_used()) return;
 
 		const auto planet_radius = planetoid->radius;
 
@@ -432,13 +436,67 @@ namespace
 #endif
 	}
 
+	void perform_cleanup(node& node)
+	{
+		if (node.try_perform_deletion())
+		{
+			return;
+		}
+
+		if (!node.was_used_within(30s))
+		{
+			node.mark_for_deletion();
+		}
+	}
+
+	void perform_cleanup(bulk& bulk)
+	{
+		if (bulk.try_perform_deletion())
+		{
+			return;
+		}
+
+		if (!bulk.was_used_within(30s) && bulk.mark_for_deletion())
+		{
+			return;
+		}
+
+		for (auto& entry : bulk.nodes | std::views::values)
+		{
+			perform_cleanup(*entry);
+		}
+
+		for (auto& val : bulk.bulks | std::views::values)
+		{
+			perform_cleanup(*val);
+		}
+	}
+
+	void perform_cleanup(const rocktree& rocktree)
+	{
+		const auto planetoid = rocktree.get_planetoid();
+		if (!planetoid || !planetoid->is_ready()) return;
+
+		const auto& current_bulk = planetoid->root_bulk;
+		if (!current_bulk || !current_bulk->is_ready()) return;
+
+		perform_cleanup(*current_bulk);
+	}
+
 	void bufferer(const std::stop_token& token, window& window,
-	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer)
+	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer, const rocktree& rocktree)
 	{
 		window.use_shared_context([&]
 		{
+			auto last_cleanup_frame = frame_counter.load();
 			while (!token.stop_requested())
 			{
+				if (frame_counter > (last_cleanup_frame + 10))
+				{
+					perform_cleanup(rocktree);
+					last_cleanup_frame = frame_counter.load();
+				}
+
 				auto* node_to_buffer = nodes_to_buffer.access<node*>([](std::unordered_set<node*>& nodes) -> node* {
 					if (nodes.empty())
 					{
@@ -486,7 +544,7 @@ int main(int /*argc*/, char** /*argv*/)
 
 	std::jthread buffer_thread([&](const std::stop_token& token)
 	{
-		bufferer(token, window, nodes_to_buffer);
+		bufferer(token, window, nodes_to_buffer, rocktree);
 	});
 
 	glm::dvec3 eye{4134696.707, 611925.83, 4808504.534};
