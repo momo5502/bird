@@ -7,6 +7,53 @@
 
 namespace
 {
+	void perform_cleanup(node& node)
+	{
+		if (!node.is_in_final_state() || node.try_perform_deletion())
+		{
+			return;
+		}
+
+		if (!node.was_used_within(30s))
+		{
+			node.mark_for_deletion();
+		}
+	}
+
+	void perform_cleanup(bulk& bulk)
+	{
+		if (!bulk.is_in_final_state() || bulk.try_perform_deletion())
+		{
+			return;
+		}
+
+		if (!bulk.was_used_within(30s) && bulk.mark_for_deletion())
+		{
+			return;
+		}
+
+		for (auto& entry : bulk.nodes | std::views::values)
+		{
+			perform_cleanup(*entry);
+		}
+
+		for (auto& val : bulk.bulks | std::views::values)
+		{
+			perform_cleanup(*val);
+		}
+	}
+
+	void perform_cleanup(const rocktree& rocktree)
+	{
+		const auto planetoid = rocktree.get_planetoid();
+		if (!planetoid || !planetoid->is_in_final_state()) return;
+
+		const auto& current_bulk = planetoid->root_bulk;
+		if (!current_bulk || !current_bulk->is_in_final_state()) return;
+
+		perform_cleanup(*current_bulk);
+	}
+
 	void paint_sky(const double altitude)
 	{
 		constexpr auto up_limit = 500'000.0;
@@ -95,6 +142,8 @@ namespace
 			window.close();
 			return;
 		}
+
+		perform_cleanup(rocktree);
 
 		static double prevTime = 0;
 		auto crntTime = glfwGetTime();
@@ -436,79 +485,33 @@ namespace
 #endif
 	}
 
-	void perform_cleanup(node& node)
-	{
-		if (!node.is_in_final_state() || node.try_perform_deletion())
-		{
-			return;
-		}
-
-		if (!node.was_used_within(30s))
-		{
-			node.mark_for_deletion();
-		}
-	}
-
-	void perform_cleanup(bulk& bulk)
-	{
-		if (!bulk.is_in_final_state() || bulk.try_perform_deletion())
-		{
-			return;
-		}
-
-		if (!bulk.was_used_within(30s) && bulk.mark_for_deletion())
-		{
-			return;
-		}
-
-		for (auto& entry : bulk.nodes | std::views::values)
-		{
-			perform_cleanup(*entry);
-		}
-
-		for (auto& val : bulk.bulks | std::views::values)
-		{
-			perform_cleanup(*val);
-		}
-	}
-
-	void perform_cleanup(const rocktree& rocktree)
-	{
-		const auto planetoid = rocktree.get_planetoid();
-		if (!planetoid || !planetoid->is_ready()) return;
-
-		const auto& current_bulk = planetoid->root_bulk;
-		if (!current_bulk || !current_bulk->is_ready()) return;
-
-		perform_cleanup(*current_bulk);
-	}
-
 	void bufferer(const std::stop_token& token, window& window,
-	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer, const rocktree& rocktree)
+	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer, const rocktree& /*rocktree*/)
 	{
 		window.use_shared_context([&]
 		{
-			auto last_cleanup_frame = frame_counter.load();
+			//auto last_cleanup_frame = frame_counter.load();
 			while (!token.stop_requested())
 			{
-				if (frame_counter > (last_cleanup_frame + 10))
+				/*if (frame_counter > (last_cleanup_frame + 10))
 				{
 					perform_cleanup(rocktree);
 					last_cleanup_frame = frame_counter.load();
-				}
+				}*/
 
-				auto* node_to_buffer = nodes_to_buffer.access<node*>([](std::unordered_set<node*>& nodes) -> node* {
-					if (nodes.empty())
-					{
-						return nullptr;
-					}
+				auto* node_to_buffer = nodes_to_buffer.access<node*>(
+					[](std::unordered_set<node*>& nodes) -> node* {
+						if (nodes.empty())
+						{
+							return nullptr;
+						}
 
-					const auto entry = nodes.begin();
-					auto* n = *entry;
-					nodes.erase(entry);
+						const auto entry = nodes.begin();
+						auto* n = *entry;
+						nodes.erase(entry);
 
-					return n;
-				});
+						return n;
+					});
 
 				if (node_to_buffer)
 				{

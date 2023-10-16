@@ -211,9 +211,15 @@ public:
 
 	bool can_be_used()
 	{
+		const auto state = this->state_.load();
+		if (state == state::deleting || state == state::failed)
+		{
+			return false;
+		}
+
 		this->last_use_ = std::chrono::steady_clock::now();
 
-		if (this->is_ready())
+		if (state == state::ready)
 		{
 			return true;
 		}

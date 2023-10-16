@@ -122,11 +122,6 @@ bool rocktree_object::was_used_within(const std::chrono::milliseconds& duration)
 
 void rocktree_object::fetch()
 {
-	if (is_ready())
-	{
-		return;
-	}
-
 	state expected{state::fresh};
 	if (!this->state_.compare_exchange_strong(expected, state::fetching))
 	{
