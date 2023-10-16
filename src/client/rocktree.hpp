@@ -192,6 +192,12 @@ public:
 		return this->state_ == state::failed;
 	}
 
+	bool is_in_final_state() const
+	{
+		const auto state = this->state_.load();
+		return state == state::ready || state == state::failed || state == state::deleting;
+	}
+
 	bool is_ready_or_failed() const
 	{
 		const auto state = this->state_.load();
