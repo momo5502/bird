@@ -438,7 +438,7 @@ namespace
 
 	void perform_cleanup(node& node)
 	{
-		if (node.try_perform_deletion())
+		if (!node.is_ready_or_failed() || node.try_perform_deletion())
 		{
 			return;
 		}
@@ -451,7 +451,7 @@ namespace
 
 	void perform_cleanup(bulk& bulk)
 	{
-		if (bulk.try_perform_deletion())
+		if (!bulk.is_ready_or_failed() || bulk.try_perform_deletion())
 		{
 			return;
 		}

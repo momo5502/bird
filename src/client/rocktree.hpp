@@ -187,6 +187,17 @@ public:
 		return this->state_ == state::ready;
 	}
 
+	bool is_failed() const
+	{
+		return this->state_ == state::failed;
+	}
+
+	bool is_ready_or_failed() const
+	{
+		const auto state = this->state_.load();
+		return state == state::ready || state == state::failed;
+	}
+
 	bool is_fetching() const
 	{
 		return this->state_ == state::fetching;
@@ -208,7 +219,7 @@ public:
 	bool mark_for_deletion()
 	{
 		const auto state = this->state_.load();
-		if (state != state::ready && state != state::failed)
+		if (!this->is_ready_or_failed())
 		{
 			return false;
 		}
