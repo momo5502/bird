@@ -230,13 +230,14 @@ public:
 
 	bool mark_for_deletion()
 	{
-		if (!this->is_ready_or_failed())
+		if (this->is_in_final_state())
 		{
-			return false;
+			this->state_ = state::deleting;
+			return true;
 		}
 
-		this->state_ = state::deleting;
-		return true;
+		auto expected = state::fresh;
+		return this->state_.compare_exchange_strong(expected, state::deleting);
 	}
 
 	bool try_perform_deletion()

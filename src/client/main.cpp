@@ -7,40 +7,40 @@
 
 namespace
 {
-	void perform_cleanup(node& node)
+	bool perform_cleanup(node& node)
 	{
-		if (!node.is_in_final_state() || node.try_perform_deletion())
+		if (node.try_perform_deletion())
 		{
-			return;
+			return true;
 		}
 
-		if (!node.was_used_within(30s))
-		{
-			node.mark_for_deletion();
-		}
+		return !node.was_used_within(4s) && node.mark_for_deletion();
 	}
 
-	void perform_cleanup(bulk& bulk)
+	bool perform_cleanup(bulk& bulk)
 	{
-		if (!bulk.is_in_final_state() || bulk.try_perform_deletion())
-		{
-			return;
-		}
-
-		if (!bulk.was_used_within(30s) && bulk.mark_for_deletion())
-		{
-			return;
-		}
-
+		bool can_cleanup = true;
 		for (auto& entry : bulk.nodes | std::views::values)
 		{
-			perform_cleanup(*entry);
+			can_cleanup &= perform_cleanup(*entry);
 		}
 
 		for (auto& val : bulk.bulks | std::views::values)
 		{
-			perform_cleanup(*val);
+			can_cleanup &= perform_cleanup(*val);
 		}
+
+		if (!can_cleanup)
+		{
+			return false;
+		}
+
+		if (bulk.try_perform_deletion())
+		{
+			return true;
+		}
+
+		return !bulk.was_used_within(4s) && bulk.mark_for_deletion();
 	}
 
 	void perform_cleanup(const rocktree& rocktree)
@@ -143,7 +143,10 @@ namespace
 			return;
 		}
 
-		perform_cleanup(rocktree);
+		//if ((frame_counter % (60ull * 5)) == 0)
+		{
+			//perform_cleanup(rocktree);
+		}
 
 		static double prevTime = 0;
 		auto crntTime = glfwGetTime();
@@ -486,18 +489,18 @@ namespace
 	}
 
 	void bufferer(const std::stop_token& token, window& window,
-	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer, const rocktree& /*rocktree*/)
+	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer, const rocktree& rocktree)
 	{
 		window.use_shared_context([&]
 		{
-			//auto last_cleanup_frame = frame_counter.load();
+			auto last_cleanup_frame = frame_counter.load();
 			while (!token.stop_requested())
 			{
-				/*if (frame_counter > (last_cleanup_frame + 10))
+				if (frame_counter > (last_cleanup_frame + 10))
 				{
 					perform_cleanup(rocktree);
 					last_cleanup_frame = frame_counter.load();
-				}*/
+				}
 
 				auto* node_to_buffer = nodes_to_buffer.access<node*>(
 					[](std::unordered_set<node*>& nodes) -> node* {
