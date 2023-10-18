@@ -7,52 +7,34 @@
 
 namespace
 {
-	bool perform_cleanup(node& node)
+	void perform_cleanup(generic_object& obj)
 	{
-		if (node.try_perform_deletion())
+		if (obj.try_perform_deletion())
 		{
-			return true;
+			return;
 		}
 
-		return !node.was_used_within(4s) && node.mark_for_deletion();
+		if (!obj.was_used_within(4s))
+		{
+			obj.mark_for_deletion();
+		}
+		else
+		{
+			obj.visit(perform_cleanup);
+		}
 	}
 
-	bool perform_cleanup(bulk& bulk)
+	void perform_cleanup(rocktree& rocktree)
 	{
-		bool can_cleanup = true;
-		for (auto& entry : bulk.nodes | std::views::values)
-		{
-			can_cleanup &= perform_cleanup(*entry);
-		}
+		rocktree.cleanup_dangling_objects();
 
-		for (auto& val : bulk.bulks | std::views::values)
-		{
-			can_cleanup &= perform_cleanup(*val);
-		}
-
-		if (!can_cleanup)
-		{
-			return false;
-		}
-
-		if (bulk.try_perform_deletion())
-		{
-			return true;
-		}
-
-		return !bulk.was_used_within(4s) && bulk.mark_for_deletion();
-	}
-
-	void perform_cleanup(const rocktree& rocktree)
-	{
-		/*const auto planetoid = rocktree.get_planetoid();
+		const auto planetoid = rocktree.get_planetoid();
 		if (!planetoid || !planetoid->is_in_final_state()) return;
 
 		const auto& current_bulk = planetoid->root_bulk;
 		if (!current_bulk || !current_bulk->is_in_final_state()) return;
 
-		perform_cleanup(*current_bulk);*/
-		(void)rocktree;
+		perform_cleanup(*current_bulk);
 	}
 
 	void paint_sky(const double altitude)
@@ -490,7 +472,7 @@ namespace
 	}
 
 	void bufferer(const std::stop_token& token, window& window,
-	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer, const rocktree& rocktree)
+	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer, rocktree& rocktree)
 	{
 		window.use_shared_context([&]
 		{
@@ -545,7 +527,7 @@ int main(int /*argc*/, char** /*argv*/)
 
 	const shader_context ctx{};
 
-	const rocktree rocktree{"earth"};
+	rocktree rocktree{"earth"};
 
 	utils::concurrency::container<std::unordered_set<node*>> nodes_to_buffer{};
 
