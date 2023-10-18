@@ -56,9 +56,17 @@ namespace utils::http
 
 		void operator()(result r)
 		{
-			if (!this->is_stopped() && this->callback_)
+			if (this->callback_)
 			{
-				this->callback_(std::move(r));
+				if (this->is_stopped())
+				{
+					this->callback_({});
+				}
+				else
+				{
+					this->callback_(std::move(r));
+				}
+
 				this->callback_ = {};
 			}
 		}
