@@ -2,12 +2,10 @@
 
 class generic_object
 {
-public:
-	virtual void visit_children(const std::function<void(generic_object&)>& visitor) = 0;
-
 protected:
 	virtual void clear() = 0;
 	virtual void populate() = 0;
+	virtual void visit_children(const std::function<void(generic_object&)>& visitor) = 0;
 
 public:
 	generic_object() = default;
@@ -17,6 +15,20 @@ public:
 	generic_object(const generic_object&) = delete;
 	generic_object& operator=(generic_object&&) = delete;
 	generic_object& operator=(const generic_object&) = delete;
+
+	bool is_in_final_state() const
+	{
+		const auto state = this->state_.load();
+		return state == state::ready || state == state::failed || state == state::deleting;
+	}
+
+	void visit(const std::function<void(generic_object&)>& visitor)
+	{
+		if (this->is_in_final_state())
+		{
+			this->visit_children(visitor);
+		}
+	}
 
 	bool can_be_used()
 	{
@@ -42,12 +54,12 @@ public:
 		auto expected = state::fresh;
 		if (!this->is_in_final_state() && !this->state_.compare_exchange_strong(expected, state::deleting))
 		{
+			this->source_.request_stop();
 			return false;
 		}
 
 		this->state_ = state::deleting;
 		this->source_.request_stop();
-
 		return true;
 	}
 
@@ -109,11 +121,5 @@ private:
 		{
 			this->finish_fetching(false);
 		}
-	}
-
-	bool is_in_final_state() const
-	{
-		const auto state = this->state_.load();
-		return state == state::ready || state == state::failed || state == state::deleting;
 	}
 };

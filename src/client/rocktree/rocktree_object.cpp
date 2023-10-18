@@ -133,3 +133,8 @@ void rocktree_object::run_fetching()
 			}
 		}, this->get_stop_token(), this->prefer_cache());
 }
+
+void rocktree_object::store_object(std::unique_ptr<rocktree_object> object) const
+{
+	this->get_rocktree().store_object(std::move(object));
+}

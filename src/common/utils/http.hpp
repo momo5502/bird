@@ -14,11 +14,84 @@ namespace utils::http
 	using result = std::optional<std::string>;
 	using result_function = std::function<void(result)>;
 
+	class stoppable_result_callback
+	{
+	public:
+		stoppable_result_callback() = default;
+
+		stoppable_result_callback(result_function callback, std::stop_token token)
+			: token_(std::move(token))
+			  , callback_(std::move(callback))
+		{
+		}
+
+		~stoppable_result_callback()
+		{
+			this->destroy();
+		}
+
+		stoppable_result_callback(const stoppable_result_callback&) = delete;
+		stoppable_result_callback& operator=(const stoppable_result_callback&) = delete;
+
+		stoppable_result_callback(stoppable_result_callback&& obj) noexcept
+		{
+			this->operator=(std::move(obj));
+		}
+
+		stoppable_result_callback& operator=(stoppable_result_callback&& obj) noexcept
+		{
+			if (this != &obj)
+			{
+				this->destroy();
+
+				this->callback_ = std::move(obj.callback_);
+				this->token_ = std::move(obj.token_);
+
+				obj.callback_ = {};
+				obj.token_ = {};
+			}
+
+			return *this;
+		}
+
+		void operator()(result r)
+		{
+			if (!this->is_stopped() && this->callback_)
+			{
+				this->callback_(std::move(r));
+				this->callback_ = {};
+			}
+		}
+
+		bool is_stopped() const
+		{
+			return !this->token_.stop_possible() || this->token_.stop_requested();
+		}
+
+	private:
+		std::stop_token token_{};
+		result_function callback_{};
+
+		void destroy()
+		{
+			try
+			{
+				if (this->callback_)
+				{
+					this->callback_({});
+					this->callback_ = {};
+				}
+			}
+			catch (...)
+			{
+			}
+		}
+	};
+
 	struct query
 	{
 		url_string url;
-		result_function callback;
-		std::stop_token token;
+		stoppable_result_callback callback;
 	};
 
 	using query_queue = std::queue<query>;

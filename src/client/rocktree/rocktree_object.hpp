@@ -28,9 +28,24 @@ protected:
 		return true;
 	}
 
+	template <typename T, typename... Args>
+	T* allocate_object(Args&&... args)
+	{
+		static_assert(std::is_base_of_v<rocktree_object, T>);
+
+		auto obj = std::make_unique<T>(std::forward<Args>(args)...);
+		auto* ptr = obj.get();
+
+		this->store_object(std::move(obj));
+
+		return ptr;
+	}
+
 private:
 	rocktree* rocktree_{};
 
 	void populate() override;
 	void run_fetching();
+
+	void store_object(std::unique_ptr<rocktree_object> object) const;
 };

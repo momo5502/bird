@@ -29,8 +29,6 @@ public:
 	void buffer_meshes();
 	bool is_buffered() const;
 
-	void visit_children(const std::function<void(generic_object&)>& visitor) override;
-
 	std::vector<mesh> meshes{};
 
 private:
@@ -41,6 +39,7 @@ private:
 	texture_format format_{};
 	std::optional<uint32_t> imagery_epoch_{};
 
+	void visit_children(const std::function<void(generic_object&)>& visitor) override;
 	std::string get_url() const override;
 	void populate(const std::optional<std::string>& data) override;
 	void clear() override;
@@ -52,12 +51,10 @@ public:
 	bulk(rocktree& rocktree, uint32_t epoch, std::string path = {});
 
 	glm::dvec3 head_node_center{};
-	std::map<octant_identifier<>, std::unique_ptr<node>> nodes{};
-	std::map<octant_identifier<>, std::unique_ptr<bulk>> bulks{};
+	std::map<octant_identifier<>, node*> nodes{};
+	std::map<octant_identifier<>, bulk*> bulks{};
 
 	const std::string& get_path() const;
-
-	void visit_children(const std::function<void(generic_object&)>& visitor) override;
 
 private:
 	uint32_t epoch_{};
@@ -68,6 +65,7 @@ private:
 		return true;
 	}
 
+	void visit_children(const std::function<void(generic_object&)>& visitor) override;
 	std::string get_url() const override;
 	void populate(const std::optional<std::string>& data) override;
 	void clear() override;
@@ -78,10 +76,8 @@ class planetoid final : public rocktree_object
 public:
 	using rocktree_object::rocktree_object;
 
-	void visit_children(const std::function<void(generic_object&)>& visitor) override;
-
 	float radius{};
-	std::unique_ptr<bulk> root_bulk{};
+	bulk* root_bulk{};
 
 private:
 	bool is_high_priority() const override
@@ -89,6 +85,7 @@ private:
 		return true;
 	}
 
+	void visit_children(const std::function<void(generic_object&)>& visitor) override;
 	std::string get_url() const override;
 	void populate(const std::optional<std::string>& data) override;
 	void clear() override;
@@ -116,7 +113,9 @@ public:
 
 private:
 	std::string planet_{};
-	std::map<rocktree_object*, std::unique_ptr<rocktree_object>> objects_{};
+
+	using object_list = std::list<std::unique_ptr<generic_object>>;
+	utils::concurrency::container<object_list> objects_{};
 
 	std::unique_ptr<planetoid> planetoid_{};
 
@@ -124,4 +123,7 @@ private:
 	std::jthread downloader_thread_{};
 
 	task_manager task_manager_{};
+
+	void store_object(std::unique_ptr<generic_object> object);
+	std::unordered_set<generic_object*> collect_used_objects() const;
 };

@@ -153,10 +153,9 @@ namespace utils::http
 		public:
 			curl_easy_request() = default;
 
-			curl_easy_request(const std::string& url, result_function callback, std::stop_token token = {},
+			curl_easy_request(const std::string& url, stoppable_result_callback callback,
 			                  CURLM* multi_request = nullptr)
-				: token_(std::move(token))
-				  , result_(std::make_unique<std::string>())
+				: result_(std::make_unique<std::string>())
 				  , result_function_(std::move(callback))
 				  , multi_request_(multi_request)
 				  , request_(curl_easy_init())
@@ -215,11 +214,6 @@ namespace utils::http
 
 			void notify(const bool success)
 			{
-				if (!this->result_function_)
-				{
-					return;
-				}
-
 				result res{};
 				if (success && this->result_ && this->has_success_code())
 				{
@@ -228,18 +222,16 @@ namespace utils::http
 				}
 
 				this->result_function_(std::move(res));
-				this->result_function_ = {};
 			}
 
 			bool is_cancelled() const
 			{
-				return this->token_.stop_requested();
+				return this->result_function_.is_stopped();
 			}
 
 		private:
-			std::stop_token token_{};
 			std::unique_ptr<std::string> result_{};
-			result_function result_function_{};
+			stoppable_result_callback result_function_;
 
 			CURLM* multi_request_{};
 			CURL* request_{};
@@ -355,10 +347,9 @@ namespace utils::http
 				while (!queue.empty() && this->active_requests_.size() < this->max_requests_)
 				{
 					auto& query = queue.front();
-					if (!query.token.stop_requested())
+					if (!query.callback.is_stopped())
 					{
-						curl_easy_request request(query.url, std::move(query.callback), std::move(query.token),
-						                          this->request_);
+						curl_easy_request request(query.url, std::move(query.callback), this->request_);
 						this->active_requests_[request.get_request()] = std::move(request);
 					}
 
@@ -456,7 +447,7 @@ namespace utils::http
 	{
 		this->queue_.access([&](query_queue& queue)
 		{
-			queue.emplace(query{std::move(url), std::move(function), std::move(token)});
+			queue.emplace(query{std::move(url), stoppable_result_callback{std::move(function), std::move(token)}});
 		});
 
 		std::atomic_thread_fence(std::memory_order_release);
@@ -505,7 +496,8 @@ namespace utils::http
 		}
 	}
 
-	std::optional<std::string> post_data(const std::string& url, const std::string& post_body, const headers& headers,
+	std::optional<std::string> post_data(const std::string& url, const std::string& post_body,
+	                                     const headers& headers,
 	                                     const std::function<void(size_t)>& callback, const uint32_t retries)
 	{
 		return perform_request(url, &post_body, headers, callback, retries);

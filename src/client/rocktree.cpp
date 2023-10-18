@@ -440,7 +440,7 @@ void bulk::populate(const std::optional<std::string>& data)
 				             ? node_meta.bulk_metadata_epoch()
 				             : bulk_meta.head_node_key().epoch();
 
-			this->bulks[aux.path] = std::make_unique<bulk>(
+			this->bulks[aux.path] = this->allocate_object<bulk>(
 				this->get_rocktree(), epoch, this->path_ + aux.path);
 		}
 
@@ -467,10 +467,10 @@ void bulk::populate(const std::optional<std::string>& data)
 				                : bulk_meta.default_imagery_epoch();
 		}
 
-		auto n = std::make_unique<node>(this->get_rocktree(),
-		                                node_meta.has_epoch() ? node_meta.epoch() : this->epoch_,
-		                                this->path_ + aux.path, texture_format,
-		                                std::move(imagery_epoch));
+		auto n = this->allocate_object<node>(this->get_rocktree(),
+		                                     node_meta.has_epoch() ? node_meta.epoch() : this->epoch_,
+		                                     this->path_ + aux.path, texture_format,
+		                                     std::move(imagery_epoch));
 
 		n->can_have_data = has_data;
 		n->meters_per_texel = node_meta.has_meters_per_texel()
@@ -511,7 +511,7 @@ void planetoid::populate(const std::optional<std::string>& data)
 	}
 
 	this->radius = planetoid.radius();
-	this->root_bulk = std::make_unique<bulk>(this->get_rocktree(), planetoid.root_node_metadata().epoch());
+	this->root_bulk = this->allocate_object<bulk>(this->get_rocktree(), planetoid.root_node_metadata().epoch());
 }
 
 void planetoid::clear()
@@ -542,4 +542,68 @@ rocktree::~rocktree()
 	{
 		this->downloader_thread_.join();
 	}
+}
+
+void rocktree::cleanup_dangling_objects()
+{
+	this->objects_.access([this](object_list& objects)
+	{
+		const auto used_objects = this->collect_used_objects();
+
+		for (auto i = objects.begin(); i != objects.end();)
+		{
+			auto& object = **i;
+
+			const auto is_unused = !used_objects.contains(&object);
+			const auto is_final = object.is_in_final_state();
+
+			if (is_unused && is_final)
+			{
+				i = objects.erase(i);
+			}
+			else
+			{
+				if (is_unused)
+				{
+					object.mark_for_deletion();
+				}
+
+				++i;
+			}
+		}
+	});
+}
+
+void rocktree::store_object(std::unique_ptr<generic_object> object)
+{
+	this->objects_.access([&](object_list& list)
+	{
+		list.push_back(std::move(object));
+	});
+}
+
+std::unordered_set<generic_object*> rocktree::collect_used_objects() const
+{
+	std::unordered_set<generic_object*> used_objects{};
+
+	std::queue<generic_object*> object_queue{};
+	object_queue.push(this->get_planetoid());
+
+	auto visitor = [&used_objects, &object_queue](generic_object& obj)
+	{
+		if (used_objects.emplace(&obj).second)
+		{
+			object_queue.push(&obj);
+		}
+	};
+
+	while (!object_queue.empty())
+	{
+		auto* obj = object_queue.front();
+		object_queue.pop();
+
+		obj->visit(visitor);
+	}
+
+	return used_objects;
 }

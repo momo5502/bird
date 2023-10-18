@@ -172,7 +172,7 @@ namespace
 		const auto planetoid = rocktree.get_planetoid();
 		if (!planetoid || !planetoid->can_be_used()) return;
 
-		auto* current_bulk = planetoid->root_bulk.get();
+		auto* current_bulk = planetoid->root_bulk;
 		if (!current_bulk || !current_bulk->can_be_used()) return;
 
 		const auto planet_radius = planetoid->radius;
@@ -346,7 +346,7 @@ namespace
 					continue;
 				}
 
-				bulk = bulk_kv->second.get();
+				bulk = bulk_kv->second;
 				if (!bulk->can_be_used())
 				{
 					continue;
@@ -363,7 +363,7 @@ namespace
 					continue;
 				}
 
-				auto* node = node_kv->second.get();
+				auto* node = node_kv->second;
 
 				// cull outside frustum using obb
 				// todo: check if it could cull more
