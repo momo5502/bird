@@ -13,7 +13,14 @@ namespace utils::http
 	using url_string = std::string;
 	using result = std::optional<std::string>;
 	using result_function = std::function<void(result)>;
-	using query = std::pair<url_string, result_function>;
+
+	struct query
+	{
+		url_string url;
+		result_function callback;
+		std::stop_token token;
+	};
+
 	using query_queue = std::queue<query>;
 
 	using headers = std::unordered_map<std::string, std::string>;
@@ -30,8 +37,14 @@ namespace utils::http
 		downloader();
 		~downloader();
 
-		std::future<result> download(url_string url);
-		void download(url_string url, result_function function);
+		downloader(const downloader&) = delete;
+		downloader& operator=(const downloader&) = delete;
+
+		downloader(downloader&&) = delete;
+		downloader& operator=(downloader&&) = delete;
+
+		std::future<result> download(url_string url, std::stop_token token = {});
+		void download(url_string url, result_function function, std::stop_token token = {});
 
 		void work(std::chrono::milliseconds timeout);
 

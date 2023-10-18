@@ -153,8 +153,10 @@ namespace utils::http
 		public:
 			curl_easy_request() = default;
 
-			curl_easy_request(const std::string& url, result_function callback, CURLM* multi_request = nullptr)
-				: result_(std::make_unique<std::string>())
+			curl_easy_request(const std::string& url, result_function callback, std::stop_token token = {},
+			                  CURLM* multi_request = nullptr)
+				: token_(std::move(token))
+				  , result_(std::make_unique<std::string>())
 				  , result_function_(std::move(callback))
 				  , multi_request_(multi_request)
 				  , request_(curl_easy_init())
@@ -229,7 +231,13 @@ namespace utils::http
 				this->result_function_ = {};
 			}
 
+			bool is_cancelled() const
+			{
+				return this->token_.stop_requested();
+			}
+
 		private:
+			std::stop_token token_{};
 			std::unique_ptr<std::string> result_{};
 			result_function result_function_{};
 
@@ -302,6 +310,7 @@ namespace utils::http
 
 			while (std::chrono::steady_clock::now() < end)
 			{
+				this->clear_cancelled_requests();
 				this->add_new_requests(queue);
 
 				if (this->active_requests_.empty())
@@ -346,9 +355,12 @@ namespace utils::http
 				while (!queue.empty() && this->active_requests_.size() < this->max_requests_)
 				{
 					auto& query = queue.front();
-					curl_easy_request request(query.first, std::move(query.second), this->request_);
-
-					this->active_requests_[request.get_request()] = std::move(request);
+					if (!query.token.stop_requested())
+					{
+						curl_easy_request request(query.url, std::move(query.callback), std::move(query.token),
+						                          this->request_);
+						this->active_requests_[request.get_request()] = std::move(request);
+					}
 
 					queue.pop();
 				}
@@ -370,6 +382,21 @@ namespace utils::http
 		bool poll_current_requests(const std::chrono::milliseconds& timeout) const
 		{
 			return curl_multi_poll(this->request_, nullptr, 0, static_cast<int>(timeout.count()), nullptr) == 0;
+		}
+
+		void clear_cancelled_requests()
+		{
+			for (auto i = this->active_requests_.begin(); i != this->active_requests_.end();)
+			{
+				if (i->second.is_cancelled())
+				{
+					i = this->active_requests_.erase(i);
+				}
+				else
+				{
+					++i;
+				}
+			}
 		}
 
 		void dispatch_results()
@@ -395,7 +422,11 @@ namespace utils::http
 					throw std::runtime_error("Bad request entry!");
 				}
 
-				entry->second.notify(msg->data.result == CURLE_OK);
+				if (!entry->second.is_cancelled())
+				{
+					entry->second.notify(msg->data.result == CURLE_OK);
+				}
+
 				this->active_requests_.erase(entry);
 			}
 		}
@@ -408,7 +439,7 @@ namespace utils::http
 
 	downloader::~downloader() = default;
 
-	std::future<result> downloader::download(url_string url)
+	std::future<result> downloader::download(url_string url, std::stop_token token)
 	{
 		auto promise = std::make_shared<std::promise<result>>();
 		auto future = promise->get_future();
@@ -416,16 +447,16 @@ namespace utils::http
 		this->download(std::move(url), [p = std::move(promise)](result result)
 		{
 			p->set_value(std::move(result));
-		});
+		}, std::move(token));
 
 		return future;
 	}
 
-	void downloader::download(url_string url, result_function function)
+	void downloader::download(url_string url, result_function function, std::stop_token token)
 	{
 		this->queue_.access([&](query_queue& queue)
 		{
-			queue.emplace(std::move(url), std::move(function));
+			queue.emplace(query{std::move(url), std::move(function), std::move(token)});
 		});
 
 		std::atomic_thread_fence(std::memory_order_release);
@@ -434,7 +465,7 @@ namespace utils::http
 		this->cv_.notify_one();
 	}
 
-	void downloader::work(std::chrono::milliseconds timeout)
+	void downloader::work(const std::chrono::milliseconds timeout)
 	{
 		const auto end = std::chrono::steady_clock::now() + timeout;
 

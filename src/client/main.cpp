@@ -45,13 +45,14 @@ namespace
 
 	void perform_cleanup(const rocktree& rocktree)
 	{
-		const auto planetoid = rocktree.get_planetoid();
+		/*const auto planetoid = rocktree.get_planetoid();
 		if (!planetoid || !planetoid->is_in_final_state()) return;
 
 		const auto& current_bulk = planetoid->root_bulk;
 		if (!current_bulk || !current_bulk->is_in_final_state()) return;
 
-		perform_cleanup(*current_bulk);
+		perform_cleanup(*current_bulk);*/
+		(void)rocktree;
 	}
 
 	void paint_sky(const double altitude)
