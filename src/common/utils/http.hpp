@@ -44,11 +44,11 @@ namespace utils::http
 			{
 				this->destroy();
 
-				this->callback_ = std::move(obj.callback_);
 				this->token_ = std::move(obj.token_);
+				this->callback_ = std::move(obj.callback_);
 
-				obj.callback_ = {};
 				obj.token_ = {};
+				obj.callback_ = {};
 			}
 
 			return *this;
@@ -84,11 +84,7 @@ namespace utils::http
 		{
 			try
 			{
-				if (this->callback_)
-				{
-					this->callback_({});
-					this->callback_ = {};
-				}
+				(*this)({});
 			}
 			catch (...)
 			{

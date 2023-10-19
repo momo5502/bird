@@ -14,7 +14,7 @@ namespace
 			return;
 		}
 
-		if (!obj.was_used_within(4s))
+		if (!obj.was_used_within(5s))
 		{
 			obj.mark_for_deletion();
 		}
@@ -124,11 +124,6 @@ namespace
 		{
 			window.close();
 			return;
-		}
-
-		//if ((frame_counter % (60ull * 5)) == 0)
-		{
-			//perform_cleanup(rocktree);
 		}
 
 		static double prevTime = 0;

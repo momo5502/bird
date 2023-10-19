@@ -52,7 +52,7 @@ namespace
 
 	void fetch_google_data(task_manager& manager, utils::http::downloader& downloader, const std::string_view& planet,
 	                       const std::string_view& path,
-	                       utils::http::result_function callback, std::stop_token token, bool prefer_cache)
+	                       utils::http::result_function callback, std::stop_token token, const bool prefer_cache)
 	{
 		auto cache_url = build_cache_url(planet, path);
 		std::string data{};
@@ -106,8 +106,13 @@ void rocktree_object::populate()
 		{
 			this->run_fetching();
 		}
-		catch (...)
+		catch (const std::exception& e)
 		{
+#ifdef NDEBUG
+			(void)e;
+#else
+			puts(e.what());
+#endif
 			this->finish_fetching(false);
 		}
 	}, this->is_high_priority());
@@ -127,8 +132,13 @@ void rocktree_object::run_fetching()
 				this->populate(res);
 				this->finish_fetching(true);
 			}
-			catch (...)
+			catch (const std::exception& e)
 			{
+#ifdef NDEBUG
+				(void)e;
+#else
+				puts(e.what());
+#endif
 				this->finish_fetching(false);
 			}
 		}, this->get_stop_token(), this->prefer_cache());

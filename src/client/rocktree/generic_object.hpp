@@ -71,6 +71,7 @@ public:
 		}
 
 		this->clear();
+		this->source_ = {};
 		this->state_ = state::fresh;
 		return true;
 	}
