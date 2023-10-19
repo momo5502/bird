@@ -1,11 +1,17 @@
 #pragma once
 
+inline uint32_t get_task_manager_thread_count()
+{
+	const auto hardware_concurrency = std::thread::hardware_concurrency();
+	return std::max(2u, hardware_concurrency / 2u + hardware_concurrency / 4u);
+}
+
 class task_manager
 {
 public:
 	using task = std::function<void()>;
 
-	task_manager(size_t num_threads = std::max(1u, std::thread::hardware_concurrency() / 2u));
+	task_manager(size_t num_threads = get_task_manager_thread_count());
 	~task_manager();
 
 	task_manager(task_manager&&) = delete;
