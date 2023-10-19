@@ -546,7 +546,9 @@ rocktree::~rocktree()
 
 void rocktree::cleanup_dangling_objects()
 {
-	this->objects_.access([this](object_list& objects)
+	std::list<std::unique_ptr<generic_object>> objects_to_remove{};
+
+	this->objects_.access([this, &objects_to_remove](object_list& objects)
 	{
 		const auto used_objects = this->collect_used_objects();
 
@@ -559,6 +561,7 @@ void rocktree::cleanup_dangling_objects()
 
 			if (is_unused && is_final)
 			{
+				objects_to_remove.emplace_back(std::move(*i));
 				i = objects.erase(i);
 			}
 			else

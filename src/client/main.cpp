@@ -14,7 +14,7 @@ namespace
 			return;
 		}
 
-		if (!obj.was_used_within(5s))
+		if (!obj.was_used_within(15s))
 		{
 			obj.mark_for_deletion();
 		}
