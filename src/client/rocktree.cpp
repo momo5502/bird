@@ -32,6 +32,11 @@ node::node(rocktree& rocktree, const uint32_t epoch, std::string path, const tex
 
 void node::buffer_meshes()
 {
+	if (this->is_buffered())
+	{
+		return;
+	}
+
 	for (auto& m : this->meshes)
 	{
 		m.buffer();

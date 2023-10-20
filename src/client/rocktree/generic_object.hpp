@@ -22,6 +22,11 @@ public:
 		return state == state::ready || state == state::failed || state == state::deleting;
 	}
 
+	bool is_fetching() const
+	{
+		return this->state_ == state::fetching;
+	}
+
 	void visit(const std::function<void(generic_object&)>& visitor)
 	{
 		if (this->is_in_final_state())

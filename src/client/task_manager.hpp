@@ -2,8 +2,7 @@
 
 inline uint32_t get_task_manager_thread_count()
 {
-	const auto hardware_concurrency = std::thread::hardware_concurrency();
-	return std::max(2u, hardware_concurrency / 2u + hardware_concurrency / 4u);
+	return std::max(15u, std::thread::hardware_concurrency());
 }
 
 class task_manager
