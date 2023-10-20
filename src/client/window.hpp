@@ -1,5 +1,7 @@
 #pragma once
 
+#include "profiler.hpp"
+
 class window
 {
 public:
@@ -8,7 +10,7 @@ public:
 
 	operator GLFWwindow*() const;
 
-	void show(const std::function<void()>& frame_callback);
+	void show(const std::function<void(profiler& profiler)>& frame_callback);
 	void close();
 
 	bool is_key_pressed(int key) const;

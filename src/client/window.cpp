@@ -85,16 +85,22 @@ void window::size_callback_static(GLFWwindow* _window, const int width, const in
 	static_cast<window*>(glfwGetWindowUserPointer(_window))->size_callback(width, height);
 }
 
-void window::show(const std::function<void()>& frame_callback)
+void window::show(const std::function<void(profiler& profiler)>& frame_callback)
 {
 	while (this->handle_ && !glfwWindowShouldClose(this->handle_))
 	{
+		profiler p{"Pool"};
+
 		glfwPollEvents();
+
+		p.step("Draw");
 
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		frame_callback();
+		frame_callback(p);
+
+		p.step("Swap");
 
 		glfwSwapBuffers(this->handle_);
 

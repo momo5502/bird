@@ -114,10 +114,12 @@ namespace
 
 	std::atomic_uint64_t frame_counter{0};
 
-	void run_frame(window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
+	void run_frame(profiler& p, window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
 	               const shader_context& ctx,
 	               utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer)
 	{
+		p.step("Prepare");
+
 		++frame_counter;
 
 		if (window.is_key_pressed(GLFW_KEY_ESCAPE))
@@ -153,6 +155,8 @@ namespace
 		if (!current_bulk || !current_bulk->can_be_used()) return;
 
 		const auto planet_radius = planetoid->radius;
+
+		p.step("Input");
 
 		auto key_up_pressed = (window.is_key_pressed(GLFW_KEY_UP) || window.is_key_pressed(GLFW_KEY_W)) ? 1.0 : 0.0;
 		auto key_left_pressed = (window.is_key_pressed(GLFW_KEY_LEFT) || window.is_key_pressed(GLFW_KEY_A)) ? 1.0 : 0.0;
@@ -226,6 +230,8 @@ namespace
 
 			key_boost_pressed = right_trigger + key_boost_pressed;
 		}
+
+		p.step("Calculate");
 
 		GLint viewport[4]{};
 		glGetIntegerv(GL_VIEWPORT, viewport);
@@ -302,7 +308,7 @@ namespace
 
 		std::map<octant_identifier<>, node*> potential_nodes;
 
-		const auto start = std::chrono::high_resolution_clock::now();
+		p.step("Loop1");
 
 		while (!valid.empty())
 		{
@@ -371,8 +377,9 @@ namespace
 			}
 		}
 
+		p.step("Between");
+
 		std::unordered_set<node*> new_nodes_to_buffer{};
-		const auto loop1_duration = std::chrono::high_resolution_clock::now() - start;
 
 		// 8-bit octant mask flags of nodes
 		std::map<octant_identifier<>, uint8_t> mask_map{};
@@ -380,7 +387,8 @@ namespace
 		std::unordered_set<mesh*> drawn_meshes{};
 		drawn_meshes.reserve(last_drawn_meshes.size());
 
-		const auto start2 = std::chrono::high_resolution_clock::now();
+		p.step("Loop 2");
+
 		for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))
 		{
 			// reverse order
@@ -412,11 +420,18 @@ namespace
 			glm::mat4 transform = viewprojection * node->matrix_globe_from_mesh;
 
 			glUniformMatrix4fv(ctx.transform_loc, 1, GL_FALSE, &transform[0][0]);
+
+			p.step("Loop2Draw");
+
 			for (auto& mesh : node->meshes)
 			{
 				mesh.draw(ctx, mask);
 			}
+
+			p.step("Loop 2");
 		}
+
+		p.step("Push buffer");
 
 		nodes_to_buffer.access([&](std::unordered_set<::node*>& nodes)
 		{
@@ -425,20 +440,6 @@ namespace
 				nodes.emplace(n);
 			}
 		});
-
-		const auto loop2_duration = std::chrono::high_resolution_clock::now() - start2;
-
-		//if (ms > 100 * 1000)
-		{
-			const auto diff1 = std::chrono::duration_cast<std::chrono::milliseconds>(loop1_duration).count();
-			const auto diff2 = std::chrono::duration_cast<std::chrono::milliseconds>(loop2_duration).count();
-
-			if (diff1 >= 5 || diff2 >= 5)
-				printf(
-					"loop1: %lld | loop2: %lld\n", diff1, diff2
-
-				);
-		}
 	}
 
 	void trigger_high_performance_gpu_switch()
@@ -534,9 +535,9 @@ int main(int /*argc*/, char** /*argv*/)
 	glm::dvec3 eye{4134696.707, 611925.83, 4808504.534};
 	glm::dvec3 direction{0.219862, -0.419329, 0.012226};
 
-	window.show([&]
+	window.show([&](profiler& p)
 	{
-		run_frame(window, rocktree, eye, direction, ctx, nodes_to_buffer);
+		run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer);
 	});
 
 	return 0;
