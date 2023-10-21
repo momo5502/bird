@@ -353,7 +353,7 @@ namespace utils::http
 						this->active_requests_[request.get_request()] = std::move(request);
 					}
 
-					queue.pop();
+					queue.pop_front();
 				}
 			});
 		}
@@ -500,7 +500,7 @@ namespace utils::http
 
 	downloader::~downloader() = default;
 
-	std::future<result> downloader::download(url_string url, std::stop_token token)
+	std::future<result> downloader::download(url_string url, std::stop_token token, const bool high_priority)
 	{
 		auto promise = std::make_shared<std::promise<result>>();
 		auto future = promise->get_future();
@@ -508,16 +508,25 @@ namespace utils::http
 		this->download(std::move(url), [p = std::move(promise)](result result)
 		{
 			p->set_value(std::move(result));
-		}, std::move(token));
+		}, std::move(token), high_priority);
 
 		return future;
 	}
 
-	void downloader::download(url_string url, result_function function, std::stop_token token)
+	void downloader::download(url_string url, result_function function, std::stop_token token, const bool high_priority)
 	{
 		this->queue_.access([&](query_queue& queue)
 		{
-			queue.emplace(query{std::move(url), stoppable_result_callback{std::move(function), std::move(token)}});
+			query q{std::move(url), stoppable_result_callback{std::move(function), std::move(token)}};
+
+			if (high_priority)
+			{
+				queue.emplace_front(std::move(q));
+			}
+			else
+			{
+				queue.emplace_back(std::move(q));
+			}
 		});
 
 		std::atomic_thread_fence(std::memory_order_release);

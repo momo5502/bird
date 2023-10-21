@@ -1,6 +1,6 @@
 #pragma once
 
-#include <queue>
+#include <deque>
 #include <chrono>
 #include <future>
 #include <string>
@@ -98,7 +98,7 @@ namespace utils::http
 		stoppable_result_callback callback;
 	};
 
-	using query_queue = std::queue<query>;
+	using query_queue = std::deque<query>;
 
 	using headers = std::unordered_map<std::string, std::string>;
 
@@ -146,8 +146,8 @@ namespace utils::http
 		downloader(downloader&&) = delete;
 		downloader& operator=(downloader&&) = delete;
 
-		std::future<result> download(url_string url, std::stop_token token = {});
-		void download(url_string url, result_function function, std::stop_token token = {});
+		std::future<result> download(url_string url, std::stop_token token = {}, bool high_priority = false);
+		void download(url_string url, result_function function, std::stop_token token = {}, bool high_priority = false);
 
 		void stop();
 

@@ -52,7 +52,8 @@ namespace
 
 	void fetch_google_data(task_manager& manager, utils::http::downloader& downloader, const std::string_view& planet,
 	                       const std::string_view& path,
-	                       utils::http::result_function callback, std::stop_token token, const bool prefer_cache)
+	                       utils::http::result_function callback, std::stop_token token, const bool prefer_cache,
+	                       const bool high_priority)
 	{
 		auto cache_url = build_cache_url(planet, path);
 		std::string data{};
@@ -62,14 +63,18 @@ namespace
 			return;
 		}
 
-		auto dispatcher = [cache_url = std::move(cache_url), cb = std::move(callback)](
+		auto dispatcher = [cache_url = std::move(cache_url), cb = std::move(callback), &manager](
 			std::optional<std::string> result)
 		{
 			std::string data{};
 			if (result)
 			{
-				utils::io::write_file(cache_url, *result);
-				cb(std::move(result));
+				cb(result);
+
+				manager.schedule([c = std::move(cache_url), r = std::move(std::move(result))]
+				{
+					utils::io::write_file(c, *r);
+				});
 			}
 			else if (utils::io::read_file(cache_url, &data))
 			{
@@ -88,8 +93,8 @@ namespace
 				manager.schedule([r = std::move(result), dis = std::move(d)]
 				{
 					dis(std::move(r));
-				});
-			}, std::move(token));
+				}, true);
+			}, std::move(token), high_priority);
 	}
 }
 
@@ -141,7 +146,7 @@ void rocktree_object::run_fetching()
 #endif
 				this->finish_fetching(false);
 			}
-		}, this->get_stop_token(), this->prefer_cache());
+		}, this->get_stop_token(), this->prefer_cache(), this->is_high_priority());
 }
 
 void rocktree_object::store_object(std::unique_ptr<rocktree_object> object) const
