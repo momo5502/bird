@@ -16,6 +16,12 @@ public:
 	generic_object& operator=(generic_object&&) = delete;
 	generic_object& operator=(const generic_object&) = delete;
 
+	bool is_being_deleted() const
+	{
+		const auto state = this->state_.load();
+		return state == state::deleting;
+	}
+
 	bool is_in_final_state() const
 	{
 		const auto state = this->state_.load();

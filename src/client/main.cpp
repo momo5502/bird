@@ -425,7 +425,10 @@ namespace
 						return n;
 					});
 
-				if (node_to_buffer)
+				if (node_to_buffer //
+					&& !node_to_buffer->is_buffered() //
+					&& !node_to_buffer->is_being_deleted() //
+					&& !node_to_buffer->get_stop_token().stop_requested())
 				{
 					node_to_buffer->buffer_meshes();
 				}
