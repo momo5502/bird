@@ -444,6 +444,11 @@ namespace utils::http
 		this->worker_->wakeup();
 	}
 
+	void worker_thread::stop()
+	{
+		this->thread_.request_stop();
+	}
+
 	void worker_thread::work(const std::chrono::milliseconds& timeout) const
 	{
 		const auto end = std::chrono::steady_clock::now() + timeout;
@@ -523,6 +528,11 @@ namespace utils::http
 
 	void downloader::stop()
 	{
+		for (const auto& worker : this->workers_)
+		{
+			worker->stop();
+		}
+
 		this->workers_.clear();
 	}
 

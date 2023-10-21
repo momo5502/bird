@@ -121,6 +121,7 @@ namespace utils::http
 		worker_thread& operator=(worker_thread&&) = delete;
 
 		void wakeup() const;
+		void stop();
 
 	private:
 		concurrency::container<query_queue>* queue_{};
