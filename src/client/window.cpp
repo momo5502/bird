@@ -2,6 +2,7 @@
 
 #include "window.hpp"
 
+#include <utils/nt.hpp>
 #include <utils/finally.hpp>
 
 namespace
@@ -89,7 +90,7 @@ void window::show(const std::function<void(profiler& profiler)>& frame_callback)
 {
 	while (this->handle_ && !glfwWindowShouldClose(this->handle_))
 	{
-		profiler p{"Pool"};
+		profiler p{"Poll"};
 
 		glfwPollEvents();
 
@@ -116,6 +117,19 @@ void window::close()
 bool window::is_key_pressed(const int key) const
 {
 	return glfwGetKey(*this, key) == GLFW_PRESS;
+}
+
+std::pair<double, double> window::get_mouse_position() const
+{
+	double mouse_x{0.0}, mouse_y{0.0};
+
+	if (!utils::nt::is_wine())
+	{
+		glfwGetCursorPos(*this, &mouse_x, &mouse_y);
+		glfwSetCursorPos(*this, 0, 0);
+	}
+
+	return {mouse_x, mouse_y};
 }
 
 long long window::get_last_frame_time() const

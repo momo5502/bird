@@ -14,6 +14,7 @@ public:
 	void close();
 
 	bool is_key_pressed(int key) const;
+	std::pair<double, double> get_mouse_position() const;
 
 	long long get_last_frame_time() const;
 

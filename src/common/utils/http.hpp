@@ -136,7 +136,7 @@ namespace utils::http
 	class downloader
 	{
 	public:
-		downloader(size_t num_worker_threads = 5);
+		downloader(size_t num_worker_threads = 3);
 		~downloader();
 
 		downloader(const downloader&) = delete;

@@ -1,6 +1,7 @@
 #include "std_include.hpp"
 #include "window.hpp"
 #include "rocktree.hpp"
+#include "input.hpp"
 
 #include <utils/nt.hpp>
 #include <utils/concurrency.hpp>
@@ -118,15 +119,18 @@ namespace
 	               const shader_context& ctx,
 	               utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer)
 	{
-		p.step("Prepare");
+		p.step("Input");
 
-		++frame_counter;
-
-		if (window.is_key_pressed(GLFW_KEY_ESCAPE))
+		const auto state = get_input_state(window);
+		if (state.exit)
 		{
 			window.close();
 			return;
 		}
+
+		p.step("Prepare");
+
+		++frame_counter;
 
 		static double prevTime = 0;
 		auto crntTime = glfwGetTime();
@@ -156,80 +160,6 @@ namespace
 
 		const auto planet_radius = planetoid->radius;
 
-		p.step("Input");
-
-		auto key_up_pressed = (window.is_key_pressed(GLFW_KEY_UP) || window.is_key_pressed(GLFW_KEY_W)) ? 1.0 : 0.0;
-		auto key_left_pressed = (window.is_key_pressed(GLFW_KEY_LEFT) || window.is_key_pressed(GLFW_KEY_A)) ? 1.0 : 0.0;
-		auto key_down_pressed = (window.is_key_pressed(GLFW_KEY_DOWN) || window.is_key_pressed(GLFW_KEY_S)) ? 1.0 : 0.0;
-		auto key_right_pressed = (window.is_key_pressed(GLFW_KEY_RIGHT) || window.is_key_pressed(GLFW_KEY_D))
-			                         ? 1.0
-			                         : 0.0;
-		auto key_boost_pressed = (window.is_key_pressed(GLFW_KEY_LEFT_SHIFT) || window.is_key_pressed(
-			                         GLFW_KEY_RIGHT_SHIFT))
-			                         ? 1.0
-			                         : 0.0;
-
-		double mouse_x{}, mouse_y{};
-		if (!utils::nt::is_wine())
-		{
-			glfwGetCursorPos(window, &mouse_x, &mouse_y);
-			glfwSetCursorPos(window, 0, 0);
-		}
-
-		GLFWgamepadstate state{};
-		if (glfwJoystickIsGamepad(GLFW_JOYSTICK_1) && glfwGetGamepadState(GLFW_JOYSTICK_1, &state))
-		{
-			auto left_x = state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
-			auto left_y = state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
-			auto right_x = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X];
-			auto right_y = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y];
-			auto right_trigger = (state.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER] + 1.0f) / 2.0f;
-
-			if (state.buttons[GLFW_GAMEPAD_BUTTON_CIRCLE] == GLFW_PRESS)
-			{
-				window.close();
-				return;
-			}
-
-			const auto limit_value = [](float& value, const float deadzone)
-			{
-				if (value >= deadzone)
-				{
-					value = (value - deadzone) / (1.0f - deadzone);
-				}
-				else if (value <= -deadzone)
-				{
-					value = (value + deadzone) / (1.0f - deadzone);
-				}
-				else
-				{
-					value = 0.0;
-				}
-			};
-
-			constexpr auto limit = 0.1f;
-			limit_value(left_x, limit);
-			limit_value(left_y, limit);
-			limit_value(right_x, limit);
-			limit_value(right_y, limit);
-			limit_value(right_trigger, limit);
-
-			const auto assign_max = [](double& value, const double new_value)
-			{
-				value = std::max(value, new_value);
-			};
-
-			assign_max(key_right_pressed, std::max(left_x, 0.0f));
-			assign_max(key_left_pressed, std::abs(std::min(left_x, 0.0f)));
-
-			assign_max(key_down_pressed, std::max(left_y, 0.0f));
-			assign_max(key_up_pressed, std::abs(std::min(left_y, 0.0f)));
-
-			mouse_x += right_x * 10.0;
-			mouse_y += right_y * 10.0;
-
-			key_boost_pressed = right_trigger + key_boost_pressed;
-		}
 
 		p.step("Calculate");
 
@@ -259,8 +189,8 @@ namespace
 		const glm::dmat4 projection = glm::perspective(fov, aspect_ratio, near_val, far_val);
 
 		// rotation
-		double yaw = mouse_x * 0.005;
-		double pitch = -mouse_y * 0.005;
+		double yaw = state.mouse_x * 0.005;
+		double pitch = -state.mouse_y * 0.005;
 		const auto overhead = glm::dot(direction, -up);
 
 		if ((overhead > 0.99 && pitch < 0) || (overhead < -0.99 && pitch > 0))
@@ -280,7 +210,7 @@ namespace
 
 		// movement
 		auto speed_amp = fmin(2600, pow(fmax(0, (altitude - 500) / 10000) + 1, 1.337)) / 6;
-		auto mag = 10 * (static_cast<double>(window.get_last_frame_time()) / 17000.0) * (1 + key_boost_pressed * 40) *
+		auto mag = 10 * (static_cast<double>(window.get_last_frame_time()) / 17000.0) * (1 + state.boost * 40) *
 			speed_amp;
 		auto sideways = glm::normalize(glm::cross(direction, up));
 		auto forwards = direction * mag;
@@ -288,10 +218,10 @@ namespace
 		auto left = -sideways * mag;
 		auto right = sideways * mag;
 		auto new_eye = eye
-			+ key_up_pressed * forwards
-			+ key_down_pressed * backwards
-			+ key_left_pressed * left
-			+ key_right_pressed * right;
+			+ state.up * forwards
+			+ state.down * backwards
+			+ state.left * left
+			+ state.right * right;
 		auto pot_altitude = glm::length(new_eye) - planet_radius;
 		if (pot_altitude < 1000 * 1000 * 10)
 		{
