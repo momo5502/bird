@@ -260,10 +260,10 @@ namespace utils::http
 		};
 	}
 
-	class downloader::worker
+	class worker_thread::worker
 	{
 	public:
-		worker(const size_t max_requests = 50)
+		worker(const size_t max_requests = 20)
 			: max_requests_(max_requests)
 			  , request_(curl_multi_init())
 		{
@@ -423,9 +423,74 @@ namespace utils::http
 		}
 	};
 
-	downloader::downloader()
-		: worker_(std::make_unique<worker>())
+	worker_thread::worker_thread(concurrency::container<query_queue>& queue, std::condition_variable& cv) :
+		queue_(&queue)
+		, cv_(&cv)
+		, worker_(std::make_unique<worker>())
+		, thread_([this](const std::stop_token& token)
+		{
+			while (!token.stop_requested())
+			{
+				this->work(std::chrono::seconds(1));
+			}
+		})
 	{
+	}
+
+	worker_thread::~worker_thread() = default;
+
+	void worker_thread::wakeup() const
+	{
+		this->worker_->wakeup();
+	}
+
+	void worker_thread::work(const std::chrono::milliseconds& timeout) const
+	{
+		const auto end = std::chrono::steady_clock::now() + timeout;
+
+		bool has_requests_to_process = true;
+
+		auto should_wake_up = [&]
+		{
+			return !this->queue_->get_raw().empty() || has_requests_to_process;
+		};
+
+		while (true)
+		{
+			auto lock = this->queue_->acquire_lock();
+
+			auto now = std::chrono::steady_clock::now();
+			if (now > end)
+			{
+				break;
+			}
+
+			auto remaining_time = end - now;
+			auto timeout_duration = std::chrono::duration_cast<std::chrono::milliseconds>(remaining_time);
+
+			this->cv_->wait_for(lock, timeout_duration, should_wake_up);
+			lock.unlock();
+
+			now = std::chrono::steady_clock::now();
+			if (now > end)
+			{
+				break;
+			}
+
+			remaining_time = end - now;
+			timeout_duration = std::chrono::duration_cast<std::chrono::milliseconds>(remaining_time);
+
+			has_requests_to_process = this->worker_->work(timeout_duration, *this->queue_);
+		}
+	}
+
+	downloader::downloader(const size_t num_worker_threads)
+	{
+		this->workers_.reserve(num_worker_threads);
+		for (size_t i = 0; i < num_worker_threads; ++i)
+		{
+			this->workers_.emplace_back(std::make_unique<worker_thread>(this->queue_, this->cv_));
+		}
 	}
 
 	downloader::~downloader() = default;
@@ -452,47 +517,20 @@ namespace utils::http
 
 		std::atomic_thread_fence(std::memory_order_release);
 
-		this->worker_->wakeup();
+		this->wakeup();
 		this->cv_.notify_one();
 	}
 
-	void downloader::work(const std::chrono::milliseconds timeout)
+	void downloader::stop()
 	{
-		const auto end = std::chrono::steady_clock::now() + timeout;
+		this->workers_.clear();
+	}
 
-		bool has_requests_to_process = true;
-
-		auto should_wake_up = [&]
+	void downloader::wakeup() const
+	{
+		for (const auto& w : this->workers_)
 		{
-			return !this->queue_.get_raw().empty() || has_requests_to_process;
-		};
-
-		while (true)
-		{
-			auto lock = this->queue_.acquire_lock();
-
-			auto now = std::chrono::steady_clock::now();
-			if (now > end)
-			{
-				break;
-			}
-
-			auto remaining_time = end - now;
-			auto timeout_duration = std::chrono::duration_cast<std::chrono::milliseconds>(remaining_time);
-
-			this->cv_.wait_for(lock, timeout_duration, should_wake_up);
-			lock.unlock();
-
-			now = std::chrono::steady_clock::now();
-			if (now > end)
-			{
-				break;
-			}
-
-			remaining_time = end - now;
-			timeout_duration = std::chrono::duration_cast<std::chrono::milliseconds>(remaining_time);
-
-			has_requests_to_process = this->worker_->work(timeout_duration, this->queue_);
+			w->wakeup();
 		}
 	}
 

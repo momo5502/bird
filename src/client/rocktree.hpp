@@ -118,10 +118,7 @@ private:
 	utils::concurrency::container<object_list> objects_{};
 
 	std::unique_ptr<planetoid> planetoid_{};
-
 	utils::http::downloader downloader_{};
-	std::jthread downloader_thread_{};
-
 	task_manager task_manager_{};
 
 	void store_object(std::unique_ptr<generic_object> object);

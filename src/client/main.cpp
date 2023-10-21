@@ -14,7 +14,7 @@ namespace
 			return;
 		}
 
-		if (!obj.was_used_within(obj.is_fetching() ? 2s : 30s))
+		if (!obj.was_used_within(obj.is_fetching() ? 3s : 30s))
 		{
 			obj.mark_for_deletion();
 		}

@@ -108,10 +108,35 @@ namespace utils::http
 	std::optional<std::string> get_data(const std::string& url, const headers& headers = {},
 	                                    const std::function<void(size_t)>& callback = {}, uint32_t retries = 2);
 
+	class worker_thread
+	{
+	public:
+		worker_thread(concurrency::container<query_queue>& queue, std::condition_variable& cv);
+		~worker_thread();
+
+		worker_thread(const worker_thread&) = delete;
+		worker_thread& operator=(const worker_thread&) = delete;
+
+		worker_thread(worker_thread&&) = delete;
+		worker_thread& operator=(worker_thread&&) = delete;
+
+		void wakeup() const;
+
+	private:
+		concurrency::container<query_queue>* queue_{};
+		std::condition_variable* cv_{};
+
+		class worker;
+		std::unique_ptr<worker> worker_;
+		std::jthread thread_{};
+
+		void work(const std::chrono::milliseconds& timeout) const;
+	};
+
 	class downloader
 	{
 	public:
-		downloader();
+		downloader(size_t num_worker_threads = 5);
 		~downloader();
 
 		downloader(const downloader&) = delete;
@@ -123,13 +148,13 @@ namespace utils::http
 		std::future<result> download(url_string url, std::stop_token token = {});
 		void download(url_string url, result_function function, std::stop_token token = {});
 
-		void work(std::chrono::milliseconds timeout);
+		void stop();
 
 	private:
 		concurrency::container<query_queue> queue_{};
 		std::condition_variable cv_{};
+		std::vector<std::unique_ptr<worker_thread>> workers_{};
 
-		class worker;
-		std::unique_ptr<worker> worker_;
+		void wakeup() const;
 	};
 }

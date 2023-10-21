@@ -526,27 +526,14 @@ void planetoid::clear()
 
 rocktree::rocktree(std::string planet)
 	: planet_(std::move(planet))
-	  , downloader_thread_([this](const std::stop_token& token)
-	  {
-		  while (!token.stop_requested())
-		  {
-			  this->downloader_.work(1s);
-		  }
-	  })
 {
 	this->planetoid_ = std::make_unique<planetoid>(*this);
 }
 
 rocktree::~rocktree()
 {
-	this->downloader_thread_.request_stop();
-
+	this->downloader_.stop();
 	this->task_manager_.stop();
-
-	if (this->downloader_thread_.joinable())
-	{
-		this->downloader_thread_.join();
-	}
 }
 
 void rocktree::cleanup_dangling_objects()
