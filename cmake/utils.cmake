@@ -147,10 +147,12 @@ function(momo_target_disable_warnings target)
 
   momo_target_remove_compile_options(${target} /W3 -W3 /W4 -W4)
 
+  if(MSVC)
   set(compile_options
     /W0
     /D_CRT_SECURE_NO_WARNINGS=1
   )
+  endif()
 
   momo_target_c_and_cxx_compile_options(${target} PRIVATE ${compile_options})
 

@@ -13,7 +13,13 @@ option(HTTP_ONLY "" ON)
 option(BUILD_CURL_EXE "" OFF)
 option(BUILD_SHARED_LIBS "" OFF)
 option(BUILD_STATIC_LIBS "" ON)
-set(CURL_USE_SCHANNEL ON)
+
+if(MSVC)
+  set(CURL_USE_SCHANNEL ON)
+else()
+  set(CURL_USE_OPENSSL ON)
+endif()
+
 add_subdirectory(curl)
 
 ##########################################

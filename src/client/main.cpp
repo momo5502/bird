@@ -184,7 +184,7 @@ namespace
 		auto far_val = horizon;
 
 		if (near_val >= far_val) near_val = far_val - 1;
-		if (isnan(far_val) || far_val < near_val) far_val = near_val + 1;
+		if (std::isnan(far_val) || far_val < near_val) far_val = near_val + 1;
 
 		const glm::dmat4 projection = glm::perspective(fov, aspect_ratio, near_val, far_val);
 
@@ -372,9 +372,9 @@ namespace
 		});
 	}
 
+#ifdef _WIN32
 	void trigger_high_performance_gpu_switch()
 	{
-#ifdef _WIN32
 		const auto key = utils::nt::open_or_create_registry_key(
 			HKEY_CURRENT_USER, R"(Software\Microsoft\DirectX\UserGpuPreferences)");
 		if (!key)
@@ -394,8 +394,8 @@ namespace
 		RegSetValueExW(key, self.get_path().make_preferred().wstring().data(), 0, REG_SZ,
 		               reinterpret_cast<const BYTE*>(data.data()),
 		               static_cast<DWORD>((data.size() + 1u) * 2));
-#endif
 	}
+#endif
 
 	void bufferer(const std::stop_token& token, window& window,
 	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer, rocktree& rocktree)
@@ -443,6 +443,7 @@ namespace
 
 int main(int /*argc*/, char** /*argv*/)
 {
+#ifdef _WIN32
 	if (utils::nt::is_wine())
 	{
 		ShowWindow(GetConsoleWindow(), SW_HIDE);
@@ -451,6 +452,7 @@ int main(int /*argc*/, char** /*argv*/)
 	SetThreadPriority(GetCurrentThread(), ABOVE_NORMAL_PRIORITY_CLASS);
 
 	trigger_high_performance_gpu_switch();
+#endif
 
 	window window(1280, 800, "game");
 
@@ -476,7 +478,9 @@ int main(int /*argc*/, char** /*argv*/)
 	return 0;
 }
 
+#ifdef _WIN32
 int WINAPI WinMain(HINSTANCE, HINSTANCE, PSTR, int)
 {
 	return main(__argc, __argv);
 }
+#endif

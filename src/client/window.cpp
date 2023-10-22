@@ -123,7 +123,9 @@ std::pair<double, double> window::get_mouse_position() const
 {
 	double mouse_x{0.0}, mouse_y{0.0};
 
+#ifdef WIN32
 	if (!utils::nt::is_wine())
+#endif
 	{
 		glfwGetCursorPos(*this, &mouse_x, &mouse_y);
 		glfwSetCursorPos(*this, 0, 0);

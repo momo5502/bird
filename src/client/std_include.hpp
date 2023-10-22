@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef _WIN32
 #pragma warning(push)
 #pragma warning(disable: 4127)
 #pragma warning(disable: 4244)
@@ -38,22 +39,27 @@
 #ifdef min
 #undef min
 #endif
+#endif
 
 #include <map>
+#include <list>
 #include <array>
 #include <deque>
 #include <queue>
+#include <thread>
 #include <ranges>
 #include <atomic>
 #include <vector>
 #include <mutex>
 #include <string>
 #include <chrono>
+#include <memory>
 #include <functional>
 #include <optional>
+#include <stdexcept>
 #include <string_view>
 #include <unordered_set>
-#include <stdexcept>
+#include <condition_variable>
 
 #include <cassert>
 
@@ -67,6 +73,8 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#ifdef _WIN32
 #pragma warning(pop)
+#endif
 
 using namespace std::literals;

@@ -4,7 +4,10 @@
 #include <chrono>
 #include <future>
 #include <string>
+#include <vector>
+#include <thread>
 #include <optional>
+#include <unordered_map>
 
 #include "concurrency.hpp"
 
