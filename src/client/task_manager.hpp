@@ -1,8 +1,16 @@
 #pragma once
+#include <utils/http.hpp>
+
+inline int32_t get_available_threads()
+{
+	const auto total_threads = static_cast<int32_t>(std::thread::hardware_concurrency());
+	const auto http_threads = static_cast<int32_t>(utils::http::downloader::get_default_thread_count());
+	return total_threads - (2 + http_threads);
+}
 
 inline uint32_t get_task_manager_thread_count()
 {
-	return std::max(15u, std::thread::hardware_concurrency());
+	return static_cast<uint32_t>(std::max(2, get_available_threads()));
 }
 
 class task_manager

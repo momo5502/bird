@@ -140,7 +140,12 @@ namespace utils::http
 	class downloader
 	{
 	public:
-		downloader(size_t num_worker_threads = 4);
+		static size_t get_default_thread_count()
+		{
+			return 2;
+		}
+
+		downloader(size_t num_worker_threads = get_default_thread_count());
 		~downloader();
 
 		downloader(const downloader&) = delete;
