@@ -7,6 +7,11 @@ protected:
 	virtual void populate() = 0;
 	virtual void visit_children(const std::function<void(generic_object&)>& visitor) = 0;
 
+	virtual bool can_be_deleted() const
+	{
+		return true;
+	}
+
 public:
 	generic_object() = default;
 	virtual ~generic_object() = default;
@@ -76,7 +81,7 @@ public:
 
 	bool try_perform_deletion()
 	{
-		if (this->state_ != state::deleting)
+		if (this->state_ != state::deleting || !this->can_be_deleted())
 		{
 			return false;
 		}

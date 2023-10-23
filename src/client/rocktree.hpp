@@ -28,11 +28,23 @@ public:
 
 	void buffer_meshes();
 	bool is_buffered() const;
+	bool is_buffering() const;
+	bool mark_for_buffering();
+
+	static void buffer_queue(std::queue<node*> nodes);
 
 	std::vector<mesh> meshes{};
 
 private:
-	std::atomic_bool buffered_{false};
+	enum class buffer_state
+	{
+		unbuffered,
+		buffering,
+		buffered,
+	};
+
+	std::atomic<buffer_state> buffer_state_{buffer_state::unbuffered};
+
 	uint32_t epoch_{};
 	std::string path_{};
 
@@ -43,6 +55,10 @@ private:
 	std::string get_url() const override;
 	void populate(const std::optional<std::string>& data) override;
 	void clear() override;
+	bool can_be_deleted() const override;
+
+	bool buffer_meshes_internal();
+	void mark_as_buffered();
 };
 
 class bulk final : public rocktree_object

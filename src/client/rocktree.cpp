@@ -32,24 +32,52 @@ node::node(rocktree& rocktree, const uint32_t epoch, std::string path, const tex
 
 void node::buffer_meshes()
 {
-	if (this->is_buffered())
+	if (this->buffer_meshes_internal())
 	{
-		return;
+		this->mark_as_buffered();
 	}
-
-	for (auto& m : this->meshes)
-	{
-		m.buffer();
-	}
-
-	glFinish();
-
-	this->buffered_ = true;
 }
 
 bool node::is_buffered() const
 {
-	return this->buffered_;
+	return this->buffer_state_ == buffer_state::buffered;
+}
+
+bool node::is_buffering() const
+{
+	return this->buffer_state_ == buffer_state::buffering;
+}
+
+bool node::mark_for_buffering()
+{
+	auto expected = buffer_state::unbuffered;
+	return this->buffer_state_.compare_exchange_strong(expected, buffer_state::buffering);
+}
+
+void node::buffer_queue(std::queue<node*> nodes)
+{
+	std::queue<node*> nodes_to_notify{};
+
+	while (!nodes.empty())
+	{
+		auto* node = nodes.front();
+		nodes.pop();
+
+		if (node && !node->is_being_deleted() && node->buffer_meshes_internal())
+		{
+			nodes_to_notify.push(node);
+		}
+	}
+
+	glFinish();
+
+	while (!nodes_to_notify.empty())
+	{
+		auto* node = nodes_to_notify.front();
+		nodes_to_notify.pop();
+
+		node->mark_as_buffered();
+	}
 }
 
 void node::visit_children(const std::function<void(generic_object&)>& /*visitor*/)
@@ -315,6 +343,32 @@ void node::populate(const std::optional<std::string>& data)
 void node::clear()
 {
 	this->meshes.clear();
+	this->buffer_state_ = buffer_state::unbuffered;
+}
+
+bool node::can_be_deleted() const
+{
+	return this->buffer_state_ != buffer_state::buffering;
+}
+
+bool node::buffer_meshes_internal()
+{
+	if (this->is_buffered())
+	{
+		return false;
+	}
+
+	for (auto& m : this->meshes)
+	{
+		m.buffer();
+	}
+
+	return true;
+}
+
+void node::mark_as_buffered()
+{
+	this->buffer_state_ = buffer_state::buffered;
 }
 
 bulk::bulk(rocktree& rocktree, const uint32_t epoch, std::string path)

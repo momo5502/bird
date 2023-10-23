@@ -4,6 +4,7 @@
 #include "input.hpp"
 
 #include <utils/nt.hpp>
+#include <utils/thread.hpp>
 #include <utils/concurrency.hpp>
 
 namespace
@@ -117,7 +118,7 @@ namespace
 
 	void run_frame(profiler& p, window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
 	               const shader_context& ctx,
-	               utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer)
+	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer)
 	{
 		p.step("Input");
 
@@ -309,7 +310,7 @@ namespace
 
 		p.step("Between");
 
-		std::unordered_set<node*> new_nodes_to_buffer{};
+		std::queue<node*> new_nodes_to_buffer{};
 
 		// 8-bit octant mask flags of nodes
 		std::map<octant_identifier<>, uint8_t> mask_map{};
@@ -331,7 +332,11 @@ namespace
 
 			if (!node->is_buffered())
 			{
-				new_nodes_to_buffer.emplace(node);
+				if (node->mark_for_buffering())
+				{
+					new_nodes_to_buffer.push(node);
+				}
+
 				continue;
 			}
 
@@ -363,11 +368,20 @@ namespace
 
 		p.step("Push buffer");
 
-		nodes_to_buffer.access([&](std::unordered_set<::node*>& nodes)
+		nodes_to_buffer.access([&](std::queue<::node*>& nodes)
 		{
-			for (auto* n : new_nodes_to_buffer)
+			if (nodes.empty())
 			{
-				nodes.emplace(n);
+				nodes = std::move(new_nodes_to_buffer);
+				return;
+			}
+
+			while (!new_nodes_to_buffer.empty())
+			{
+				auto* node = new_nodes_to_buffer.front();
+				new_nodes_to_buffer.pop();
+
+				nodes.push(node);
 			}
 		});
 	}
@@ -397,8 +411,32 @@ namespace
 	}
 #endif
 
+	bool buffer_queue(utils::concurrency::container<std::queue<node*>>& nodes_to_buffer)
+	{
+		std::queue<node*> node_queue{};
+
+		nodes_to_buffer.access([&node_queue](std::queue<node*>& nodes)
+		{
+			if (nodes.empty())
+			{
+				return;
+			}
+
+			node_queue = std::move(nodes);
+			nodes = {};
+		});
+
+		if (node_queue.empty())
+		{
+			return false;
+		}
+
+		node::buffer_queue(node_queue);
+		return true;
+	}
+
 	void bufferer(const std::stop_token& token, window& window,
-	              utils::concurrency::container<std::unordered_set<node*>>& nodes_to_buffer, rocktree& rocktree)
+	              utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, rocktree& rocktree)
 	{
 		window.use_shared_context([&]
 		{
@@ -411,28 +449,7 @@ namespace
 					last_cleanup_frame = frame_counter.load();
 				}
 
-				auto* node_to_buffer = nodes_to_buffer.access<node*>(
-					[](std::unordered_set<node*>& nodes) -> node* {
-						if (nodes.empty())
-						{
-							return nullptr;
-						}
-
-						const auto entry = nodes.begin();
-						auto* n = *entry;
-						nodes.erase(entry);
-
-						return n;
-					});
-
-				if (node_to_buffer //
-					&& !node_to_buffer->is_buffered() //
-					&& !node_to_buffer->is_being_deleted() //
-					&& !node_to_buffer->get_stop_token().stop_requested())
-				{
-					node_to_buffer->buffer_meshes();
-				}
-				else
+				if (!buffer_queue(nodes_to_buffer))
 				{
 					std::this_thread::sleep_for(10ms);
 				}
@@ -460,9 +477,9 @@ int main(int /*argc*/, char** /*argv*/)
 
 	rocktree rocktree{"earth"};
 
-	utils::concurrency::container<std::unordered_set<node*>> nodes_to_buffer{};
+	utils::concurrency::container<std::queue<node*>> nodes_to_buffer{};
 
-	std::jthread buffer_thread([&](const std::stop_token& token)
+	const auto buffer_thread = utils::thread::create_named_jthread("Bufferer", [&](const std::stop_token& token)
 	{
 		bufferer(token, window, nodes_to_buffer, rocktree);
 	});

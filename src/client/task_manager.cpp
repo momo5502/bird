@@ -2,13 +2,15 @@
 
 #include "task_manager.hpp"
 
+#include <utils/thread.hpp>
+
 task_manager::task_manager(const size_t num_threads)
 {
 	this->threads_.resize(num_threads);
 
 	for (auto& thread : this->threads_)
 	{
-		thread = std::thread([this]
+		thread = utils::thread::create_named_thread("Task Manager", [this]
 		{
 			this->work();
 		});
@@ -54,7 +56,7 @@ void task_manager::schedule(task t, const bool is_high_priority)
 void task_manager::stop()
 {
 	{
-		std::lock_guard<std::mutex> _{ this->mutex_ };
+		std::lock_guard<std::mutex> _{this->mutex_};
 		this->stop_ = true;
 	}
 

@@ -1,5 +1,7 @@
 #include "http.hpp"
 #include <curl/curl.h>
+
+#include "thread.hpp"
 #include "finally.hpp"
 
 #ifdef max
@@ -423,17 +425,17 @@ namespace utils::http
 		}
 	};
 
-	worker_thread::worker_thread(concurrency::container<query_queue>& queue, std::condition_variable& cv) :
-		queue_(&queue)
-		, cv_(&cv)
-		, worker_(std::make_unique<worker>())
-		, thread_([this](const std::stop_token& token)
-		{
-			while (!token.stop_requested())
-			{
-				this->work(std::chrono::seconds(1));
-			}
-		})
+	worker_thread::worker_thread(concurrency::container<query_queue>& queue, std::condition_variable& cv)
+		: queue_(&queue)
+		  , cv_(&cv)
+		  , worker_(std::make_unique<worker>())
+		  , thread_(thread::create_named_jthread("HTTP Worker", [this](const std::stop_token& token)
+		  {
+			  while (!token.stop_requested())
+			  {
+				  this->work(std::chrono::seconds(1));
+			  }
+		  }))
 	{
 	}
 
@@ -473,7 +475,11 @@ namespace utils::http
 			auto remaining_time = end - now;
 			auto timeout_duration = std::chrono::duration_cast<std::chrono::milliseconds>(remaining_time);
 
-			this->cv_->wait_for(lock, timeout_duration, should_wake_up);
+			if (!should_wake_up())
+			{
+				this->cv_->wait_for(lock, timeout_duration, should_wake_up);
+			}
+
 			lock.unlock();
 
 			now = std::chrono::steady_clock::now();
