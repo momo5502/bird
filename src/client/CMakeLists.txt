@@ -18,6 +18,7 @@ target_link_libraries(client PRIVATE
   proto
   stb
   crn
+  freetype
 )
 
 set_target_properties(client PROPERTIES OUTPUT_NAME "bird")
