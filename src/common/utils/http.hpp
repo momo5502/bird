@@ -114,7 +114,7 @@ namespace utils::http
 	class worker_thread
 	{
 	public:
-		worker_thread(concurrency::container<query_queue>& queue, std::condition_variable& cv);
+		worker_thread(concurrency::container<query_queue>& queue, std::condition_variable& cv, size_t max_requests);
 		~worker_thread();
 
 		worker_thread(const worker_thread&) = delete;
@@ -140,12 +140,18 @@ namespace utils::http
 	class downloader
 	{
 	public:
-		static size_t get_default_thread_count()
+		static constexpr size_t get_default_thread_count()
 		{
 			return 2;
 		}
 
-		downloader(size_t num_worker_threads = get_default_thread_count());
+		static constexpr size_t get_max_simultaneous_downloads()
+		{
+			return 40;
+		}
+
+		downloader(size_t num_worker_threads = get_default_thread_count(),
+		           size_t max_downloads = get_max_simultaneous_downloads());
 		~downloader();
 
 		downloader(const downloader&) = delete;

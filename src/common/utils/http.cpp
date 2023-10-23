@@ -265,7 +265,7 @@ namespace utils::http
 	class worker_thread::worker
 	{
 	public:
-		worker(const size_t max_requests = 20)
+		worker(const size_t max_requests)
 			: max_requests_(max_requests)
 			  , request_(curl_multi_init())
 		{
@@ -425,10 +425,11 @@ namespace utils::http
 		}
 	};
 
-	worker_thread::worker_thread(concurrency::container<query_queue>& queue, std::condition_variable& cv)
+	worker_thread::worker_thread(concurrency::container<query_queue>& queue, std::condition_variable& cv,
+	                             const size_t max_requests)
 		: queue_(&queue)
 		  , cv_(&cv)
-		  , worker_(std::make_unique<worker>())
+		  , worker_(std::make_unique<worker>(max_requests))
 		  , thread_(thread::create_named_jthread("HTTP Worker", [this](const std::stop_token& token)
 		  {
 			  while (!token.stop_requested())
@@ -495,12 +496,15 @@ namespace utils::http
 		}
 	}
 
-	downloader::downloader(const size_t num_worker_threads)
+	downloader::downloader(const size_t num_worker_threads, const size_t max_downloads)
 	{
+		constexpr auto min_per_thread = static_cast<size_t>(1);
+		const auto requests_per_thread = std::max(min_per_thread, max_downloads / num_worker_threads);
+
 		this->workers_.reserve(num_worker_threads);
 		for (size_t i = 0; i < num_worker_threads; ++i)
 		{
-			this->workers_.emplace_back(std::make_unique<worker_thread>(this->queue_, this->cv_));
+			this->workers_.emplace_back(std::make_unique<worker_thread>(this->queue_, this->cv_, requests_per_thread));
 		}
 	}
 
