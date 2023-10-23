@@ -26,10 +26,23 @@ if(MSVC)
     /INCREMENTAL:NO
   )
 endif()
+##########################################
+
+if(MOMO_ENABLE_SANITIZER)
+momo_add_c_and_cxx_compile_options(
+  -fsanitize=address
+)
+endif()
 
 ##########################################
 
-set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>)
+if(MOMO_ENABLE_SANITIZER)
+  # ASAN on Windows needs /MD
+  # https://developercommunity.visualstudio.com/t/c-address-sanitizer-statically-linked-dlls-do-not/1403680
+  set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>DLL)
+else()
+  set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>)
+endif()
 
 ##########################################
 

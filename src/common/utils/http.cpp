@@ -263,7 +263,7 @@ namespace utils::http
 	class worker_thread::worker
 	{
 	public:
-		worker(const size_t max_requests = 20)
+		worker(const size_t max_requests = 7)
 			: max_requests_(max_requests)
 			  , request_(curl_multi_init())
 		{

@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.26.4)
 
 ##########################################
 
+option(MOMO_ENABLE_SANITIZER "Enable sanitizer" OFF)
+
+##########################################
+
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

@@ -17,12 +17,18 @@ option(BUILD_STATIC_LIBS "" ON)
 if(MSVC)
   set(CURL_USE_SCHANNEL ON)
 else()
-  set(CURL_USE_OPENSSL ON)
+  set(CURL_USE_GNUTLS ON)
 endif()
 
 add_subdirectory(curl)
 
 ##########################################
+
+if(${MOMO_ENABLE_SANITIZER})
+  option(protobuf_MSVC_STATIC_RUNTIME OFF)
+else()
+  option(protobuf_MSVC_STATIC_RUNTIME ON)
+endif()
 
 option(protobuf_BUILD_TESTS "" OFF)
 option(protobuf_BUILD_PROTOBUF_BINARIES "" ON)
