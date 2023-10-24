@@ -34,20 +34,13 @@ class mesh_buffers
 {
 public:
 	mesh_buffers(const mesh_data& mesh);
-	~mesh_buffers();
-
-	mesh_buffers(mesh_buffers&&) = delete;
-	mesh_buffers(const mesh_buffers&) = delete;
-
-	mesh_buffers& operator=(mesh_buffers&&) = delete;
-	mesh_buffers& operator=(const mesh_buffers&) = delete;
 
 	void draw(const shader_context& ctx, uint8_t octant_mask, const mesh_data& mesh) const;
 
 private:
-	GLuint vertex_buffer_{};
-	GLuint index_buffer_{};
-	GLuint texture_buffer_{};
+	gl_object vertex_buffer_{};
+	gl_object index_buffer_{};
+	gl_object texture_buffer_{};
 };
 
 class mesh

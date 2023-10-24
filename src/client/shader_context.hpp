@@ -15,6 +15,8 @@ public:
 	GLint octant_loc;
 	GLint texcoords_loc;
 
+	void use_shader() const;
+
 private:
 	gl_object vertex_array_object_{};
 	shader shader_{};

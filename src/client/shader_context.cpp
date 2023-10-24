@@ -60,9 +60,9 @@ shader_context::shader_context()
 	: vertex_array_object_(create_and_bind_vertex_array_object())
 	  , shader_(get_vertex_shader(), get_fragment_shader())
 {
-	const auto program = this->shader_.get_program();
+	this->shader_.use();
 
-	glUseProgram(program);
+	const auto program = this->shader_.get_program();
 
 	this->transform_loc = glGetUniformLocation(program, "transform");
 	this->uv_offset_loc = glGetUniformLocation(program, "uv_offset");
@@ -76,4 +76,9 @@ shader_context::shader_context()
 	glEnableVertexAttribArray(this->position_loc);
 	glEnableVertexAttribArray(this->octant_loc);
 	glEnableVertexAttribArray(this->texcoords_loc);
+}
+
+void shader_context::use_shader() const
+{
+	this->shader_.use();
 }

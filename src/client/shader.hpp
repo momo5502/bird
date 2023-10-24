@@ -9,6 +9,8 @@ public:
 
 	GLuint get_program() const;
 
+	void use() const;
+
 private:
 	gl_object program_{};
 };

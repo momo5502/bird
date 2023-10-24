@@ -69,8 +69,13 @@ void window::create(const int width, const int height, const std::string& title)
 
 	glViewport(0, 0, width, height);
 
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glfwSetInputMode(this->handle_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glfwSetCursorPos(this->handle_, 0, 0);

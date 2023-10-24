@@ -3,6 +3,9 @@
 #include "rocktree.hpp"
 #include "input.hpp"
 
+#include "text_renderer.hpp"
+
+#include <utils/io.hpp>
 #include <utils/nt.hpp>
 #include <utils/thread.hpp>
 #include <utils/concurrency.hpp>
@@ -320,6 +323,8 @@ namespace
 
 		p.step("Loop 2");
 
+		ctx.use_shader();
+
 		for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))
 		{
 			// reverse order
@@ -487,9 +492,13 @@ int main(int /*argc*/, char** /*argv*/)
 	glm::dvec3 eye{4134696.707, 611925.83, 4808504.534};
 	glm::dvec3 direction{0.219862, -0.419329, 0.012226};
 
+	const auto font = utils::io::read_file("segoeui.ttf");
+	text_renderer text_renderer(font, 48);
+
 	window.show([&](profiler& p)
 	{
 		run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer);
+		text_renderer.draw("This is sample text", 25.0f, 75.0f, 1.0f, glm::vec4(0.3f, 0.3f, 0.3f, 1.0f));
 	});
 
 	return 0;

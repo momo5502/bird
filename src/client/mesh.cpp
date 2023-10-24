@@ -1,6 +1,9 @@
 #include "std_include.hpp"
 
 #include "mesh.hpp"
+#include "gl_objects.hpp"
+
+#include <utils/finally.hpp>
 
 namespace
 {
@@ -47,17 +50,23 @@ void mesh::buffer()
 
 mesh_buffers::mesh_buffers(const mesh_data& mesh)
 {
-	glGenBuffers(1, &this->vertex_buffer_);
+	const auto _ = utils::finally([]
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	});
+
+	this->vertex_buffer_ = create_buffer();
 	glBindBuffer(GL_ARRAY_BUFFER, this->vertex_buffer_);
 	glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizei>(mesh.vertices.size() * sizeof(vertex)),
 	             mesh.vertices.data(), GL_STATIC_DRAW);
 
-	glGenBuffers(1, &this->index_buffer_);
+	this->index_buffer_ = create_buffer();
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->index_buffer_);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizei>(mesh.indices.size() * sizeof(unsigned short)),
 	             mesh.indices.data(), GL_STATIC_DRAW);
 
-	glGenTextures(1, &this->texture_buffer_);
+	this->texture_buffer_ = create_texture();
 	glBindTexture(GL_TEXTURE_2D, this->texture_buffer_);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -67,13 +76,6 @@ mesh_buffers::mesh_buffers(const mesh_data& mesh)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	create_mesh_texture(mesh);
-}
-
-mesh_buffers::~mesh_buffers()
-{
-	glDeleteTextures(1, &this->texture_buffer_);
-	glDeleteBuffers(1, &this->index_buffer_);
-	glDeleteBuffers(1, &this->vertex_buffer_);
 }
 
 void mesh_buffers::draw(const shader_context& ctx, const uint8_t octant_mask, const mesh_data& mesh) const
@@ -89,6 +91,8 @@ void mesh_buffers::draw(const shader_context& ctx, const uint8_t octant_mask, co
 
 	glUniform1iv(ctx.octant_mask_loc, 8, v);
 	glUniform1i(ctx.texture_loc, 0);
+
+
 	glBindTexture(GL_TEXTURE_2D, this->texture_buffer_);
 	glBindBuffer(GL_ARRAY_BUFFER, this->vertex_buffer_);
 
@@ -98,4 +102,8 @@ void mesh_buffers::draw(const shader_context& ctx, const uint8_t octant_mask, co
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->index_buffer_);
 	glDrawElements(GL_TRIANGLE_STRIP, static_cast<GLsizei>(mesh.indices.size()), GL_UNSIGNED_SHORT, nullptr);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
