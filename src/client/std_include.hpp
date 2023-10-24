@@ -42,6 +42,7 @@
 #endif
 
 #include <map>
+#include <set>
 #include <list>
 #include <array>
 #include <deque>

@@ -126,6 +126,8 @@ namespace utils::http
 		void wakeup() const;
 		void stop();
 
+		size_t get_downloads() const;
+
 	private:
 		concurrency::container<query_queue>* queue_{};
 		std::condition_variable* cv_{};
@@ -164,6 +166,8 @@ namespace utils::http
 		void download(url_string url, result_function function, std::stop_token token = {}, bool high_priority = false);
 
 		void stop();
+
+		size_t get_downloads() const;
 
 	private:
 		concurrency::container<query_queue> queue_{};

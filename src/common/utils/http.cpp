@@ -288,6 +288,12 @@ namespace utils::http
 			}
 		}
 
+		size_t get_downloads() const
+		{
+			std::atomic_thread_fence(std::memory_order_acquire);
+			return this->active_requests_.size();
+		}
+
 		void wakeup() const
 		{
 			std::atomic_thread_fence(std::memory_order_acquire);
@@ -452,6 +458,16 @@ namespace utils::http
 		this->thread_.request_stop();
 	}
 
+	size_t worker_thread::get_downloads() const
+	{
+		if (!this->worker_)
+		{
+			return 0;
+		}
+
+		return this->worker_->get_downloads();
+	}
+
 	void worker_thread::work(const std::chrono::milliseconds& timeout) const
 	{
 		const auto end = std::chrono::steady_clock::now() + timeout;
@@ -553,6 +569,24 @@ namespace utils::http
 		}
 
 		this->workers_.clear();
+	}
+
+	size_t downloader::get_downloads() const
+	{
+		size_t downloads = this->queue_.access<size_t>([](const query_queue& q)
+		{
+			return q.size();
+		});
+
+		for (const auto& w : this->workers_)
+		{
+			if (w)
+			{
+				downloads += w->get_downloads();
+			}
+		}
+
+		return downloads;
 	}
 
 	void downloader::wakeup() const

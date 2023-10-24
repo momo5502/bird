@@ -127,6 +127,9 @@ public:
 
 	void cleanup_dangling_objects();
 
+	size_t get_tasks() const;
+	size_t get_downloads() const;
+
 private:
 	std::string planet_{};
 

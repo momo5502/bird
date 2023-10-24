@@ -30,6 +30,8 @@ public:
 
 	void stop();
 
+	size_t get_tasks() const;
+
 private:
 	bool stop_{false};
 

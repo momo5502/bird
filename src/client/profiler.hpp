@@ -14,6 +14,11 @@ public:
 
 	~profiler()
 	{
+		if (this->silenced_)
+		{
+			return;
+		}
+
 		const auto now = std::chrono::high_resolution_clock::now();
 		const auto total_duration = now - this->start_;
 		if (total_duration <= this->limit_)
@@ -52,7 +57,13 @@ public:
 		this->step_start_ = now;
 	}
 
+	void silence()
+	{
+		this->silenced_ = true;
+	}
+
 private:
+	std::atomic_bool silenced_{false};
 	time_point start_{std::chrono::high_resolution_clock::now()};
 	time_point step_start_{start_};
 	std::string active_step_{"__begin"};

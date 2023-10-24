@@ -623,6 +623,16 @@ void rocktree::cleanup_dangling_objects()
 	});
 }
 
+size_t rocktree::get_tasks() const
+{
+	return this->task_manager_.get_tasks();
+}
+
+size_t rocktree::get_downloads() const
+{
+	return this->downloader_.get_downloads();
+}
+
 void rocktree::store_object(std::unique_ptr<generic_object> object)
 {
 	this->objects_.access([&](object_list& list)

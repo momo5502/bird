@@ -19,7 +19,7 @@ namespace
 			return;
 		}
 
-		if (!obj.was_used_within(obj.is_fetching() ? 3s : 30s))
+		if (!obj.was_used_within(obj.is_fetching() ? 10s : 30s))
 		{
 			obj.mark_for_deletion();
 		}
@@ -31,7 +31,11 @@ namespace
 
 	void perform_cleanup(rocktree& rocktree)
 	{
+		profiler p("Dangling");
+
 		rocktree.cleanup_dangling_objects();
+
+		p.step("Clean");
 
 		const auto planetoid = rocktree.get_planetoid();
 		if (!planetoid || !planetoid->is_in_final_state()) return;
@@ -121,7 +125,7 @@ namespace
 
 	void run_frame(profiler& p, window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
 	               const shader_context& ctx,
-	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer)
+	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer)
 	{
 		p.step("Input");
 
@@ -302,9 +306,15 @@ namespace
 					if (texels_per_meter > r) continue;
 				}
 
+				int i = 0;
+
 				if (node->can_have_data && node->can_be_used())
 				{
 					potential_nodes[nxt] = node;
+				}
+				else
+				{
+					++i;
 				}
 
 				valid.emplace(std::move(nxt), bulk);
@@ -373,8 +383,12 @@ namespace
 
 		p.step("Push buffer");
 
+		size_t buffer_queue{0};
+
 		nodes_to_buffer.access([&](std::queue<::node*>& nodes)
 		{
+			buffer_queue = nodes.size() + new_nodes_to_buffer.size();
+
 			if (nodes.empty())
 			{
 				nodes = std::move(new_nodes_to_buffer);
@@ -389,6 +403,13 @@ namespace
 				nodes.push(node);
 			}
 		});
+
+		p.step("Draw Text");
+
+		constexpr auto color = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
+		renderer.draw("Tasks: " + std::to_string(rocktree.get_tasks()), 25.0f, 50.0f, 1.0f, color);
+		renderer.draw("Downloads: " + std::to_string(rocktree.get_downloads()), 25.0f, 75.0f, 1.0f, color);
+		renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, 100.0f, 1.0f, color);
 	}
 
 #ifdef _WIN32
@@ -493,12 +514,12 @@ int main(int /*argc*/, char** /*argv*/)
 	glm::dvec3 direction{0.219862, -0.419329, 0.012226};
 
 	const auto font = utils::io::read_file("segoeui.ttf");
-	text_renderer text_renderer(font, 48);
+	text_renderer text_renderer(font, 24);
 
 	window.show([&](profiler& p)
 	{
-		run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer);
-		text_renderer.draw("This is sample text", 25.0f, 75.0f, 1.0f, glm::vec4(0.3f, 0.3f, 0.3f, 1.0f));
+		p.silence();
+		run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer, text_renderer);
 	});
 
 	return 0;

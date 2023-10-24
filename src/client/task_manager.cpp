@@ -71,6 +71,11 @@ void task_manager::stop()
 	}
 }
 
+size_t task_manager::get_tasks() const
+{
+	return this->tasks_.size();
+}
+
 void task_manager::work()
 {
 	auto should_wake_up = [this]
