@@ -407,9 +407,9 @@ namespace
 		p.step("Draw Text");
 
 		constexpr auto color = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
-		renderer.draw("Tasks: " + std::to_string(rocktree.get_tasks()), 25.0f, 50.0f, 1.0f, color);
-		renderer.draw("Downloads: " + std::to_string(rocktree.get_downloads()), 25.0f, 75.0f, 1.0f, color);
-		renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, 100.0f, 1.0f, color);
+		renderer.draw("Tasks: " + std::to_string(rocktree.get_tasks()), 25.0f, 60.0f, 1.0f, color);
+		renderer.draw("Downloads: " + std::to_string(rocktree.get_downloads()), 25.0f, 85.0f, 1.0f, color);
+		renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, 110.0f, 1.0f, color);
 	}
 
 #ifdef _WIN32
