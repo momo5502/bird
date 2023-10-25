@@ -149,7 +149,7 @@ namespace utils::http
 
 		static constexpr size_t get_max_simultaneous_downloads()
 		{
-			return 24;
+			return 40;
 		}
 
 		downloader(size_t num_worker_threads = get_default_thread_count(),

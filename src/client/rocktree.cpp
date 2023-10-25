@@ -594,11 +594,17 @@ void rocktree::cleanup_dangling_objects()
 {
 	std::list<std::unique_ptr<generic_object>> objects_to_remove{};
 
-	this->objects_.access([this, &objects_to_remove](object_list& objects)
+	const auto count = this->objects_.access<size_t>([&](const object_list& objects)
 	{
-		const auto used_objects = this->collect_used_objects();
+		return objects.size();
+	});
 
-		for (auto i = objects.begin(); i != objects.end();)
+	const auto used_objects = this->collect_used_objects();
+
+	this->objects_.access([&](object_list& objects)
+	{
+		size_t index = 0;
+		for (auto i = objects.begin(); i != objects.end() && index < count; ++index)
 		{
 			auto& object = **i;
 
