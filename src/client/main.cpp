@@ -29,21 +29,26 @@ namespace
 		}
 	}
 
-	void perform_cleanup(rocktree& rocktree)
+	void perform_cleanup(rocktree& rocktree, const bool clean)
 	{
-		profiler p("Dangling");
+		if (clean)
+		{
+			profiler p("Clean");
 
-		rocktree.cleanup_dangling_objects();
+			const auto planetoid = rocktree.get_planetoid();
+			if (!planetoid || !planetoid->is_in_final_state()) return;
 
-		p.step("Clean");
+			const auto& current_bulk = planetoid->root_bulk;
+			if (!current_bulk || !current_bulk->is_in_final_state()) return;
 
-		const auto planetoid = rocktree.get_planetoid();
-		if (!planetoid || !planetoid->is_in_final_state()) return;
+			perform_cleanup(*current_bulk);
+		}
+		else
+		{
+			profiler p("Dangling");
 
-		const auto& current_bulk = planetoid->root_bulk;
-		if (!current_bulk || !current_bulk->is_in_final_state()) return;
-
-		perform_cleanup(*current_bulk);
+			rocktree.cleanup_dangling_objects();
+		}
 	}
 
 	void paint_sky(const double altitude)
@@ -466,12 +471,14 @@ namespace
 	{
 		window.use_shared_context([&]
 		{
+			bool clean = false;
 			auto last_cleanup_frame = frame_counter.load();
 			while (!token.stop_requested())
 			{
 				if (frame_counter > (last_cleanup_frame + 10))
 				{
-					perform_cleanup(rocktree);
+					clean = !clean;
+					perform_cleanup(rocktree, clean);
 					last_cleanup_frame = frame_counter.load();
 				}
 
