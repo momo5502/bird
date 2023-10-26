@@ -18,11 +18,13 @@
 
 #include <crn.h>
 
+#include "utils/finally.hpp"
+
 using namespace geo_globetrotter_proto_rocktree;
 
-node::node(rocktree& rocktree, const uint32_t epoch, std::string path, const texture_format format,
+node::node(rocktree& rocktree, const bulk& parent, const uint32_t epoch, std::string path, const texture_format format,
            std::optional<uint32_t> imagery_epoch)
-	: rocktree_object(rocktree)
+	: rocktree_object(rocktree, &parent)
 	  , epoch_(epoch)
 	  , path_(std::move(path))
 	  , format_(format)
@@ -80,11 +82,6 @@ void node::buffer_queue(std::queue<node*> nodes)
 	}
 }
 
-void node::visit_children(const std::function<void(generic_object&)>& /*visitor*/)
-{
-}
-
-// unpackVarInt unpacks variable length integer from proto (like coded_stream.h)
 int unpack_var_int(const std::string& packed, int* index)
 {
 	const auto* data = reinterpret_cast<const uint8_t*>(packed.data());
@@ -93,7 +90,7 @@ int unpack_var_int(const std::string& packed, int* index)
 	int c = 0, d = 1, e{};
 	do
 	{
-		if (*index >= size)
+		if (*index >= static_cast<int>(size))
 		{
 			break;
 		}
@@ -192,7 +189,7 @@ void unpack_octant_mask_and_octant_counts_and_layer_bounds(const std::string& pa
 {
 	// todo: octant counts
 	auto offset = 0;
-	auto len = unpack_var_int(packed, &offset);
+	const auto len = unpack_var_int(packed, &offset);
 	auto idx_i = 0;
 	auto k = 0;
 	auto m = 0;
@@ -371,8 +368,8 @@ void node::mark_as_buffered()
 	this->buffer_state_ = buffer_state::buffered;
 }
 
-bulk::bulk(rocktree& rocktree, const uint32_t epoch, std::string path)
-	: rocktree_object(rocktree)
+bulk::bulk(rocktree& rocktree, const generic_object& parent, const uint32_t epoch, std::string path)
+	: rocktree_object(rocktree, &parent)
 	  , epoch_(epoch)
 	  , path_(std::move(path))
 {
@@ -405,19 +402,6 @@ node_data_path_and_flags unpack_path_and_flags(const NodeMetadata& node_meta)
 const std::string& bulk::get_path() const
 {
 	return this->path_;
-}
-
-void bulk::visit_children(const std::function<void(generic_object&)>& visitor)
-{
-	for (const auto& node : this->nodes | std::views::values)
-	{
-		visitor(*node);
-	}
-
-	for (const auto& bulk : this->bulks | std::views::values)
-	{
-		visitor(*bulk);
-	}
 }
 
 oriented_bounding_box unpack_obb(const std::string& packed, const glm::vec3& head_node_center,
@@ -500,7 +484,7 @@ void bulk::populate(const std::optional<std::string>& data)
 				             : bulk_meta.head_node_key().epoch();
 
 			this->bulks[aux.path] = this->allocate_object<bulk>(
-				this->get_rocktree(), epoch, this->path_ + aux.path);
+				this->get_rocktree(), *this, epoch, this->path_ + aux.path);
 		}
 
 		if (!has_nodes || !node_meta.has_oriented_bounding_box())
@@ -526,7 +510,7 @@ void bulk::populate(const std::optional<std::string>& data)
 				                : bulk_meta.default_imagery_epoch();
 		}
 
-		auto n = this->allocate_object<node>(this->get_rocktree(),
+		auto n = this->allocate_object<node>(this->get_rocktree(), *this,
 		                                     node_meta.has_epoch() ? node_meta.epoch() : this->epoch_,
 		                                     this->path_ + aux.path, texture_format,
 		                                     std::move(imagery_epoch));
@@ -544,16 +528,18 @@ void bulk::populate(const std::optional<std::string>& data)
 
 void bulk::clear()
 {
+	for (const auto& node : this->nodes | std::views::values)
+	{
+		node->unlink_from(*this);
+	}
+
+	for (const auto& bulk : this->bulks | std::views::values)
+	{
+		bulk->unlink_from(*this);
+	}
+
 	this->nodes.clear();
 	this->bulks.clear();
-}
-
-void planetoid::visit_children(const std::function<void(generic_object&)>& visitor)
-{
-	if (this->root_bulk)
-	{
-		visitor(*this->root_bulk);
-	}
 }
 
 std::string planetoid::get_url() const
@@ -570,12 +556,16 @@ void planetoid::populate(const std::optional<std::string>& data)
 	}
 
 	this->radius = planetoid.radius();
-	this->root_bulk = this->allocate_object<bulk>(this->get_rocktree(), planetoid.root_node_metadata().epoch());
+	this->root_bulk = this->allocate_object<bulk>(this->get_rocktree(), *this, planetoid.root_node_metadata().epoch());
 }
 
 void planetoid::clear()
 {
-	this->root_bulk = {};
+	if (this->root_bulk)
+	{
+		this->root_bulk->unlink_from(*this);
+		this->root_bulk = {};
+	}
 }
 
 rocktree::rocktree(std::string planet)
@@ -592,28 +582,18 @@ rocktree::~rocktree()
 
 void rocktree::cleanup_dangling_objects()
 {
-	std::list<std::unique_ptr<generic_object>> objects_to_remove{};
-
-	const auto count = this->objects_.access<size_t>([&](const object_list& objects)
-	{
-		return objects.size();
-	});
-
-	const auto used_objects = this->collect_used_objects();
-
 	this->objects_.access([&](object_list& objects)
 	{
 		size_t index = 0;
-		for (auto i = objects.begin(); i != objects.end() && index < count; ++index)
+		for (auto i = objects.begin(); i != objects.end(); ++index)
 		{
 			auto& object = **i;
 
-			const auto is_unused = !used_objects.contains(&object);
+			const auto is_unused = !object.has_parent();
 			const auto is_final = object.is_in_final_state();
 
 			if (is_unused && is_final)
 			{
-				objects_to_remove.emplace_back(std::move(*i));
 				i = objects.erase(i);
 			}
 			else
@@ -645,30 +625,4 @@ void rocktree::store_object(std::unique_ptr<generic_object> object)
 	{
 		list.push_back(std::move(object));
 	});
-}
-
-std::unordered_set<generic_object*> rocktree::collect_used_objects() const
-{
-	std::unordered_set<generic_object*> used_objects{};
-
-	std::queue<generic_object*> object_queue{};
-	object_queue.push(this->get_planetoid());
-
-	auto visitor = [&used_objects, &object_queue](generic_object& obj)
-	{
-		if (used_objects.emplace(&obj).second)
-		{
-			object_queue.push(&obj);
-		}
-	};
-
-	while (!object_queue.empty())
-	{
-		auto* obj = object_queue.front();
-		object_queue.pop();
-
-		obj->visit(visitor);
-	}
-
-	return used_objects;
 }

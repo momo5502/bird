@@ -7,7 +7,7 @@ class rocktree;
 class rocktree_object : public generic_object
 {
 public:
-	rocktree_object(rocktree& rocktree);
+	rocktree_object(rocktree& rocktree, const generic_object* parent);
 
 	rocktree& get_rocktree() const
 	{

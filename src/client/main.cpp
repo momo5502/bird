@@ -12,20 +12,37 @@
 
 namespace
 {
-	void perform_cleanup(generic_object& obj)
+	bool perform_object_cleanup(generic_object& obj)
 	{
 		if (obj.try_perform_deletion())
 		{
-			return;
+			return true;
 		}
 
 		if (!obj.was_used_within(obj.is_fetching() ? 10s : 30s))
 		{
 			obj.mark_for_deletion();
+			return true;
 		}
-		else
+
+		return false;
+	}
+
+	void perform_cleanup(bulk& current_bulk)
+	{
+		if (perform_object_cleanup(current_bulk) || !current_bulk.is_in_final_state())
 		{
-			obj.visit(perform_cleanup);
+			return;
+		}
+
+		for (auto* node : current_bulk.nodes | std::views::values)
+		{
+			perform_object_cleanup(*node);
+		}
+
+		for (auto* bulk : current_bulk.bulks | std::views::values)
+		{
+			perform_cleanup(*bulk);
 		}
 	}
 

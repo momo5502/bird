@@ -8,6 +8,8 @@
 #include "rocktree/octant_identifier.hpp"
 #include "rocktree/rocktree_object.hpp"
 
+class bulk;
+
 struct oriented_bounding_box
 {
 	glm::dvec3 center{};
@@ -18,7 +20,7 @@ struct oriented_bounding_box
 class node final : public rocktree_object
 {
 public:
-	node(rocktree& rocktree, uint32_t epoch, std::string path, texture_format format,
+	node(rocktree& rocktree, const bulk& parent, uint32_t epoch, std::string path, texture_format format,
 	     std::optional<uint32_t> imagery_epoch);
 
 	bool can_have_data{};
@@ -51,7 +53,6 @@ private:
 	texture_format format_{};
 	std::optional<uint32_t> imagery_epoch_{};
 
-	void visit_children(const std::function<void(generic_object&)>& visitor) override;
 	std::string get_url() const override;
 	void populate(const std::optional<std::string>& data) override;
 	void clear() override;
@@ -64,7 +65,7 @@ private:
 class bulk final : public rocktree_object
 {
 public:
-	bulk(rocktree& rocktree, uint32_t epoch, std::string path = {});
+	bulk(rocktree& rocktree, const generic_object& parent, uint32_t epoch, std::string path = {});
 
 	glm::dvec3 head_node_center{};
 	std::map<octant_identifier<>, node*> nodes{};
@@ -81,7 +82,6 @@ private:
 		return true;
 	}
 
-	void visit_children(const std::function<void(generic_object&)>& visitor) override;
 	std::string get_url() const override;
 	void populate(const std::optional<std::string>& data) override;
 	void clear() override;
@@ -90,7 +90,10 @@ private:
 class planetoid final : public rocktree_object
 {
 public:
-	using rocktree_object::rocktree_object;
+	planetoid(rocktree& rocktree)
+		: rocktree_object(rocktree, nullptr)
+	{
+	}
 
 	float radius{};
 	bulk* root_bulk{};
@@ -101,7 +104,6 @@ private:
 		return true;
 	}
 
-	void visit_children(const std::function<void(generic_object&)>& visitor) override;
 	std::string get_url() const override;
 	void populate(const std::optional<std::string>& data) override;
 	void clear() override;
@@ -141,5 +143,4 @@ private:
 	task_manager task_manager_{};
 
 	void store_object(std::unique_ptr<generic_object> object);
-	std::unordered_set<generic_object*> collect_used_objects() const;
 };

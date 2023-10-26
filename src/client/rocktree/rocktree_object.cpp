@@ -98,8 +98,9 @@ namespace
 	}
 }
 
-rocktree_object::rocktree_object(rocktree& rocktree)
-	: rocktree_(&rocktree)
+rocktree_object::rocktree_object(rocktree& rocktree, const generic_object* parent)
+	: generic_object(parent)
+	  , rocktree_(&rocktree)
 {
 }
 

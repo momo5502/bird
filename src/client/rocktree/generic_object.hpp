@@ -5,7 +5,6 @@ class generic_object
 protected:
 	virtual void clear() = 0;
 	virtual void populate() = 0;
-	virtual void visit_children(const std::function<void(generic_object&)>& visitor) = 0;
 
 	virtual bool can_be_deleted() const
 	{
@@ -13,13 +12,30 @@ protected:
 	}
 
 public:
-	generic_object() = default;
+	generic_object(const generic_object* parent)
+		: parent_(parent)
+	{
+	}
+
 	virtual ~generic_object() = default;
 
 	generic_object(generic_object&&) = delete;
 	generic_object(const generic_object&) = delete;
 	generic_object& operator=(generic_object&&) = delete;
 	generic_object& operator=(const generic_object&) = delete;
+
+	void unlink_from(const generic_object& parent)
+	{
+		if (this->parent_ == &parent)
+		{
+			this->parent_ = nullptr;
+		}
+	}
+
+	bool has_parent() const
+	{
+		return this->parent_ != nullptr;
+	}
 
 	bool is_being_deleted() const
 	{
@@ -36,14 +52,6 @@ public:
 	bool is_fetching() const
 	{
 		return this->state_ == state::fetching;
-	}
-
-	void visit(const std::function<void(generic_object&)>& visitor)
-	{
-		if (this->is_in_final_state())
-		{
-			this->visit_children(visitor);
-		}
 	}
 
 	bool can_be_used()
@@ -118,6 +126,7 @@ private:
 		failed,
 	};
 
+	const generic_object* parent_{nullptr};
 	std::stop_source source_{};
 	std::atomic<state> state_{state::fresh};
 	std::atomic<std::chrono::steady_clock::time_point> last_use_{std::chrono::steady_clock::now()};
