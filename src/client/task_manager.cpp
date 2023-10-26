@@ -20,7 +20,7 @@ task_manager::task_manager(const size_t num_threads)
 task_manager::~task_manager()
 {
 	{
-		std::lock_guard<std::mutex> _{this->mutex_};
+		std::lock_guard _{this->mutex_};
 		this->stop_ = true;
 		this->tasks_.clear();
 	}
@@ -36,27 +36,40 @@ task_manager::~task_manager()
 	}
 }
 
-void task_manager::schedule(task t, const bool is_high_priority)
+void task_manager::schedule(task t, const bool is_high_priority_task, const bool is_high_priority_thread)
 {
-	std::unique_lock<std::mutex> lock{this->mutex_};
-
-	if (is_high_priority)
+	if (is_high_priority_thread)
 	{
-		this->tasks_.push_front(std::move(t));
+		std::scoped_lock lock{this->mutex_.high_priority()};
+		if (is_high_priority_task)
+		{
+			this->tasks_.push_front(std::move(t));
+		}
+		else
+		{
+			this->tasks_.push_back(std::move(t));
+		}
 	}
 	else
 	{
-		this->tasks_.push_back(std::move(t));
+		std::scoped_lock lock{this->mutex_};
+		if (is_high_priority_task)
+		{
+			this->tasks_.push_front(std::move(t));
+		}
+		else
+		{
+			this->tasks_.push_back(std::move(t));
+		}
 	}
 
-	lock.unlock();
 	this->condition_variable_.notify_one();
 }
 
 void task_manager::stop()
 {
 	{
-		std::lock_guard<std::mutex> _{this->mutex_};
+		std::lock_guard _{this->mutex_};
 		this->stop_ = true;
 	}
 
@@ -85,7 +98,7 @@ void task_manager::work()
 
 	while (true)
 	{
-		std::unique_lock<std::mutex> lock{this->mutex_};
+		std::unique_lock lock{this->mutex_};
 
 		if (!should_wake_up())
 		{

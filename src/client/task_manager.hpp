@@ -1,5 +1,6 @@
 #pragma once
 #include <utils/http.hpp>
+#include <utils/priority_mutex.hpp>
 
 inline int32_t get_available_threads()
 {
@@ -25,7 +26,7 @@ public:
 	task_manager& operator=(task_manager&&) = delete;
 	task_manager& operator=(const task_manager&) = delete;
 
-	void schedule(task t, bool is_high_priority = false);
+	void schedule(task t, bool is_high_priority_task = false, bool is_high_priority_thread = false);
 
 	void stop();
 
@@ -34,8 +35,8 @@ public:
 private:
 	bool stop_{false};
 
-	std::mutex mutex_{};
-	std::condition_variable condition_variable_{};
+	utils::priority_mutex mutex_{};
+	std::condition_variable_any condition_variable_{};
 
 	std::deque<task> tasks_{};
 	std::vector<std::thread> threads_{};

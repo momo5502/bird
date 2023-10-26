@@ -121,7 +121,7 @@ void rocktree_object::populate()
 #endif
 			this->finish_fetching(false);
 		}
-	}, this->is_high_priority());
+	}, this->is_high_priority(), true);
 }
 
 void rocktree_object::run_fetching()
