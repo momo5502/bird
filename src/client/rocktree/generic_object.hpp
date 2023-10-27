@@ -108,18 +108,18 @@ public:
 	bool was_used_within(const std::chrono::milliseconds& normal, const std::chrono::milliseconds& fetching,
 	                     const std::chrono::milliseconds& failed) const
 	{
-		const auto* time = &normal;
+		auto time = normal;
 		const auto state = this->state_.load();
 		if (state == state::failed)
 		{
-			time = &failed;
+			time = failed;
 		}
 		else if (state == state::fetching)
 		{
-			time = &fetching;
+			time = fetching;
 		}
 
-		return (std::chrono::steady_clock::now() - this->last_use_.load()) < *time;
+		return (std::chrono::steady_clock::now() - this->last_use_.load()) < time;
 	}
 
 protected:
