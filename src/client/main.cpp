@@ -19,7 +19,7 @@ namespace
 			return true;
 		}
 
-		if (!obj.was_used_within(obj.is_fetching() ? 10s : 30s))
+		if (!obj.was_used_within(30s, 10s, 2s))
 		{
 			obj.mark_for_deletion();
 			return true;
@@ -328,15 +328,9 @@ namespace
 					if (texels_per_meter > r) continue;
 				}
 
-				int i = 0;
-
-				if (node->can_have_data && node->can_be_used())
+				if (node->can_be_used() && node->can_have_data)
 				{
 					potential_nodes[nxt] = node;
-				}
-				else
-				{
-					++i;
 				}
 
 				valid.emplace(std::move(nxt), bulk);

@@ -40,7 +40,7 @@ namespace
 		state.down = get_pressed_key_value(window, GLFW_KEY_DOWN, GLFW_KEY_S);
 		state.right = get_pressed_key_value(window, GLFW_KEY_RIGHT, GLFW_KEY_D);
 
-		state.boost = get_pressed_key_value(window, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_RIGHT_SHIFT);
+		state.boost = get_pressed_key_value(window, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_RIGHT_SHIFT, GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL);
 
 		const auto mouse_position = window.get_mouse_position();
 		state.mouse_x = mouse_position.first;

@@ -105,15 +105,34 @@ public:
 		return this->source_.get_token();
 	}
 
-	bool was_used_within(const std::chrono::milliseconds& duration) const
+	bool was_used_within(const std::chrono::milliseconds& normal, const std::chrono::milliseconds& fetching,
+	                     const std::chrono::milliseconds& failed) const
 	{
-		return (std::chrono::steady_clock::now() - this->last_use_.load()) < duration;
+		const auto* time = &normal;
+		const auto state = this->state_.load();
+		if (state == state::failed)
+		{
+			time = &failed;
+		}
+		else if (state == state::fetching)
+		{
+			time = &fetching;
+		}
+
+		return (std::chrono::steady_clock::now() - this->last_use_.load()) < *time;
 	}
 
 protected:
 	void finish_fetching(const bool success)
 	{
-		this->state_ = success ? state::ready : state::failed;
+		if (success)
+		{
+			this->state_ = state::ready;
+		}
+		else
+		{
+			this->state_ = state::failed;
+		}
 	}
 
 private:
