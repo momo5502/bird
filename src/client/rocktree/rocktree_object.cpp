@@ -71,7 +71,7 @@ namespace
 			{
 				cb(result);
 
-				manager.schedule([c = std::move(cache_url), r = std::move(std::move(result))]
+				manager.schedule_low([c = std::move(cache_url), r = std::move(std::move(result))]
 				{
 					utils::io::write_file(c, *r);
 				});
@@ -90,7 +90,7 @@ namespace
 		downloader.download(
 			url, [&manager, d = std::move(dispatcher)](utils::http::result result)
 			{
-				manager.schedule([r = std::move(result), dis = std::move(d)]
+				manager.schedule_high([r = std::move(result), dis = std::move(d)]
 				{
 					dis(std::move(r));
 				}, true);
@@ -106,7 +106,7 @@ rocktree_object::rocktree_object(rocktree& rocktree, const generic_object* paren
 
 void rocktree_object::populate()
 {
-	this->get_rocktree().task_manager_.schedule([this]
+	this->get_rocktree().task_manager_.schedule_high([this]
 	{
 		try
 		{

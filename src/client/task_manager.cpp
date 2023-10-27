@@ -22,7 +22,8 @@ task_manager::~task_manager()
 	{
 		std::lock_guard _{this->mutex_};
 		this->stop_ = true;
-		this->tasks_.clear();
+		this->tasks_low_.clear();
+		this->tasks_high_.clear();
 	}
 
 	this->condition_variable_.notify_all();
@@ -36,18 +37,18 @@ task_manager::~task_manager()
 	}
 }
 
-void task_manager::schedule(task t, const bool is_high_priority_task, const bool is_high_priority_thread)
+void task_manager::schedule(std::deque<task>& q, task t, const bool is_high_priority_task, const bool is_high_priority_thread)
 {
 	if (is_high_priority_thread)
 	{
 		std::scoped_lock lock{this->mutex_.high_priority()};
 		if (is_high_priority_task)
 		{
-			this->tasks_.push_front(std::move(t));
+			q.push_front(std::move(t));
 		}
 		else
 		{
-			this->tasks_.push_back(std::move(t));
+			q.push_back(std::move(t));
 		}
 	}
 	else
@@ -55,15 +56,25 @@ void task_manager::schedule(task t, const bool is_high_priority_task, const bool
 		std::scoped_lock lock{this->mutex_};
 		if (is_high_priority_task)
 		{
-			this->tasks_.push_front(std::move(t));
+			q.push_front(std::move(t));
 		}
 		else
 		{
-			this->tasks_.push_back(std::move(t));
+			q.push_back(std::move(t));
 		}
 	}
 
 	this->condition_variable_.notify_one();
+}
+
+void task_manager::schedule_high(task t, const bool is_high_priority_task, const bool is_high_priority_thread)
+{
+	this->schedule(this->tasks_high_, std::move(t), is_high_priority_task, is_high_priority_thread);
+}
+
+void task_manager::schedule_low(task t, const bool is_high_priority_task, const bool is_high_priority_thread)
+{
+	this->schedule(this->tasks_low_, std::move(t), is_high_priority_task, is_high_priority_thread);
 }
 
 void task_manager::stop()
@@ -86,14 +97,14 @@ void task_manager::stop()
 
 size_t task_manager::get_tasks() const
 {
-	return this->tasks_.size();
+	return this->tasks_low_.size() + this->tasks_high_.size();
 }
 
 void task_manager::work()
 {
 	auto should_wake_up = [this]
 	{
-		return this->stop_ || !this->tasks_.empty();
+		return this->stop_ || !this->tasks_high_.empty() || !this->tasks_low_.empty();
 	};
 
 	while (true)
@@ -110,13 +121,19 @@ void task_manager::work()
 			break;
 		}
 
-		if (this->tasks_.empty())
+		auto* q = &this->tasks_high_;
+		if(q->empty())
+		{
+			q = &this->tasks_low_;
+		}
+
+		if (q->empty())
 		{
 			continue;
 		}
 
-		auto task = std::move(this->tasks_.front());
-		this->tasks_.pop_front();
+		auto task = std::move(q->front());
+		q->pop_front();
 
 		lock.unlock();
 

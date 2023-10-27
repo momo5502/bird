@@ -5,12 +5,12 @@
 inline int32_t get_available_threads()
 {
 	const auto total_threads = static_cast<int32_t>(std::thread::hardware_concurrency());
-	return total_threads - 2;
+	return total_threads - 3;
 }
 
 inline uint32_t get_task_manager_thread_count()
 {
-	return static_cast<uint32_t>(std::max(4, get_available_threads()));
+	return static_cast<uint32_t>(std::max(3, get_available_threads()));
 }
 
 class task_manager
@@ -26,7 +26,8 @@ public:
 	task_manager& operator=(task_manager&&) = delete;
 	task_manager& operator=(const task_manager&) = delete;
 
-	void schedule(task t, bool is_high_priority_task = false, bool is_high_priority_thread = false);
+	void schedule_high(task t, bool is_high_priority_task = false, bool is_high_priority_thread = false);
+	void schedule_low(task t, bool is_high_priority_task = false, bool is_high_priority_thread = false);
 
 	void stop();
 
@@ -38,8 +39,11 @@ private:
 	utils::priority_mutex mutex_{};
 	std::condition_variable_any condition_variable_{};
 
-	std::deque<task> tasks_{};
+	std::deque<task> tasks_high_{};
+	std::deque<task> tasks_low_{};
 	std::vector<std::thread> threads_{};
 
 	void work();
+
+	void schedule(std::deque<task>& q, task t, bool is_high_priority_task, bool is_high_priority_thread);
 };
