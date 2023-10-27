@@ -26,8 +26,7 @@ public:
 	task_manager& operator=(task_manager&&) = delete;
 	task_manager& operator=(const task_manager&) = delete;
 
-	void schedule_high(task t, bool is_high_priority_task = false, bool is_high_priority_thread = false);
-	void schedule_low(task t, bool is_high_priority_task = false, bool is_high_priority_thread = false);
+	void schedule(task t, uint32_t priority = 4, bool is_high_priority_thread = false);
 
 	void stop();
 

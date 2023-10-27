@@ -67,14 +67,9 @@ void task_manager::schedule(std::deque<task>& q, task t, const bool is_high_prio
 	this->condition_variable_.notify_one();
 }
 
-void task_manager::schedule_high(task t, const bool is_high_priority_task, const bool is_high_priority_thread)
+void task_manager::schedule(task t, const uint32_t priority, const bool is_high_priority_thread)
 {
-	this->schedule(this->tasks_high_, std::move(t), is_high_priority_task, is_high_priority_thread);
-}
-
-void task_manager::schedule_low(task t, const bool is_high_priority_task, const bool is_high_priority_thread)
-{
-	this->schedule(this->tasks_low_, std::move(t), is_high_priority_task, is_high_priority_thread);
+	this->schedule(priority < 2 ? this->tasks_high_ : this->tasks_low_, std::move(t), priority % 2 == 0, is_high_priority_thread);
 }
 
 void task_manager::stop()
