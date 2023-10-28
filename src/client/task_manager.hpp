@@ -5,7 +5,8 @@
 inline int32_t get_available_threads()
 {
 	const auto total_threads = static_cast<int32_t>(std::thread::hardware_concurrency());
-	return total_threads - 3;
+	const auto used_threads = static_cast<int32_t>(utils::http::downloader::get_default_thread_count() + 3);
+	return total_threads - used_threads;
 }
 
 inline uint32_t get_task_manager_thread_count()
