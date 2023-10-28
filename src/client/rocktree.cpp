@@ -165,17 +165,13 @@ std::vector<uint16_t> unpack_indices(const std::string& packed)
 
 	const auto triangle_strip_len = unpack_var_int(packed, &offset);
 	auto triangle_strip = std::vector<uint16_t>(triangle_strip_len);
-	auto num_non_degenerate_triangles = 0;
-	for (int zeros = 0, a, b = 0, c = 0, i = 0; i < triangle_strip_len; ++i)
+	for (int zeros = 0, c = 0, i = 0; i < triangle_strip_len; ++i)
 	{
 		const int val = unpack_var_int(packed, &offset);
 
-		a = b;
-		b = c;
 		c = zeros - val;
 
 		triangle_strip[i] = static_cast<uint16_t>(c);
-		if (a != b && a != c && b != c) num_non_degenerate_triangles++;
 		if (0 == val) zeros++;
 	}
 
@@ -584,8 +580,7 @@ void rocktree::cleanup_dangling_objects()
 {
 	this->objects_.access([&](object_list& objects)
 	{
-		size_t index = 0;
-		for (auto i = objects.begin(); i != objects.end(); ++index)
+		for (auto i = objects.begin(); i != objects.end();)
 		{
 			auto& object = **i;
 
@@ -612,6 +607,11 @@ void rocktree::cleanup_dangling_objects()
 size_t rocktree::get_tasks() const
 {
 	return this->task_manager_.get_tasks();
+}
+
+size_t rocktree::get_tasks(const size_t i) const
+{
+	return this->task_manager_.get_tasks(i);
 }
 
 size_t rocktree::get_downloads() const

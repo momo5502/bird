@@ -132,9 +132,38 @@ endfunction()
 
 ##########################################
 
+function(momo_add_release_compile_options language)
+  foreach(option ${ARGN})
+    add_compile_options(
+      $<$<COMPILE_LANGUAGE:${language}>:$<$<CONFIG:RELEASE>:${option}>>
+      $<$<COMPILE_LANGUAGE:${language}>:$<$<CONFIG:RELWITHDEBINFO>:${option}>>
+    )
+  endforeach()
+endfunction()
+
+##########################################
+
+function(momo_add_release_link_options)
+  foreach(option ${ARGN})
+    add_link_options(
+      $<$<CONFIG:RELEASE>:${option}>
+      $<$<CONFIG:RELWITHDEBINFO>:${option}>
+    )
+  endforeach()
+endfunction()
+
+##########################################
+
 function(momo_add_c_and_cxx_compile_options)
   momo_add_compile_options(C ${ARGV})
   momo_add_compile_options(CXX ${ARGV})
+endfunction()
+
+##########################################
+
+function(momo_add_c_and_cxx_release_compile_options)
+  momo_add_release_compile_options(C ${ARGV})
+  momo_add_release_compile_options(CXX ${ARGV})
 endfunction()
 
 ##########################################

@@ -38,18 +38,6 @@ namespace
 		return url;
 	}
 
-	std::optional<std::string> fetch_data(const std::string& url)
-	{
-		try
-		{
-			return utils::http::get_data(url);
-		}
-		catch (...)
-		{
-			return {};
-		}
-	}
-
 	void fetch_google_data(task_manager& manager, utils::http::downloader& downloader, const std::string_view& planet,
 	                       const std::string_view& path,
 	                       utils::http::result_function callback, std::stop_token token, const bool prefer_cache,

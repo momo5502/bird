@@ -270,18 +270,9 @@ namespace utils::nt
 		return shutdown_in_progress();
 	}
 
-	void raise_hard_exception()
-	{
-		int data = false;
-		const library ntdll("ntdll.dll");
-		ntdll.invoke_pascal<void>("RtlAdjustPrivilege", 19, true, false, &data);
-		ntdll.invoke_pascal<void>("NtRaiseHardError", 0xC000007B, 0, nullptr, nullptr, 6, &data);
-		_Exit(0);
-	}
-
 	std::string load_resource(const int id)
 	{
-		const auto lib = library::get_by_address(load_resource);
+		const auto lib = library::get_by_address(reinterpret_cast<const void*>(&load_resource));
 		auto* const res = FindResource(lib, MAKEINTRESOURCE(id), RT_RCDATA);
 		if (!res) return {};
 
@@ -293,7 +284,7 @@ namespace utils::nt
 
 	void relaunch_self()
 	{
-		const auto self = utils::nt::library::get_by_address(relaunch_self);
+		const auto self = library::get_by_address(reinterpret_cast<const void*>(&relaunch_self));
 
 		STARTUPINFOA startup_info;
 		PROCESS_INFORMATION process_info;

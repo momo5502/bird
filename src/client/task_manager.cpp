@@ -22,8 +22,7 @@ task_manager::~task_manager()
 	{
 		std::lock_guard _{this->mutex_};
 		this->stop_ = true;
-		this->tasks_low_.clear();
-		this->tasks_high_.clear();
+		this->queues_ = {};
 	}
 
 	this->condition_variable_.notify_all();
@@ -37,41 +36,26 @@ task_manager::~task_manager()
 	}
 }
 
-void task_manager::schedule(std::deque<task>& q, task t, const bool is_high_priority_task,
-                            const bool is_high_priority_thread)
+void task_manager::schedule(std::deque<task>& q, task t, const bool is_high_priority_thread)
 {
 	if (is_high_priority_thread)
 	{
 		std::scoped_lock lock{this->mutex_.high_priority()};
-		if (is_high_priority_task)
-		{
-			q.push_front(std::move(t));
-		}
-		else
-		{
-			q.push_back(std::move(t));
-		}
+		q.push_back(std::move(t));
 	}
 	else
 	{
 		std::scoped_lock lock{this->mutex_};
-		if (is_high_priority_task)
-		{
-			q.push_front(std::move(t));
-		}
-		else
-		{
-			q.push_back(std::move(t));
-		}
+		q.push_back(std::move(t));
 	}
 
 	this->condition_variable_.notify_one();
 }
 
-void task_manager::schedule(task t, const uint32_t priority, const bool is_high_priority_thread)
+void task_manager::schedule(task t, const size_t priority, const bool is_high_priority_thread)
 {
-	this->schedule(priority < 2 ? this->tasks_high_ : this->tasks_low_, std::move(t), priority % 2 == 0,
-	               is_high_priority_thread);
+	auto& q = this->queues_.at(std::min((this->queues_.size() - 1), priority));
+	this->schedule(q, std::move(t), is_high_priority_thread);
 }
 
 void task_manager::stop()
@@ -94,14 +78,38 @@ void task_manager::stop()
 
 size_t task_manager::get_tasks() const
 {
-	return this->tasks_low_.size() + this->tasks_high_.size();
+	size_t tasks = 0;
+	for (const auto& q : queues_)
+	{
+		tasks += q.size();
+	}
+
+	return tasks;
+}
+
+size_t task_manager::get_tasks(const size_t i) const
+{
+	return this->queues_.at(i).size();
 }
 
 void task_manager::work()
 {
 	auto should_wake_up = [this]
 	{
-		return this->stop_ || !this->tasks_high_.empty() || !this->tasks_low_.empty();
+		if (this->stop_)
+		{
+			return true;
+		}
+
+		for (const auto& q : queues_)
+		{
+			if (!q.empty())
+			{
+				return true;
+			}
+		}
+
+		return false;
 	};
 
 	while (true)
@@ -118,10 +126,10 @@ void task_manager::work()
 			break;
 		}
 
-		auto* q = &this->tasks_high_;
-		if (q->empty())
+		auto* q = &this->queues_.at(0);
+		for (size_t i = 1; q->empty() && i < this->queues_.size(); ++i)
 		{
-			q = &this->tasks_low_;
+			q = &this->queues_.at(i);
 		}
 
 		if (q->empty())

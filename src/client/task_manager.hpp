@@ -17,6 +17,8 @@ inline uint32_t get_task_manager_thread_count()
 class task_manager
 {
 public:
+	static constexpr size_t QUEUE_COUNT = 4;
+
 	using task = std::function<void()>;
 
 	task_manager(size_t num_threads = get_task_manager_thread_count());
@@ -27,11 +29,12 @@ public:
 	task_manager& operator=(task_manager&&) = delete;
 	task_manager& operator=(const task_manager&) = delete;
 
-	void schedule(task t, uint32_t priority = 4, bool is_high_priority_thread = false);
+	void schedule(task t, size_t priority = (QUEUE_COUNT - 1), bool is_high_priority_thread = false);
 
 	void stop();
 
 	size_t get_tasks() const;
+	size_t get_tasks(size_t i) const;
 
 private:
 	bool stop_{false};
@@ -39,11 +42,10 @@ private:
 	utils::priority_mutex mutex_{};
 	std::condition_variable_any condition_variable_{};
 
-	std::deque<task> tasks_high_{};
-	std::deque<task> tasks_low_{};
+	std::array<std::deque<task>, QUEUE_COUNT> queues_{};
 	std::vector<std::thread> threads_{};
 
 	void work();
 
-	void schedule(std::deque<task>& q, task t, bool is_high_priority_task, bool is_high_priority_thread);
+	void schedule(std::deque<task>& q, task t, bool is_high_priority_thread);
 };

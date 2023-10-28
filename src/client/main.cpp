@@ -426,6 +426,13 @@ namespace
 		renderer.draw("Tasks: " + std::to_string(rocktree.get_tasks()), 25.0f, 60.0f, 1.0f, color);
 		renderer.draw("Downloads: " + std::to_string(rocktree.get_downloads()), 25.0f, 85.0f, 1.0f, color);
 		renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, 110.0f, 1.0f, color);
+
+		for (size_t i = 0; i < task_manager::QUEUE_COUNT; ++i)
+		{
+			renderer.draw("Q " + std::to_string(i) + ": " + std::to_string(rocktree.get_tasks(i)), 25.0f,
+			              135.0f + 25.0f * i, 1.0f,
+			              color);
+		}
 	}
 
 #ifdef _WIN32
@@ -438,7 +445,8 @@ namespace
 			return;
 		}
 
-		const auto self = utils::nt::library::get_by_address(&trigger_high_performance_gpu_switch);
+		const auto self = utils::nt::library::get_by_address(
+			reinterpret_cast<const void*>(&trigger_high_performance_gpu_switch));
 		const auto path = self.get_path().make_preferred().wstring();
 
 		if (RegQueryValueExW(key, path.data(), nullptr, nullptr, nullptr, nullptr) != ERROR_FILE_NOT_FOUND)

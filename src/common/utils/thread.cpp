@@ -55,7 +55,7 @@ namespace utils::thread
 
 	std::vector<DWORD> get_thread_ids()
 	{
-		nt::handle<INVALID_HANDLE_VALUE> h = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, GetCurrentProcessId());
+		nt::handle<nt::InvalidHandleValueFunc> h = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, GetCurrentProcessId());
 		if (!h)
 		{
 			return {};

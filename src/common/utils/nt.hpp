@@ -56,7 +56,7 @@ namespace utils::nt
 		template <typename T>
 		[[nodiscard]] T get_proc(const char* process) const
 		{
-			if (!this->is_valid()) T{};
+			if (!this->is_valid()) return T{};
 			return reinterpret_cast<T>(GetProcAddress(this->module_, process));
 		}
 
@@ -82,14 +82,6 @@ namespace utils::nt
 		}
 
 		template <typename T, typename... Args>
-		T invoke_pascal(const std::string& process, Args... args) const
-		{
-			auto method = this->get<T(__stdcall)(Args...)>(process);
-			if (method) return method(args...);
-			return T();
-		}
-
-		template <typename T, typename... Args>
 		T invoke_this(const std::string& process, void* this_ptr, Args... args) const
 		{
 			auto method = this->get<T(__thiscall)(void*, Args...)>(this_ptr, process);
@@ -110,7 +102,17 @@ namespace utils::nt
 		HMODULE module_;
 	};
 
-	template <HANDLE InvalidHandle = nullptr>
+	inline HANDLE NullHandleFunc()
+	{
+		return nullptr;
+	}
+
+	inline HANDLE InvalidHandleValueFunc()
+	{
+		return INVALID_HANDLE_VALUE;
+	}
+
+	template <HANDLE(*InvalidHandleFunc)() = NullHandleFunc>
 	class handle
 	{
 	public:
@@ -126,7 +128,7 @@ namespace utils::nt
 			if (*this)
 			{
 				CloseHandle(this->handle_);
-				this->handle_ = InvalidHandle;
+				this->handle_ = InvalidHandleFunc();
 			}
 		}
 
@@ -145,7 +147,7 @@ namespace utils::nt
 			{
 				this->~handle();
 				this->handle_ = obj.handle_;
-				obj.handle_ = InvalidHandle;
+				obj.handle_ = InvalidHandleFunc();
 			}
 
 			return *this;
@@ -161,7 +163,7 @@ namespace utils::nt
 
 		operator bool() const
 		{
-			return this->handle_ != InvalidHandle;
+			return this->handle_ != InvalidHandleFunc();
 		}
 
 		operator HANDLE() const
@@ -170,7 +172,7 @@ namespace utils::nt
 		}
 
 	private:
-		HANDLE handle_{InvalidHandle};
+		HANDLE handle_{InvalidHandleFunc()};
 	};
 
 
@@ -247,7 +249,6 @@ namespace utils::nt
 	bool is_wine();
 	bool is_shutdown_in_progress();
 
-	__declspec(noreturn) void raise_hard_exception();
 	std::string load_resource(int id);
 
 	void relaunch_self();
