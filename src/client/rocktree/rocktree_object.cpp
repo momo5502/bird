@@ -43,6 +43,12 @@ namespace
 	                       utils::http::result_function callback, std::stop_token token, const bool prefer_cache,
 	                       const bool high_priority)
 	{
+		if (token.stop_requested())
+		{
+			callback({});
+			return;
+		}
+
 		auto cache_url = build_cache_url(planet, path);
 		std::string data{};
 		if (prefer_cache && utils::io::read_file(cache_url, &data))
