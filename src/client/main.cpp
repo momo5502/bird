@@ -28,7 +28,7 @@ namespace
 		return false;
 	}
 
-	void perform_cleanup(bulk& current_bulk)
+	void perform_bulk_cleanup(bulk& current_bulk)
 	{
 		if (perform_object_cleanup(current_bulk) || !current_bulk.is_in_final_state())
 		{
@@ -42,7 +42,7 @@ namespace
 
 		for (auto* bulk : current_bulk.bulks | std::views::values)
 		{
-			perform_cleanup(*bulk);
+			perform_bulk_cleanup(*bulk);
 		}
 	}
 
@@ -58,7 +58,7 @@ namespace
 			const auto& current_bulk = planetoid->root_bulk;
 			if (!current_bulk || !current_bulk->is_in_final_state()) return;
 
-			perform_cleanup(*current_bulk);
+			perform_bulk_cleanup(*current_bulk);
 		}
 		else
 		{

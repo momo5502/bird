@@ -18,7 +18,8 @@
 
 #include <crn.h>
 
-#include "utils/finally.hpp"
+#include <utils/timer.hpp>
+#include <utils/finally.hpp>
 
 using namespace geo_globetrotter_proto_rocktree;
 
@@ -613,10 +614,21 @@ rocktree::~rocktree()
 
 void rocktree::cleanup_dangling_objects()
 {
-	this->objects_.access([&](object_list& objects)
+	this->objects_.access_with_lock([&](object_list& objects, std::unique_lock<std::mutex>& lock)
 	{
+		utils::timer timer{};
+
 		for (auto i = objects.begin(); i != objects.end();)
 		{
+			if (timer.has_elapsed(1ms))
+			{
+				lock.unlock();
+				std::this_thread::sleep_for(1ms);
+				lock.lock();
+				timer.update();
+				return;
+			}
+
 			auto& object = **i;
 
 			const auto is_unused = !object.has_parent();
