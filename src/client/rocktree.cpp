@@ -104,7 +104,6 @@ int unpack_var_int(const std::string& packed, int* index)
 	return c;
 }
 
-// unpackVertices unpacks vertices XYZ to new 8-byte-per-vertex array
 std::vector<vertex> unpack_vertices(const std::string& packed)
 {
 	const auto count = packed.size() / 3;
@@ -128,7 +127,6 @@ std::vector<vertex> unpack_vertices(const std::string& packed)
 	return vertices;
 }
 
-// unpackTexCoords unpacks texture coordinates UV to 8-byte-per-vertex-array
 void unpack_tex_coords(const std::string& packed, std::vector<vertex>& vertices, glm::vec2& uv_offset,
                        glm::vec2& uv_scale)
 {
@@ -178,7 +176,6 @@ std::vector<uint16_t> unpack_indices(const std::string& packed)
 	return triangle_strip;
 }
 
-// unpackOctantMaskAndOctantCountsAndLayerBounds unpacks the octant mask for vertices (W) and layer bounds and octant counts
 void unpack_octant_mask_and_octant_counts_and_layer_bounds(const std::string& packed,
                                                            const std::vector<uint16_t>& indices,
                                                            std::vector<vertex>& vertices, int layer_bounds[10])

@@ -2,30 +2,9 @@ syntax = "proto2";
 
 package geo_globetrotter_proto_rocktree;
 
-
-message BulkMetadataRequest {
-    optional NodeKey node_key = 1;
-}
-
-message NodeDataRequest {
-    optional NodeKey node_key = 1;
-    optional Texture.Format texture_format = 2;
-    optional uint32 imagery_epoch = 3;
-}
-
 message NodeKey {
     optional string path = 1;
     optional uint32 epoch = 2;
-}
-
-message CopyrightRequest {
-    optional uint32 epoch = 1;
-}
-
-message TextureDataRequest {
-    optional NodeKey node_key = 1;
-    optional Texture.Format texture_format = 2;
-    optional Texture.ViewDirection view_direction = 3;
 }
 
 message BulkMetadata {
