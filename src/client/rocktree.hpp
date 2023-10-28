@@ -8,6 +8,8 @@
 #include "rocktree/octant_identifier.hpp"
 #include "rocktree/rocktree_object.hpp"
 
+#include "gl_objects.hpp"
+
 class bulk;
 
 struct oriented_bounding_box
@@ -134,6 +136,11 @@ public:
 		return this->planetoid_.get();
 	}
 
+	gl_bufferer& get_bufferer()
+	{
+		return this->bufferer_;
+	}
+
 	void cleanup_dangling_objects();
 
 	size_t get_tasks() const;
@@ -142,6 +149,8 @@ public:
 
 private:
 	std::string planet_{};
+
+	gl_bufferer bufferer_{};
 
 	using object_list = std::list<std::unique_ptr<generic_object>>;
 	utils::concurrency::container<object_list> objects_{};

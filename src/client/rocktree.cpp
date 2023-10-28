@@ -373,7 +373,7 @@ bool node::buffer_meshes_internal()
 
 	for (auto& m : this->meshes)
 	{
-		m.buffer();
+		m.buffer(this->get_rocktree().get_bufferer());
 	}
 
 	return true;

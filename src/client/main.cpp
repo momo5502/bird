@@ -499,6 +499,8 @@ namespace
 			auto last_cleanup_frame = frame_counter.load();
 			while (!token.stop_requested())
 			{
+				rocktree.get_bufferer().perform_cleanup();
+
 				if (frame_counter > (last_cleanup_frame + 10))
 				{
 					clean = !clean;

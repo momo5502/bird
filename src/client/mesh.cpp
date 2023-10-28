@@ -29,10 +29,12 @@ mesh::mesh(mesh_data mesh_data)
 {
 }
 
-void mesh::draw(const shader_context& ctx, const uint8_t octant_mask)
+void mesh::draw(const shader_context& ctx, const uint8_t octant_mask) const
 {
-	this->buffer();
-	this->buffered_mesh_->draw(ctx, octant_mask, this->mesh_data_);
+	if (this->buffered_mesh_)
+	{
+		this->buffered_mesh_->draw(ctx, octant_mask, this->mesh_data_);
+	}
 }
 
 void mesh::unbuffer()
@@ -40,15 +42,15 @@ void mesh::unbuffer()
 	this->buffered_mesh_ = {};
 }
 
-void mesh::buffer()
+void mesh::buffer(gl_bufferer& bufferer)
 {
 	if (!this->buffered_mesh_)
 	{
-		this->buffered_mesh_ = std::make_unique<mesh_buffers>(this->mesh_data_);
+		this->buffered_mesh_.emplace(bufferer, this->mesh_data_);
 	}
 }
 
-mesh_buffers::mesh_buffers(const mesh_data& mesh)
+mesh_buffers::mesh_buffers(gl_bufferer& bufferer, const mesh_data& mesh)
 {
 	const auto _ = utils::finally([]
 	{
@@ -56,17 +58,17 @@ mesh_buffers::mesh_buffers(const mesh_data& mesh)
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	});
 
-	this->vertex_buffer_ = create_buffer();
+	this->vertex_buffer_ = bufferer.create_buffer();
 	glBindBuffer(GL_ARRAY_BUFFER, this->vertex_buffer_);
 	glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizei>(mesh.vertices.size() * sizeof(vertex)),
 	             mesh.vertices.data(), GL_STATIC_DRAW);
 
-	this->index_buffer_ = create_buffer();
+	this->index_buffer_ = bufferer.create_buffer();
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->index_buffer_);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizei>(mesh.indices.size() * sizeof(unsigned short)),
 	             mesh.indices.data(), GL_STATIC_DRAW);
 
-	this->texture_buffer_ = create_texture();
+	this->texture_buffer_ = bufferer.create_texture();
 	glBindTexture(GL_TEXTURE_2D, this->texture_buffer_);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -91,7 +93,6 @@ void mesh_buffers::draw(const shader_context& ctx, const uint8_t octant_mask, co
 
 	glUniform1iv(ctx.octant_mask_loc, 8, v);
 	glUniform1i(ctx.texture_loc, 0);
-
 
 	glBindTexture(GL_TEXTURE_2D, this->texture_buffer_);
 	glBindBuffer(GL_ARRAY_BUFFER, this->vertex_buffer_);

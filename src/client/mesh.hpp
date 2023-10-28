@@ -1,5 +1,6 @@
 #pragma once
 #include "shader_context.hpp"
+#include "gl_objects.hpp"
 
 enum class texture_format : int
 {
@@ -33,7 +34,7 @@ struct mesh_data
 class mesh_buffers
 {
 public:
-	mesh_buffers(const mesh_data& mesh);
+	mesh_buffers(gl_bufferer& bufferer, const mesh_data& mesh);
 
 	void draw(const shader_context& ctx, uint8_t octant_mask, const mesh_data& mesh) const;
 
@@ -48,11 +49,11 @@ class mesh
 public:
 	mesh(mesh_data mesh_data);
 
-	void draw(const shader_context& ctx, uint8_t octant_mask);
+	void draw(const shader_context& ctx, uint8_t octant_mask) const;
 	void unbuffer();
-	void buffer();
+	void buffer(gl_bufferer& bufferer);
 
 private:
 	mesh_data mesh_data_{};
-	std::unique_ptr<mesh_buffers> buffered_mesh_{};
+	std::optional<mesh_buffers> buffered_mesh_{};
 };
