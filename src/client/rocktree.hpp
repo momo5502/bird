@@ -53,7 +53,11 @@ private:
 	texture_format format_{};
 	std::optional<uint32_t> imagery_epoch_{};
 
+
+	std::string get_filename() const;
 	std::string get_url() const override;
+	std::filesystem::path get_filepath() const override;
+
 	void populate(const std::optional<std::string>& data) override;
 	void clear() override;
 	bool can_be_deleted() const override;
@@ -82,7 +86,9 @@ private:
 		return true;
 	}
 
+	std::string get_filename() const;
 	std::string get_url() const override;
+	std::filesystem::path get_filepath() const override;
 	void populate(const std::optional<std::string>& data) override;
 	void clear() override;
 };
@@ -105,6 +111,7 @@ private:
 	}
 
 	std::string get_url() const override;
+	std::filesystem::path get_filepath() const override;
 	void populate(const std::optional<std::string>& data) override;
 	void clear() override;
 };

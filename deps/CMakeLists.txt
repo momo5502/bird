@@ -38,13 +38,6 @@ add_subdirectory(protobuf)
 
 ##########################################
 
-add_library(stb INTERFACE)
-target_include_directories(stb INTERFACE
-    "${CMAKE_CURRENT_LIST_DIR}/stb"
-)
-
-##########################################
-
 option(FT_DISABLE_ZLIB "" ON)
 option(FT_DISABLE_BZIP2 "" ON)
 option(FT_DISABLE_PNG "" ON)
@@ -52,3 +45,19 @@ option(FT_DISABLE_HARFBUZZ "" ON)
 option(FT_DISABLE_BROTLI "" ON)
 
 add_subdirectory(freetype)
+
+##########################################
+
+add_library(stb INTERFACE)
+target_include_directories(stb INTERFACE
+    "${CMAKE_CURRENT_LIST_DIR}/stb"
+)
+
+##########################################
+
+add_library(xxHash
+  "${CMAKE_CURRENT_LIST_DIR}/xxHash/xxhash.c"
+)
+target_include_directories(xxHash INTERFACE
+    "${CMAKE_CURRENT_LIST_DIR}/xxHash"
+)

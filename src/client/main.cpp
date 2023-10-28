@@ -210,8 +210,13 @@ namespace
 		paint_sky(altitude);
 
 		const auto horizon = sqrt(altitude * (2 * planet_radius + altitude));
-		auto near_val = horizon > 370000 ? altitude / 2 : 1;
+		auto near_val = 1.0;
 		auto far_val = horizon;
+
+		if (horizon > 370000)
+		{
+			near_val = altitude / 2;
+		}
 
 		if (near_val >= far_val) near_val = far_val - 1;
 		if (std::isnan(far_val) || far_val < near_val) far_val = near_val + 1;

@@ -20,3 +20,6 @@
 [submodule "deps/freetype"]
 	path = deps/freetype
 	url = https://github.com/freetype/freetype.git
+[submodule "deps/xxHash"]
+	path = deps/xxHash
+	url = https://github.com/Cyan4973/xxHash.git

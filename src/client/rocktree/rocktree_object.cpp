@@ -6,6 +6,55 @@
 
 namespace
 {
+	XXH32_hash_t calculate_hash(const void* data, const size_t size)
+	{
+		return XXH32(data, size, 0x12345678);
+	}
+
+	XXH32_hash_t calculate_hash(const std::string_view& data)
+	{
+		return calculate_hash(data.data(), data.size());
+	}
+
+	bool write_cache_file(const std::filesystem::path& file, std::string data)
+	{
+		const auto hash = calculate_hash(data);
+		data.append(reinterpret_cast<const char*>(&hash), sizeof(hash));
+
+		return utils::io::write_file(file, data);
+	}
+
+	std::optional<std::string> read_cache_file(const std::filesystem::path& file)
+	{
+		std::string data{};
+		if (!utils::io::read_file(file, &data))
+		{
+			return {};
+		}
+
+		XXH32_hash_t stored_hash{};
+		constexpr auto hash_size = sizeof(stored_hash);
+		if (data.size() < hash_size)
+		{
+			return {};
+		}
+
+		memcpy(&stored_hash, data.data() + data.size() - hash_size, hash_size);
+
+		const auto* start = data.data();
+		const auto size = data.size() - hash_size;
+
+
+		const auto calculated_hash = calculate_hash(start, size);
+		if (stored_hash != calculated_hash)
+		{
+			return {};
+		}
+
+		data.resize(size);
+		return data;
+	}
+
 	std::string build_google_url(const std::string_view& planet, const std::string_view& path)
 	{
 		static constexpr char base_url[] = "http://kh.google.com/rt/";
@@ -22,24 +71,14 @@ namespace
 		return url;
 	}
 
-	std::string build_cache_url(const std::string_view& planet, const std::string_view& path)
+	std::filesystem::path build_cache_url(const std::string_view& planet, const std::filesystem::path& path)
 	{
-		static constexpr char base_url[] = R"(cache/)";
-
-		std::string url{};
-		// base_url nullterminator and slash cancel out
-		url.reserve(sizeof(base_url) + planet.size() + path.size());
-
-		url.append(base_url);
-		url.append(planet);
-		url.push_back('/');
-		url.append(path);
-
-		return url;
+		return "cache" / (planet / path);
 	}
 
 	void fetch_google_data(task_manager& manager, utils::http::downloader& downloader, const std::string_view& planet,
 	                       const std::string_view& path,
+	                       const std::filesystem::path& file_path,
 	                       utils::http::result_function callback, std::stop_token token, const bool prefer_cache,
 	                       const bool high_priority)
 	{
@@ -49,34 +88,33 @@ namespace
 			return;
 		}
 
-		auto cache_url = build_cache_url(planet, path);
-		std::string data{};
-		if (prefer_cache && utils::io::read_file(cache_url, &data))
+		auto cache_url = build_cache_url(planet, file_path);
+		if (prefer_cache)
 		{
-			callback(std::move(data));
-			return;
+			auto data = read_cache_file(cache_url);
+			if (data)
+			{
+				callback(std::move(data));
+				return;
+			}
 		}
 
 		auto dispatcher = [cache_url = std::move(cache_url), cb = std::move(callback), &manager](
 			std::optional<std::string> result)
 		{
-			std::string data{};
 			if (result)
 			{
 				cb(result);
 
 				manager.schedule([c = std::move(cache_url), r = std::move(std::move(result))]
 				{
-					utils::io::write_file(c, *r);
+					write_cache_file(c, std::move(*r));
 				});
-			}
-			else if (utils::io::read_file(cache_url, &data))
-			{
-				cb(std::move(data));
 			}
 			else
 			{
-				cb({});
+				auto data = read_cache_file(cache_url);
+				cb(std::move(data));
 			}
 		};
 
@@ -120,11 +158,13 @@ void rocktree_object::populate()
 
 void rocktree_object::run_fetching()
 {
+	const auto file_path = this->get_filepath();
 	const auto url_path = this->get_url();
 	auto& rocktree = this->get_rocktree();
 
 	fetch_google_data( //
 		rocktree.task_manager_, rocktree.downloader_, rocktree.get_planet(), url_path,
+		std::move(file_path),
 		[this](const utils::http::result& res)
 		{
 			try

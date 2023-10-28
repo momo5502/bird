@@ -22,6 +22,24 @@
 
 using namespace geo_globetrotter_proto_rocktree;
 
+namespace
+{
+	std::filesystem::path octant_path_to_directory(const std::string& path)
+	{
+		std::filesystem::path p = {};
+
+		char path_chars[2] = {0, 0};
+
+		for (const auto c : path)
+		{
+			path_chars[0] = c;
+			p /= path_chars;
+		}
+
+		return p;
+	}
+}
+
 node::node(rocktree& rocktree, const bulk& parent, const uint32_t epoch, std::string path, const texture_format format,
            std::optional<uint32_t> imagery_epoch)
 	: rocktree_object(rocktree, &parent)
@@ -215,7 +233,7 @@ void unpack_octant_mask_and_octant_counts_and_layer_bounds(const std::string& pa
 	for (; 10 > m; m++) layer_bounds[m] = k;
 }
 
-std::string node::get_url() const
+std::string node::get_filename() const
 {
 	const auto texture_format = std::to_string(this->format_ == texture_format::rgb
 		                                           ? Texture_Format_JPG
@@ -223,17 +241,27 @@ std::string node::get_url() const
 
 	if (this->imagery_epoch_)
 	{
-		return "NodeData/pb=!1m2!1s" + this->path_ //
+		return "pb=!1m2!1s" + this->path_ //
 			+ "!2u" + std::to_string(this->epoch_) //
 			+ "!2e" + texture_format //
 			+ "!3u" + std::to_string(*this->imagery_epoch_) //
 			+ "!4b0";
 	}
 
-	return "NodeData/pb=!1m2!1s" + this->path_ //
+	return "pb=!1m2!1s" + this->path_ //
 		+ "!2u" + std::to_string(this->epoch_) //
 		+ "!2e" + texture_format //
 		+ "!4b0";
+}
+
+std::string node::get_url() const
+{
+	return "NodeData/" + this->get_filename();
+}
+
+std::filesystem::path node::get_filepath() const
+{
+	return "NodeData" / octant_path_to_directory(this->path_) / this->get_filename();
 }
 
 void node::populate(const std::optional<std::string>& data)
@@ -271,11 +299,6 @@ void node::populate(const std::optional<std::string>& data)
 			m.uv_offset[1] = mesh.uv_offset_and_scale(1);
 			m.uv_scale[0] = mesh.uv_offset_and_scale(2);
 			m.uv_scale[1] = mesh.uv_offset_and_scale(3);
-		}
-		else
-		{
-			//m.uv_offset[1] -= 1 / m.uv_scale[1];
-			//m.uv_scale[1] *= -1;
 		}
 
 		int layer_bounds[10];
@@ -443,9 +466,19 @@ oriented_bounding_box unpack_obb(const std::string& packed, const glm::vec3& hea
 	return obb;
 }
 
+std::string bulk::get_filename() const
+{
+	return "pb=!1m2!1s" + this->path_ + "!2u" + std::to_string(this->epoch_);
+}
+
 std::string bulk::get_url() const
 {
-	return "BulkMetadata/pb=!1m2!1s" + this->path_ + "!2u" + std::to_string(this->epoch_);
+	return "BulkMetadata/" + this->get_filename();
+}
+
+std::filesystem::path bulk::get_filepath() const
+{
+	return "BulkMetadata" / octant_path_to_directory(this->path_) / this->get_filename();
 }
 
 void bulk::populate(const std::optional<std::string>& data)
@@ -538,6 +571,11 @@ void bulk::clear()
 std::string planetoid::get_url() const
 {
 	return "PlanetoidMetadata";
+}
+
+std::filesystem::path planetoid::get_filepath() const
+{
+	return this->get_url();
 }
 
 void planetoid::populate(const std::optional<std::string>& data)

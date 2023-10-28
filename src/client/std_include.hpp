@@ -56,6 +56,7 @@
 #include <chrono>
 #include <memory>
 #include <functional>
+#include <filesystem>
 #include <optional>
 #include <stdexcept>
 #include <string_view>
@@ -73,6 +74,8 @@
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+
+#include <xxhash.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H

@@ -16,6 +16,7 @@ public:
 
 protected:
 	virtual std::string get_url() const = 0;
+	virtual std::filesystem::path get_filepath() const = 0;
 	virtual void populate(const std::optional<std::string>& data) = 0;
 
 	virtual bool is_high_priority() const
