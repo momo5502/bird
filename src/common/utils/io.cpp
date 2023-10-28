@@ -57,22 +57,14 @@ namespace utils::io
 		if (!data) return false;
 		data->clear();
 
-		std::ifstream stream(file, std::ios::binary);
+		const std::ifstream stream(file, std::ios::binary);
 		if (!stream) return false;
 
-		stream.seekg(0, std::ios::end);
-		const std::streamsize size = stream.tellg();
-		stream.seekg(0, std::ios::beg);
+		std::stringstream buffer{};
+		buffer << stream.rdbuf();
 
-		if (size > -1)
-		{
-			data->resize(static_cast<std::uint32_t>(size));
-			stream.read(data->data(), size);
-			stream.close();
-			return true;
-		}
-
-		return false;
+		*data = buffer.str();
+		return true;
 	}
 
 	std::size_t file_size(const std::filesystem::path& file)
