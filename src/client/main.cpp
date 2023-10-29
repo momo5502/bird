@@ -68,6 +68,32 @@ namespace
 		}
 	}
 
+	glm::dvec3 lla_to_ecef(const double latitude, const double longitude, const double altitude)
+	{
+		if ((latitude < -90.0) || (latitude > +90.0) || (longitude < -180.0) | (longitude > +360.0))
+		{
+			return {};
+		}
+
+		constexpr double A_EARTH = 6378.1370;
+		constexpr double EARTH_ECC = 0.08181919084262157;
+		constexpr double NAV_E2 = EARTH_ECC * EARTH_ECC;
+		constexpr double deg2rad = glm::pi<double>() / 180.0;
+
+		const double slat = sin(latitude * deg2rad);
+		const double clat = cos(latitude * deg2rad);
+
+		const double slon = sin(longitude * deg2rad);
+		const double clon = cos(longitude * deg2rad);
+
+		const double r_n = A_EARTH / sqrt(1.0 - NAV_E2 * slat * slat);
+		const auto x = (r_n + altitude) * clat * clon;
+		const auto y = (r_n + altitude) * clat * slon;
+		const auto z = (r_n * (1.0 - NAV_E2) + altitude) * slat;
+
+		return glm::dvec3{x, y, z};
+	}
+
 	void paint_sky(const double altitude)
 	{
 		constexpr auto up_limit = 500'000.0;
@@ -543,7 +569,7 @@ int main(int /*argc*/, char** /*argv*/)
 		bufferer(token, window, nodes_to_buffer, rocktree);
 	});
 
-	glm::dvec3 eye{4134696.707, 611925.83, 4808504.534};
+	auto eye = lla_to_ecef(35.517882, 23.897970, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
 	glm::dvec3 direction{0.219862, -0.419329, 0.012226};
 
 	const auto font = utils::io::read_file("segoeui.ttf");
