@@ -645,13 +645,12 @@ void rocktree::cleanup_dangling_objects()
 
 		for (auto i = objects.begin(); i != objects.end();)
 		{
-			if (timer.has_elapsed(1ms))
+			if (timer.has_elapsed(3ms))
 			{
 				lock.unlock();
 				std::this_thread::sleep_for(1ms);
 				lock.lock();
 				timer.update();
-				return;
 			}
 
 			auto& object = **i;
