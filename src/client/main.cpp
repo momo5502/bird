@@ -72,7 +72,7 @@ namespace
 
 	glm::dvec3 lla_to_ecef(const double latitude, const double longitude, const double altitude)
 	{
-		if ((latitude < -90.0) || (latitude > +90.0) || (longitude < -180.0) | (longitude > +360.0))
+		if ((latitude < -90.0) || (latitude > +90.0) || (longitude < -180.0) || (longitude > +360.0))
 		{
 			return {};
 		}
