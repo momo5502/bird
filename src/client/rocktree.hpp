@@ -50,7 +50,6 @@ private:
 		buffered,
 	};
 
-	size_t last_draw_frame{0};
 	std::optional<float> draw_time_{};
 	std::atomic<buffer_state> buffer_state_{buffer_state::unbuffered};
 

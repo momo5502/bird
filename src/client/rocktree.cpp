@@ -381,6 +381,7 @@ void node::populate(const std::optional<std::string>& data)
 void node::clear()
 {
 	this->meshes.clear();
+	this->draw_time_ = {};
 	this->buffer_state_ = buffer_state::unbuffered;
 }
 

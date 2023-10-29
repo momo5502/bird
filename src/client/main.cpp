@@ -12,7 +12,7 @@
 
 namespace
 {
-	constexpr float ANIMATION_TIME = 500.0f;
+	constexpr float ANIMATION_TIME = 350.0f;
 
 	bool perform_object_cleanup(generic_object& obj)
 	{
