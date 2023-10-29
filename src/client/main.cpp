@@ -66,7 +66,7 @@ namespace
 		{
 			profiler p("Dangling");
 
-			rocktree.cleanup_dangling_objects(3ms);
+			rocktree.cleanup_dangling_objects(300ms);
 		}
 	}
 

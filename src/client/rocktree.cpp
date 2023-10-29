@@ -639,9 +639,10 @@ rocktree::~rocktree()
 
 void rocktree::cleanup_dangling_objects(const std::chrono::milliseconds& timeout)
 {
-	this->objects_.access([&](object_list& objects)
+	this->objects_.access_with_lock([&](object_list& objects, std::unique_lock<std::mutex>& lock)
 	{
 		const utils::timer timer{};
+		utils::timer break_timer{};
 
 		if (this->object_iterator_ == objects.end())
 		{
@@ -653,6 +654,14 @@ void rocktree::cleanup_dangling_objects(const std::chrono::milliseconds& timeout
 			if (timer.has_elapsed(timeout))
 			{
 				return;
+			}
+
+			if (break_timer.has_elapsed(6ms))
+			{
+				lock.unlock();
+				std::this_thread::sleep_for(1ms);
+				lock.lock();
+				break_timer.update();
 			}
 
 			auto& object = **this->object_iterator_;
