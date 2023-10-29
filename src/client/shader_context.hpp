@@ -16,7 +16,8 @@ public:
 	GLint texcoords_loc;
 	GLint current_time_loc;
 	GLint own_draw_time_loc;
-	GLint child_draw_time_loc;
+	GLint child_draw_times_loc;
+	GLint animation_time_loc;
 
 	void use_shader() const;
 

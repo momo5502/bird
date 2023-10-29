@@ -12,6 +12,8 @@
 
 namespace
 {
+	constexpr float ANIMATION_TIME = 500.0f;
+
 	bool perform_object_cleanup(generic_object& obj)
 	{
 		if (obj.try_perform_deletion())
@@ -175,7 +177,7 @@ namespace
 	               const shader_context& ctx,
 	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer)
 	{
-		const auto current_time = window.get_current_time();
+		const auto current_time = static_cast<float>(window.get_current_time());
 
 		p.step("Input");
 
@@ -375,7 +377,7 @@ namespace
 		std::queue<node*> new_nodes_to_buffer{};
 
 		using mask_list = std::array<int, 8>;
-		using time_list = std::array<double, 8>;
+		using time_list = std::array<float, 8>;
 
 		struct octant_mask
 		{
@@ -392,6 +394,8 @@ namespace
 		p.step("Loop 2");
 
 		ctx.use_shader();
+
+		glUniform1f(ctx.animation_time_loc, ANIMATION_TIME);
 
 		for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))
 		{
@@ -424,8 +428,15 @@ namespace
 
 			const auto& mask = mask_map[full_path];
 
+			bool must_draw = false;
+			for (size_t i = 0; i < mask.masks.size() && i < mask.times.size() && !must_draw; ++i)
+			{
+				must_draw |= !mask.masks.at(i);
+				must_draw |= (current_time - mask.times.at(i)) <= ANIMATION_TIME;
+			}
+
 			// skip if node is masked completely
-			//if (mask == 0xff) continue;
+			if (!must_draw) continue;
 
 			glm::mat4 transform = viewprojection * node->matrix_globe_from_mesh;
 

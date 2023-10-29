@@ -24,39 +24,40 @@ namespace
 	std::string_view get_vertex_shader()
 	{
 		return R"code(
-#version 400
 uniform mat4 transform;
 uniform vec2 uv_offset;
 uniform vec2 uv_scale;
 uniform bool octant_mask[8];
-uniform double current_time;
-uniform double own_draw_time;
-uniform double child_draw_time[8];
+uniform float current_time;
+uniform float own_draw_time;
+uniform float child_draw_times[8];
+uniform float animation_time;
+
 attribute vec3 position;
 attribute float octant;
 attribute vec2 texcoords;
+
 varying vec2 v_texcoords;
 varying float v_alpha;
+
 void main() {
 
     bool is_masked = octant_mask[int(octant)];
-    double child_time = child_draw_time[int(octant)];
+    float child_time = child_draw_times[int(octant)];
 
-    double animation_time = 400.0;
-    double half_animation_time = animation_time / 2.0;
-    double alpha = clamp(current_time - own_draw_time, 0, half_animation_time) / half_animation_time;
+    float half_animation_time = animation_time / 2.0;
+    v_alpha = clamp(current_time - own_draw_time, 0.0, half_animation_time) / half_animation_time;
 
-	double fadeout_start_time = max(own_draw_time, child_time) + half_animation_time;
-
-    if(is_masked) {
-		double own_hide_alpha = 1.0 - (clamp(current_time - fadeout_start_time, 0, half_animation_time) / half_animation_time);
-	    alpha = alpha * own_hide_alpha;
+    if(is_masked)
+	{
+		float fadeout_start_time = max(own_draw_time, child_time) + half_animation_time;
+		float own_hide_alpha = 1.0 - (clamp(current_time - fadeout_start_time, 0.0, half_animation_time) / half_animation_time);
+	    v_alpha = v_alpha * own_hide_alpha;
     }
 
-    v_alpha = float(alpha);
-	
 	float mask = 1.0;
-	if(v_alpha == 0.0) {
+	if(v_alpha == 0.0)
+	{
 		mask = 0.0;
 	}
 
@@ -91,8 +92,8 @@ void main() {
 		float sum = rand(v_texcoords + gl_FragCoord.xy) * selector;
 		
 		if(int(mod(sum, selector)) != 0) {
-discard;
-}
+			discard;
+		}
 	}
 
 	gl_FragColor = vec4(texture2D(texture, v_texcoords).rgb, 1.0);
@@ -121,7 +122,8 @@ shader_context::shader_context()
 
 	this->current_time_loc = glGetUniformLocation(program, "current_time");
 	this->own_draw_time_loc = glGetUniformLocation(program, "own_draw_time");
-	this->child_draw_time_loc = glGetUniformLocation(program, "child_draw_time");
+	this->child_draw_times_loc = glGetUniformLocation(program, "child_draw_times");
+	this->animation_time_loc = glGetUniformLocation(program, "animation_time");
 
 	glEnableVertexAttribArray(this->position_loc);
 	glEnableVertexAttribArray(this->octant_loc);
