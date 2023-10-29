@@ -76,7 +76,7 @@ bool node::mark_for_buffering()
 }
 
 float node::draw(const shader_context& ctx, float current_time, const std::array<float, 8>& child_draw_time,
-                  const std::array<int, 8>& octant_mask)
+                 const std::array<int, 8>& octant_mask)
 {
 	if (!this->draw_time_)
 	{
@@ -637,30 +637,32 @@ rocktree::~rocktree()
 	this->task_manager_.stop();
 }
 
-void rocktree::cleanup_dangling_objects()
+void rocktree::cleanup_dangling_objects(const std::chrono::milliseconds& timeout)
 {
-	this->objects_.access_with_lock([&](object_list& objects, std::unique_lock<std::mutex>& lock)
+	this->objects_.access([&](object_list& objects)
 	{
-		utils::timer timer{};
+		const utils::timer timer{};
 
-		for (auto i = objects.begin(); i != objects.end();)
+		if (this->object_iterator_ == objects.end())
 		{
-			if (timer.has_elapsed(3ms))
+			this->object_iterator_ = objects.begin();
+		}
+
+		while (this->object_iterator_ != objects.end())
+		{
+			if (timer.has_elapsed(timeout))
 			{
-				lock.unlock();
-				std::this_thread::sleep_for(1ms);
-				lock.lock();
-				timer.update();
+				return;
 			}
 
-			auto& object = **i;
+			auto& object = **this->object_iterator_;
 
 			const auto is_unused = !object.has_parent();
 			const auto is_final = object.is_in_final_state();
 
 			if (is_unused && is_final)
 			{
-				i = objects.erase(i);
+				this->object_iterator_ = objects.erase(this->object_iterator_);
 			}
 			else
 			{
@@ -669,7 +671,7 @@ void rocktree::cleanup_dangling_objects()
 					object.mark_for_deletion();
 				}
 
-				++i;
+				++this->object_iterator_;
 			}
 		}
 	});

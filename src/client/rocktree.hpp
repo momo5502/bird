@@ -36,7 +36,7 @@ public:
 	bool mark_for_buffering();
 
 	float draw(const shader_context& ctx, float current_time, const std::array<float, 8>& child_draw_time,
-	            const std::array<int, 8>& octant_mask);
+	           const std::array<int, 8>& octant_mask);
 
 	static void buffer_queue(std::queue<node*> nodes);
 
@@ -145,7 +145,7 @@ public:
 		return this->bufferer_;
 	}
 
-	void cleanup_dangling_objects();
+	void cleanup_dangling_objects(const std::chrono::milliseconds& timeout);
 
 	size_t get_tasks() const;
 	size_t get_tasks(size_t i) const;
@@ -158,6 +158,7 @@ private:
 
 	using object_list = std::list<std::unique_ptr<generic_object>>;
 	utils::concurrency::container<object_list> objects_{};
+	object_list::iterator object_iterator_ = objects_.get_raw().end();
 
 	std::unique_ptr<planetoid> planetoid_{};
 	utils::http::downloader downloader_{};

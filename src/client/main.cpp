@@ -21,7 +21,7 @@ namespace
 			return true;
 		}
 
-		if (!obj.was_used_within(30s, 6s, 2s))
+		if (!obj.was_used_within(20s, 6s, 2s))
 		{
 			obj.mark_for_deletion();
 			return true;
@@ -66,7 +66,7 @@ namespace
 		{
 			profiler p("Dangling");
 
-			rocktree.cleanup_dangling_objects();
+			rocktree.cleanup_dangling_objects(3ms);
 		}
 	}
 
