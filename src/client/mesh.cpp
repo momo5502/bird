@@ -29,14 +29,6 @@ mesh::mesh(mesh_data mesh_data)
 {
 }
 
-void mesh::draw(const shader_context& ctx, const uint8_t octant_mask) const
-{
-	if (this->buffered_mesh_)
-	{
-		this->buffered_mesh_->draw(ctx, octant_mask, this->mesh_data_);
-	}
-}
-
 void mesh::unbuffer()
 {
 	this->buffered_mesh_ = {};
@@ -80,18 +72,11 @@ mesh_buffers::mesh_buffers(gl_bufferer& bufferer, const mesh_data& mesh)
 	create_mesh_texture(mesh);
 }
 
-void mesh_buffers::draw(const shader_context& ctx, const uint8_t octant_mask, const mesh_data& mesh) const
+void mesh_buffers::draw(const mesh_data& mesh, const shader_context& ctx) const
 {
 	glUniform2fv(ctx.uv_offset_loc, 1, &mesh.uv_offset[0]);
 	glUniform2fv(ctx.uv_scale_loc, 1, &mesh.uv_scale[0]);
 
-	const int v[8] =
-	{
-		(octant_mask >> 0) & 1, (octant_mask >> 1) & 1, (octant_mask >> 2) & 1, (octant_mask >> 3) & 1,
-		(octant_mask >> 4) & 1, (octant_mask >> 5) & 1, (octant_mask >> 6) & 1, (octant_mask >> 7) & 1
-	};
-
-	glUniform1iv(ctx.octant_mask_loc, 8, v);
 	glUniform1i(ctx.texture_loc, 0);
 
 	glBindTexture(GL_TEXTURE_2D, this->texture_buffer_);

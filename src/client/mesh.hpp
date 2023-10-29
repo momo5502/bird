@@ -36,7 +36,7 @@ class mesh_buffers
 public:
 	mesh_buffers(gl_bufferer& bufferer, const mesh_data& mesh);
 
-	void draw(const shader_context& ctx, uint8_t octant_mask, const mesh_data& mesh) const;
+	void draw(const mesh_data& mesh, const shader_context& ctx) const;
 
 private:
 	gl_object vertex_buffer_{};
@@ -49,7 +49,15 @@ class mesh
 public:
 	mesh(mesh_data mesh_data);
 
-	void draw(const shader_context& ctx, uint8_t octant_mask) const;
+	template <typename... Args>
+	void draw(Args&&... args) const
+	{
+		if (this->buffered_mesh_)
+		{
+			this->buffered_mesh_->draw(this->mesh_data_, std::forward<Args>(args)...);
+		}
+	}
+
 	void unbuffer();
 	void buffer(gl_bufferer& bufferer);
 

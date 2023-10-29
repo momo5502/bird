@@ -35,6 +35,9 @@ public:
 	bool is_buffering() const;
 	bool mark_for_buffering();
 
+	double draw(const shader_context& ctx, double current_time, const std::array<double, 8>& child_draw_time,
+	            const std::array<int, 8>& octant_mask);
+
 	static void buffer_queue(std::queue<node*> nodes);
 
 	std::vector<mesh> meshes{};
@@ -47,6 +50,8 @@ private:
 		buffered,
 	};
 
+	size_t last_draw_frame{0};
+	std::optional<double> draw_time_{};
 	std::atomic<buffer_state> buffer_state_{buffer_state::unbuffered};
 
 	uint32_t epoch_{};

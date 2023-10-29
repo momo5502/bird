@@ -17,6 +17,7 @@ public:
 	std::pair<double, double> get_mouse_position() const;
 
 	long long get_last_frame_time() const;
+	double get_current_time() const;
 
 	void use_shared_context(const std::function<void()>& callback);
 
@@ -27,6 +28,7 @@ private:
 
 	long long last_frame_time_{};
 	std::chrono::system_clock::time_point last_frame_ = std::chrono::system_clock::now();
+	std::chrono::system_clock::time_point start_time_ = std::chrono::system_clock::now();
 
 	void update_frame_times();
 

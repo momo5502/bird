@@ -144,6 +144,15 @@ long long window::get_last_frame_time() const
 	return this->last_frame_time_;
 }
 
+double window::get_current_time() const
+{
+	const auto now = std::chrono::system_clock::now();
+	const auto diff = now - this->start_time_;
+	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff);
+
+	return static_cast<double>(ms.count());
+}
+
 void window::use_shared_context(const std::function<void()>& callback)
 {
 	std::lock_guard<std::mutex> lock{this->shared_context_mutex_};

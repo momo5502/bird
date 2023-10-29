@@ -75,6 +75,30 @@ bool node::mark_for_buffering()
 	return this->buffer_state_.compare_exchange_strong(expected, buffer_state::buffering);
 }
 
+double node::draw(const shader_context& ctx, double current_time, const std::array<double, 8>& child_draw_time,
+                  const std::array<int, 8>& octant_mask)
+{
+	if (!this->draw_time_)
+	{
+		this->draw_time_ = current_time;
+	}
+
+	const auto own_draw_time = *this->draw_time_;
+
+	glUniform1d(ctx.current_time_loc, current_time);
+	glUniform1d(ctx.own_draw_time_loc, own_draw_time);
+
+	glUniform1iv(ctx.octant_mask_loc, 8, octant_mask.data());
+	glUniform1dv(ctx.child_draw_time_loc, 8, child_draw_time.data());
+
+	for (auto& mesh : this->meshes)
+	{
+		mesh.draw(ctx);
+	}
+
+	return own_draw_time;
+}
+
 void node::buffer_queue(std::queue<node*> nodes)
 {
 	std::queue<node*> nodes_to_notify{};

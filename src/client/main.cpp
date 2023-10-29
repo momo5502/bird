@@ -175,6 +175,8 @@ namespace
 	               const shader_context& ctx,
 	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer)
 	{
+		const auto current_time = window.get_current_time();
+
 		p.step("Input");
 
 		const auto state = get_input_state(window);
@@ -372,8 +374,17 @@ namespace
 
 		std::queue<node*> new_nodes_to_buffer{};
 
+		using mask_list = std::array<int, 8>;
+		using time_list = std::array<double, 8>;
+
+		struct octant_mask
+		{
+			mask_list masks{};
+			time_list times{};
+		};
+
 		// 8-bit octant mask flags of nodes
-		std::map<octant_identifier<>, uint8_t> mask_map{};
+		std::map<octant_identifier<>, octant_mask> mask_map{};
 		static std::unordered_set<mesh*> last_drawn_meshes{};
 		std::unordered_set<mesh*> drawn_meshes{};
 		drawn_meshes.reserve(last_drawn_meshes.size());
@@ -407,12 +418,14 @@ namespace
 			auto prev = full_path.substr(0, level - 1);
 
 			auto& prev_entry = mask_map[prev];
-			prev_entry |= 1 << octant;
+			auto& mask_entry = prev_entry;
 
-			const auto mask = mask_map[full_path];
+			mask_entry.masks[octant] = 1;
+
+			const auto& mask = mask_map[full_path];
 
 			// skip if node is masked completely
-			if (mask == 0xff) continue;
+			//if (mask == 0xff) continue;
 
 			glm::mat4 transform = viewprojection * node->matrix_globe_from_mesh;
 
@@ -420,10 +433,7 @@ namespace
 
 			p.step("Loop2Draw");
 
-			for (auto& mesh : node->meshes)
-			{
-				mesh.draw(ctx, mask);
-			}
+			mask_entry.times[octant] = node->draw(ctx, current_time, mask.times, mask.masks);
 
 			p.step("Loop 2");
 		}
@@ -541,47 +551,60 @@ namespace
 			}
 		});
 	}
+
+	void run()
+	{
+#ifdef _WIN32
+		if (utils::nt::is_wine())
+		{
+			ShowWindow(GetConsoleWindow(), SW_HIDE);
+		}
+
+		SetThreadPriority(GetCurrentThread(), ABOVE_NORMAL_PRIORITY_CLASS);
+
+		trigger_high_performance_gpu_switch();
+#endif
+
+		window window(1280, 800, "game");
+
+		const shader_context ctx{};
+
+		rocktree rocktree{"earth"};
+
+		utils::concurrency::container<std::queue<node*>> nodes_to_buffer{};
+
+		const auto buffer_thread = utils::thread::create_named_jthread("Bufferer", [&](const std::stop_token& token)
+		{
+			bufferer(token, window, nodes_to_buffer, rocktree);
+		});
+
+		auto eye = lla_to_ecef(48.583374, 7.745776, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
+		glm::dvec3 direction{0.219862, -0.419329, 0.012226};
+
+		const auto font = utils::io::read_file("segoeui.ttf");
+		text_renderer text_renderer(font, 24);
+
+		window.show([&](profiler& p)
+		{
+			p.silence();
+			run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer, text_renderer);
+		});
+	}
 }
 
 int main(int /*argc*/, char** /*argv*/)
 {
-#ifdef _WIN32
-	if (utils::nt::is_wine())
+	try
 	{
-		ShowWindow(GetConsoleWindow(), SW_HIDE);
+		run();
+		return 0;
+	}
+	catch (std::exception& e)
+	{
+		MessageBoxA(nullptr, e.what(), "ERROR", MB_ICONERROR);
 	}
 
-	SetThreadPriority(GetCurrentThread(), ABOVE_NORMAL_PRIORITY_CLASS);
-
-	trigger_high_performance_gpu_switch();
-#endif
-
-	window window(1280, 800, "game");
-
-	const shader_context ctx{};
-
-	rocktree rocktree{"earth"};
-
-	utils::concurrency::container<std::queue<node*>> nodes_to_buffer{};
-
-	const auto buffer_thread = utils::thread::create_named_jthread("Bufferer", [&](const std::stop_token& token)
-	{
-		bufferer(token, window, nodes_to_buffer, rocktree);
-	});
-
-	auto eye = lla_to_ecef(35.517882, 23.897970, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
-	glm::dvec3 direction{0.219862, -0.419329, 0.012226};
-
-	const auto font = utils::io::read_file("segoeui.ttf");
-	text_renderer text_renderer(font, 24);
-
-	window.show([&](profiler& p)
-	{
-		p.silence();
-		run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer, text_renderer);
-	});
-
-	return 0;
+	return 1;
 }
 
 #ifdef _WIN32
