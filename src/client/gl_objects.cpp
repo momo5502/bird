@@ -66,14 +66,20 @@ void gl_bufferer::perform_cleanup()
 {
 	this->buffers_.access([](object_vector& vector)
 	{
-		glDeleteBuffers(static_cast<GLsizei>(vector.size()), vector.data());
-		vector.clear();
+		if (!vector.empty())
+		{
+			glDeleteBuffers(static_cast<GLsizei>(vector.size()), vector.data());
+			vector = {};
+		}
 	});
 
 	this->textures_.access([](object_vector& vector)
 	{
-		glDeleteTextures(static_cast<GLsizei>(vector.size()), vector.data());
-		vector.clear();
+		if (!vector.empty())
+		{
+			glDeleteTextures(static_cast<GLsizei>(vector.size()), vector.data());
+			vector = {};
+		}
 	});
 }
 
