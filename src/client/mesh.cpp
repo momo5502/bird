@@ -88,8 +88,4 @@ void mesh_buffers::draw(const mesh_data& mesh, const shader_context& ctx) const
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->index_buffer_);
 	glDrawElements(GL_TRIANGLE_STRIP, static_cast<GLsizei>(mesh.indices.size()), GL_UNSIGNED_SHORT, nullptr);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindTexture(GL_TEXTURE_2D, 0);
 }
