@@ -21,7 +21,7 @@ namespace
 			return true;
 		}
 
-		if (!obj.was_used_within(20s, 6s, 2s))
+		if (!obj.was_used_within(10s, 6s, 2s))
 		{
 			obj.mark_for_deletion();
 			return true;
@@ -571,10 +571,10 @@ namespace
 			ShowWindow(GetConsoleWindow(), SW_HIDE);
 		}
 
-		SetThreadPriority(GetCurrentThread(), ABOVE_NORMAL_PRIORITY_CLASS);
-
 		trigger_high_performance_gpu_switch();
 #endif
+
+		utils::thread::set_priority(utils::thread::priority::high);
 
 		window window(1280, 800, "game");
 

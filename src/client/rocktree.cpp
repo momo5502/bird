@@ -639,6 +639,15 @@ rocktree::~rocktree()
 
 void rocktree::cleanup_dangling_objects(const std::chrono::milliseconds& timeout)
 {
+	std::array<std::unique_ptr<generic_object>, 400> objects_to_remove{};
+	size_t current_index = 0;
+
+	auto clear_objects = [&]
+	{
+		current_index = 0;
+		objects_to_remove = {};
+	};
+
 	this->objects_.access_with_lock([&](object_list& objects, std::unique_lock<std::mutex>& lock)
 	{
 		const utils::timer timer{};
@@ -656,9 +665,10 @@ void rocktree::cleanup_dangling_objects(const std::chrono::milliseconds& timeout
 				return;
 			}
 
-			if (break_timer.has_elapsed(6ms))
+			if (break_timer.has_elapsed(2ms))
 			{
 				lock.unlock();
+				clear_objects();
 				std::this_thread::sleep_for(1ms);
 				lock.lock();
 				break_timer.update();
@@ -671,7 +681,15 @@ void rocktree::cleanup_dangling_objects(const std::chrono::milliseconds& timeout
 
 			if (is_unused && is_final)
 			{
+				objects_to_remove.at(current_index++) = std::move(*this->object_iterator_);
 				this->object_iterator_ = objects.erase(this->object_iterator_);
+
+				if (current_index >= objects_to_remove.size())
+				{
+					lock.unlock();
+					clear_objects();
+					lock.lock();
+				}
 			}
 			else
 			{

@@ -12,6 +12,7 @@ task_manager::task_manager(const size_t num_threads)
 	{
 		thread = utils::thread::create_named_thread("Task Manager", [this]
 		{
+			utils::thread::set_priority(utils::thread::priority::low);
 			this->work();
 		});
 	}
@@ -154,5 +155,7 @@ void task_manager::work()
 			puts(e.what());
 #endif
 		}
+
+		std::this_thread::yield();
 	}
 }

@@ -5,9 +5,11 @@
 #include "finally.hpp"
 
 #include <TlHelp32.h>
+#endif
 
 namespace utils::thread
 {
+#ifdef _WIN32
 	bool set_name(const HANDLE t, const std::string& name)
 	{
 		const nt::library kernel32("kernel32.dll");
@@ -37,25 +39,69 @@ namespace utils::thread
 
 		return set_name(t, name);
 	}
+#endif
 
 	bool set_name(std::thread& t, const std::string& name)
 	{
+		(void)t;
+		(void)name;
+#ifdef _WIN32
 		return set_name(t.native_handle(), name);
+#else
+		return false;
+#endif
 	}
 
 	bool set_name(std::jthread& t, const std::string& name)
 	{
+		(void)t;
+		(void)name;
+#ifdef _WIN32
 		return set_name(t.native_handle(), name);
+#else
+		return false;
+#endif
 	}
 
 	bool set_name(const std::string& name)
 	{
+		(void)name;
+#ifdef _WIN32
 		return set_name(GetCurrentThread(), name);
+#else
+		return false;
+#endif
 	}
 
+	bool set_priority(const priority p)
+	{
+		(void)p;
+#ifdef _WIN32
+		auto priority_class = NORMAL_PRIORITY_CLASS;
+		switch (p)
+		{
+		case priority::low:
+			priority_class = BELOW_NORMAL_PRIORITY_CLASS;
+			break;
+		case priority::high:
+			priority_class = HIGH_PRIORITY_CLASS;
+			break;
+		case priority::normal:
+			priority_class = NORMAL_PRIORITY_CLASS;
+			break;
+		}
+
+		return SetThreadPriority(GetCurrentThread(), priority_class);
+#else
+		return false;
+#endif
+	}
+
+#ifdef _WIN32
 	std::vector<DWORD> get_thread_ids()
 	{
-		nt::handle<nt::InvalidHandleValueFunc> h = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, GetCurrentProcessId());
+		const nt::handle<nt::InvalidHandleValueFunc> h = CreateToolhelp32Snapshot(
+			TH32CS_SNAPTHREAD, GetCurrentProcessId());
 		if (!h)
 		{
 			return {};
@@ -121,6 +167,5 @@ namespace utils::thread
 			}
 		});
 	}
-}
-
 #endif
+}

@@ -89,7 +89,17 @@ void main() {
 
 	if(v_alpha != 1.0) {
 		float selector = 1.0 / v_alpha;
-		float sum = rand(v_texcoords + gl_FragCoord.xy) * selector;
+
+		vec2 seed = v_texcoords + gl_FragCoord.xy;
+		
+		/*int grouping = 2;
+		vec2 seed = gl_FragCoord.xy;
+		seed.x = float(int(seed.x) / grouping);
+		seed.y = float(int(seed.y) / grouping);
+		seed.x += float(int(v_texcoords.x) / grouping);
+		seed.y += float(int(v_texcoords.y) / grouping);*/
+
+		float sum = rand(seed) * selector;
 		
 		if(int(mod(sum, selector)) != 0) {
 			discard;

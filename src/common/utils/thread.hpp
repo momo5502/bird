@@ -7,18 +7,25 @@ namespace utils::thread
 #ifdef _WIN32
 	bool set_name(HANDLE t, const std::string& name);
 	bool set_name(DWORD id, const std::string& name);
+#endif
 	bool set_name(std::thread& t, const std::string& name);
 	bool set_name(std::jthread& t, const std::string& name);
 	bool set_name(const std::string& name);
-#endif
+
+	enum class priority
+	{
+		low,
+		normal,
+		high
+	};
+
+	bool set_priority(priority p);
 
 	template <typename ...Args>
 	std::thread create_named_thread(const std::string& name, Args&&... args)
 	{
 		auto t = std::thread(std::forward<Args>(args)...);
-#ifdef _WIN32
 		set_name(t, name);
-#endif
 		return t;
 	}
 
@@ -26,9 +33,7 @@ namespace utils::thread
 	std::jthread create_named_jthread(const std::string& name, Args&&... args)
 	{
 		auto t = std::jthread(std::forward<Args>(args)...);
-#ifdef _WIN32
 		set_name(t, name);
-#endif
 		return t;
 	}
 
