@@ -358,9 +358,12 @@ namespace
 					auto m = viewprojection * t;
 					auto s = m[3][3];
 					auto texels_per_meter = 1.0f / node->meters_per_texel;
-					auto wh = 768; // width < height ? width : height;
-					auto r = (2.0 * (1.0 / s)) * wh;
-					if (texels_per_meter > r) continue;
+					auto wh = 768; //width < height ? width : height;
+					auto r = (1.8 * (1.0 / s)) * wh;
+					if (texels_per_meter > r)
+					{
+						continue;
+					}
 				}
 
 				if (node->can_be_used() && node->can_have_data)
