@@ -719,6 +719,11 @@ size_t rocktree::get_downloads() const
 	return this->downloader_.get_downloads();
 }
 
+size_t rocktree::get_objects() const
+{
+	return this->objects_.get_raw().size();
+}
+
 void rocktree::store_object(std::unique_ptr<generic_object> object)
 {
 	this->objects_.access([&](object_list& list)

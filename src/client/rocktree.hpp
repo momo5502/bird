@@ -150,6 +150,7 @@ public:
 	size_t get_tasks() const;
 	size_t get_tasks(size_t i) const;
 	size_t get_downloads() const;
+	size_t get_objects() const;
 
 private:
 	std::string planet_{};

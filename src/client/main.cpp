@@ -478,11 +478,12 @@ namespace
 		renderer.draw("Tasks: " + std::to_string(rocktree.get_tasks()), 25.0f, 60.0f, 1.0f, color);
 		renderer.draw("Downloads: " + std::to_string(rocktree.get_downloads()), 25.0f, 85.0f, 1.0f, color);
 		renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, 110.0f, 1.0f, color);
+		renderer.draw("Objects: " + std::to_string(rocktree.get_objects()), 25.0f, 135.0f, 1.0f, color);
 
 		for (size_t i = 0; i < task_manager::QUEUE_COUNT; ++i)
 		{
 			renderer.draw("Q " + std::to_string(i) + ": " + std::to_string(rocktree.get_tasks(i)), 25.0f,
-			              135.0f + 25.0f * i, 1.0f,
+			              160.0f + 25.0f * i, 1.0f,
 			              color);
 		}
 	}
