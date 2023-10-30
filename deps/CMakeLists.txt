@@ -25,9 +25,9 @@ add_subdirectory(curl)
 ##########################################
 
 if(${MOMO_ENABLE_SANITIZER})
-  option(protobuf_MSVC_STATIC_RUNTIME OFF)
+  option(protobuf_MSVC_STATIC_RUNTIME "" OFF)
 else()
-  option(protobuf_MSVC_STATIC_RUNTIME ON)
+  option(protobuf_MSVC_STATIC_RUNTIME "" ON)
 endif()
 
 option(protobuf_BUILD_TESTS "" OFF)
