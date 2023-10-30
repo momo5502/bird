@@ -159,6 +159,7 @@ private:
 
 	using object_list = std::list<std::unique_ptr<generic_object>>;
 	utils::concurrency::container<object_list> objects_{};
+	utils::concurrency::container<object_list> new_objects_{};
 	object_list::iterator object_iterator_ = objects_.get_raw().end();
 
 	std::unique_ptr<planetoid> planetoid_{};

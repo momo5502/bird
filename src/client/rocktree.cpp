@@ -639,23 +639,28 @@ rocktree::~rocktree()
 
 void rocktree::cleanup_dangling_objects(const std::chrono::milliseconds& timeout)
 {
-	std::array<std::unique_ptr<generic_object>, 400> objects_to_remove{};
-	size_t current_index = 0;
-
-	auto clear_objects = [&]
+	object_list new_objects{};
+	this->new_objects_.access([&new_objects](object_list& objects)
 	{
-		current_index = 0;
-		objects_to_remove = {};
-	};
+		if (!objects.empty())
+		{
+			new_objects = std::move(objects);
+			objects = object_list();
+		}
+	});
 
-	this->objects_.access_with_lock([&](object_list& objects, std::unique_lock<std::mutex>& lock)
+	this->objects_.access([&](object_list& objects)
 	{
 		const utils::timer timer{};
-		utils::timer break_timer{};
 
 		if (this->object_iterator_ == objects.end())
 		{
 			this->object_iterator_ = objects.begin();
+		}
+
+		if (!new_objects.empty())
+		{
+			objects.splice(objects.end(), new_objects);
 		}
 
 		while (this->object_iterator_ != objects.end())
@@ -665,15 +670,6 @@ void rocktree::cleanup_dangling_objects(const std::chrono::milliseconds& timeout
 				return;
 			}
 
-			if (break_timer.has_elapsed(2ms))
-			{
-				lock.unlock();
-				clear_objects();
-				std::this_thread::sleep_for(1ms);
-				lock.lock();
-				break_timer.update();
-			}
-
 			auto& object = **this->object_iterator_;
 
 			const auto is_unused = !object.has_parent();
@@ -681,15 +677,7 @@ void rocktree::cleanup_dangling_objects(const std::chrono::milliseconds& timeout
 
 			if (is_unused && is_final)
 			{
-				objects_to_remove.at(current_index++) = std::move(*this->object_iterator_);
 				this->object_iterator_ = objects.erase(this->object_iterator_);
-
-				if (current_index >= objects_to_remove.size())
-				{
-					lock.unlock();
-					clear_objects();
-					lock.lock();
-				}
 			}
 			else
 			{
@@ -726,7 +714,7 @@ size_t rocktree::get_objects() const
 
 void rocktree::store_object(std::unique_ptr<generic_object> object)
 {
-	this->objects_.access([&](object_list& list)
+	this->new_objects_.access([&](object_list& list)
 	{
 		list.push_back(std::move(object));
 	});
