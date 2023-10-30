@@ -12,6 +12,7 @@
 
 namespace
 {
+	constexpr double RENDER_DISTANCE = 1.4;
 	constexpr float ANIMATION_TIME = 350.0f;
 
 	bool perform_object_cleanup(generic_object& obj)
@@ -359,7 +360,7 @@ namespace
 					auto s = m[3][3];
 					auto texels_per_meter = 1.0f / node->meters_per_texel;
 					auto wh = 768; //width < height ? width : height;
-					auto r = (1.8 * (1.0 / s)) * wh;
+					auto r = (RENDER_DISTANCE * (1.0 / s)) * wh;
 					if (texels_per_meter > r)
 					{
 						continue;
@@ -578,6 +579,7 @@ namespace
 		trigger_high_performance_gpu_switch();
 #endif
 
+		utils::thread::set_name("Main");
 		utils::thread::set_priority(utils::thread::priority::high);
 
 		window window(1280, 800, "game");
@@ -593,8 +595,8 @@ namespace
 			bufferer(token, window, nodes_to_buffer, rocktree);
 		});
 
-		auto eye = lla_to_ecef(48.583374, 7.745776, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
-		glm::dvec3 direction{0.219862, -0.419329, 0.012226};
+		auto eye = lla_to_ecef(40.772185, -73.973186, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
+		glm::dvec3 direction{ -0.295834, - 0.662646, - 0.688028 };
 
 		const auto font = utils::io::read_file("segoeui.ttf");
 		text_renderer text_renderer(font, 24);
