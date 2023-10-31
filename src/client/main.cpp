@@ -174,10 +174,12 @@ namespace
 
 	std::atomic_uint64_t frame_counter{0};
 
-	void run_frame(profiler& p, window& window, const rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
+	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
 	               const shader_context& ctx,
 	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer)
 	{
+		const auto _lock = rocktree.get_task_manager().lock_high_priority();
+
 		const auto current_time = static_cast<float>(window.get_current_time());
 
 		p.step("Input");
@@ -596,7 +598,7 @@ namespace
 		});
 
 		auto eye = lla_to_ecef(40.772185, -73.973186, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
-		glm::dvec3 direction{ -0.295834, - 0.662646, - 0.688028 };
+		glm::dvec3 direction{-0.295834, -0.662646, -0.688028};
 
 		const auto font = utils::io::read_file("segoeui.ttf");
 		text_renderer text_renderer(font, 24);

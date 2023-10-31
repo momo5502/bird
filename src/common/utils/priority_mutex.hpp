@@ -7,7 +7,7 @@ namespace utils
 	class priority_mutex
 	{
 	public:
-		std::mutex& high_priority()
+		std::recursive_mutex& high_priority()
 		{
 			return this->data_;
 		}
@@ -27,7 +27,7 @@ namespace utils
 		}
 
 	private:
-		std::mutex data_{};
+		std::recursive_mutex data_{};
 		std::mutex low_{};
 	};
 }

@@ -145,6 +145,11 @@ public:
 		return this->bufferer_;
 	}
 
+	task_manager& get_task_manager()
+	{
+		return this->task_manager_;
+	}
+
 	void cleanup_dangling_objects(const std::chrono::milliseconds& timeout);
 
 	size_t get_tasks() const;
