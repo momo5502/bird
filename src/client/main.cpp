@@ -620,7 +620,11 @@ int main(int /*argc*/, char** /*argv*/)
 	}
 	catch (std::exception& e)
 	{
+		puts(e.what());
+
+#ifdef _WIN32
 		MessageBoxA(nullptr, e.what(), "ERROR", MB_ICONERROR);
+#endif
 	}
 
 	return 1;
