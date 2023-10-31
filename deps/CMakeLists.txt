@@ -4,6 +4,13 @@ add_subdirectory(crn)
 
 ##########################################
 
+option(GEN_FILES "" ON)
+option(ENABLE_TESTING "" OFF)
+option(ENABLE_PROGRAMS "" OFF)
+add_subdirectory(mbedtls)
+
+##########################################
+
 option(glew-cmake_BUILD_SHARED "" OFF)
 add_subdirectory(glew-cmake)
 
