@@ -1,9 +1,9 @@
 [submodule "deps/glm"]
 	path = deps/glm
-	url = git@github.com:g-truc/glm.git
+	url = https://github.com/g-truc/glm.git
 [submodule "deps/glfw"]
 	path = deps/glfw
-	url = https://github.com/g-truc/glm.git
+	url = https://github.com/glfw/glfw.git
 [submodule "deps/glew-cmake"]
 	path = deps/glew-cmake
 	url = https://github.com/Perlmint/glew-cmake.git
