@@ -24,7 +24,7 @@ option(BUILD_STATIC_LIBS "" ON)
 if(MSVC)
   set(CURL_USE_SCHANNEL ON)
 else()
-  set(CURL_USE_GNUTLS ON)
+  set(CURL_USE_MBEDTLS ON)
 endif()
 
 add_subdirectory(curl)
