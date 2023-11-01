@@ -350,7 +350,8 @@ namespace utils::http
 				return;
 			}
 
-			queue.access([this](query_queue& queue)
+			std::vector<stoppable_result_callback> deleted_callbacks{};
+			queue.access([this, &deleted_callbacks](query_queue& queue)
 			{
 				while (!queue.empty() && this->active_requests_.size() < this->max_requests_)
 				{
@@ -359,6 +360,10 @@ namespace utils::http
 					{
 						curl_easy_request request(query.url, std::move(query.callback), this->request_);
 						this->active_requests_[request.get_request()] = std::move(request);
+					}
+					else
+					{
+						deleted_callbacks.emplace_back(std::move(query.callback));
 					}
 
 					queue.pop_front();

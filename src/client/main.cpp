@@ -12,11 +12,12 @@
 
 #include <cmrc/cmrc.hpp>
 
+#include "utils/finally.hpp"
+
 CMRC_DECLARE(bird);
 
 namespace
 {
-	constexpr double RENDER_DISTANCE = 1.4;
 	constexpr float ANIMATION_TIME = 350.0f;
 
 	bool perform_object_cleanup(generic_object& obj)
@@ -185,6 +186,36 @@ namespace
 	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer)
 	{
 		++frame_counter;
+
+		uint64_t current_vertices = 0;
+		static uint64_t last_vertices = 0;
+
+		static double RENDER_DISTANCE = 2.0;
+		constexpr auto min_render_distance = 1.0;
+		constexpr auto max_render_distance = 2.0;
+
+		constexpr auto max_vertices = 2'500'000ULL;
+		constexpr auto min_change_vertices = 100'000ULL;
+
+		const auto _ = utils::finally([&]
+		{
+			last_vertices = current_vertices;
+		});
+
+		if (RENDER_DISTANCE < max_render_distance && last_vertices + min_change_vertices < max_vertices)
+		{
+			RENDER_DISTANCE += 0.01;
+		}
+
+		if (last_vertices > max_vertices + min_change_vertices)
+		{
+			RENDER_DISTANCE -= 0.01;
+		}
+
+		if (RENDER_DISTANCE < min_render_distance)
+		{
+			RENDER_DISTANCE = min_render_distance;
+		}
 
 		const auto lock = rocktree.get_task_manager().lock_high_priority();
 		const auto current_time = static_cast<float>(window.get_current_time());
@@ -436,6 +467,7 @@ namespace
 			p.step("Loop2Draw");
 
 			mask_entry.times[octant] = node->draw(ctx, current_time, mask.times, mask.masks);
+			current_vertices += node->get_vertices();
 
 			p.step("Loop 2");
 		}
@@ -482,18 +514,21 @@ namespace
 
 		constexpr auto color = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
 
-		renderer.draw("FPS: " + std::to_string(fps), 25.0f, 60.0f, 1.0f, color);
-		renderer.draw("Tasks: " + std::to_string(rocktree.get_tasks()), 25.0f, 85.0f, 1.0f, color);
-		renderer.draw("Downloads: " + std::to_string(rocktree.get_downloads()), 25.0f, 110.0f, 1.0f, color);
-		renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, 135.0f, 1.0f, color);
-		renderer.draw("Objects: " + std::to_string(rocktree.get_objects()), 25.0f, 160.0f, 1.0f, color);
+		auto offset = 35.0f;
 
-		for (size_t i = 0; i < task_manager::QUEUE_COUNT; ++i)
+		renderer.draw("FPS: " + std::to_string(fps), 25.0f, (offset += 25.0f), 1.0f, color);
+		renderer.draw("Tasks: " + std::to_string(rocktree.get_tasks()), 25.0f, (offset += 25.0f), 1.0f, color);
+		renderer.draw("Downloads: " + std::to_string(rocktree.get_downloads()), 25.0f, (offset += 25.0f), 1.0f, color);
+		renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, (offset += 25.0f), 1.0f, color);
+		renderer.draw("Objects: " + std::to_string(rocktree.get_objects()), 25.0f, (offset += 25.0f), 1.0f, color);
+		renderer.draw("Vertices: " + std::to_string(current_vertices), 25.0f, (offset += 25.0f), 1.0f, color);
+		renderer.draw("Distance: " + std::to_string(RENDER_DISTANCE), 25.0f, (offset += 25.0f), 1.0f, color);
+
+		/*for (size_t i = 0; i < task_manager::QUEUE_COUNT; ++i)
 		{
 			renderer.draw("Q " + std::to_string(i) + ": " + std::to_string(rocktree.get_tasks(i)), 25.0f,
-			              185.0f + 25.0f * static_cast<float>(i), 1.0f,
-			              color);
-		}
+			              (offset += 25.0f), 1.0f, color);
+		}*/
 	}
 
 #ifdef _WIN32

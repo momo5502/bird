@@ -40,6 +40,11 @@ public:
 
 	static void buffer_queue(std::queue<node*> nodes);
 
+	uint64_t get_vertices() const
+	{
+		return this->vertices_;
+	}
+
 	std::vector<mesh> meshes{};
 
 private:
@@ -53,6 +58,7 @@ private:
 	std::optional<float> draw_time_{};
 	std::atomic<buffer_state> buffer_state_{buffer_state::unbuffered};
 
+	uint64_t vertices_{};
 	uint32_t epoch_{};
 	std::string path_{};
 

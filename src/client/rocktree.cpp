@@ -308,6 +308,7 @@ void node::populate(const std::optional<std::string>& data)
 		}
 	}
 
+	this->vertices_ = 0;
 	this->meshes.reserve(static_cast<size_t>(node_data.meshes_size()));
 
 	for (const auto& mesh : node_data.meshes())
@@ -372,6 +373,7 @@ void node::populate(const std::optional<std::string>& data)
 		m.texture_width = static_cast<int>(texture.width());
 		m.texture_height = static_cast<int>(texture.height());
 
+		this->vertices_ += m.vertices.size();
 		this->meshes.emplace_back(std::move(m));
 	}
 
@@ -383,6 +385,7 @@ void node::clear()
 	this->meshes.clear();
 	this->draw_time_ = {};
 	this->buffer_state_ = buffer_state::unbuffered;
+	this->vertices_ = 0;
 }
 
 bool node::can_be_deleted() const
