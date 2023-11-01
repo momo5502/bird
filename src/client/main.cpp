@@ -58,6 +58,7 @@ namespace
 		if (clean)
 		{
 			profiler p("Clean");
+			p.silence();
 
 			const auto planetoid = rocktree.get_planetoid();
 			if (!planetoid || !planetoid->is_in_final_state()) return;
@@ -70,6 +71,7 @@ namespace
 		else
 		{
 			profiler p("Dangling");
+			p.silence();
 
 			rocktree.cleanup_dangling_objects(300ms);
 		}
@@ -182,8 +184,9 @@ namespace
 	               const shader_context& ctx,
 	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer)
 	{
-		const auto _lock = rocktree.get_task_manager().lock_high_priority();
+		++frame_counter;
 
+		const auto lock = rocktree.get_task_manager().lock_high_priority();
 		const auto current_time = static_cast<float>(window.get_current_time());
 
 		p.step("Input");
@@ -196,28 +199,6 @@ namespace
 		}
 
 		p.step("Prepare");
-
-		++frame_counter;
-
-		static double prevTime = 0;
-		auto crntTime = glfwGetTime();
-		auto timeDiff = crntTime - prevTime;
-		static unsigned int counter = 0;
-
-		counter++;
-
-		if (timeDiff >= 1.0 / 4)
-		{
-			// Creates new title
-			std::string FPS = std::to_string(static_cast<int>((1.0 / timeDiff) * counter * 10) * 0.1);
-			std::string ms = std::to_string(static_cast<int>((timeDiff / counter) * 1000 * 10) * 0.1);
-			std::string newTitle = "game - " + FPS + "FPS / " + ms + "ms";
-			glfwSetWindowTitle(window, newTitle.c_str());
-
-			// Resets times and counter
-			prevTime = crntTime;
-			counter = 0;
-		}
 
 		const auto planetoid = rocktree.get_planetoid();
 		if (!planetoid || !planetoid->can_be_used()) return;
@@ -484,16 +465,33 @@ namespace
 
 		p.step("Draw Text");
 
+		static double prevTime = 0;
+		auto crntTime = glfwGetTime();
+		auto timeDiff = crntTime - prevTime;
+		static unsigned int counter = 0;
+		static int fps = 60;
+
+		counter++;
+
+		if (timeDiff >= 1.0 / 4)
+		{
+			fps = static_cast<int>((1.0 / timeDiff) * counter);
+			prevTime = crntTime;
+			counter = 0;
+		}
+
 		constexpr auto color = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
-		renderer.draw("Tasks: " + std::to_string(rocktree.get_tasks()), 25.0f, 60.0f, 1.0f, color);
-		renderer.draw("Downloads: " + std::to_string(rocktree.get_downloads()), 25.0f, 85.0f, 1.0f, color);
-		renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, 110.0f, 1.0f, color);
-		renderer.draw("Objects: " + std::to_string(rocktree.get_objects()), 25.0f, 135.0f, 1.0f, color);
+
+		renderer.draw("FPS: " + std::to_string(fps), 25.0f, 60.0f, 1.0f, color);
+		renderer.draw("Tasks: " + std::to_string(rocktree.get_tasks()), 25.0f, 85.0f, 1.0f, color);
+		renderer.draw("Downloads: " + std::to_string(rocktree.get_downloads()), 25.0f, 110.0f, 1.0f, color);
+		renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, 135.0f, 1.0f, color);
+		renderer.draw("Objects: " + std::to_string(rocktree.get_objects()), 25.0f, 160.0f, 1.0f, color);
 
 		for (size_t i = 0; i < task_manager::QUEUE_COUNT; ++i)
 		{
 			renderer.draw("Q " + std::to_string(i) + ": " + std::to_string(rocktree.get_tasks(i)), 25.0f,
-			              160.0f + 25.0f * i, 1.0f,
+			              185.0f + 25.0f * static_cast<float>(i), 1.0f,
 			              color);
 		}
 	}
