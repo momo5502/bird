@@ -81,6 +81,7 @@ namespace
 		double right_x = gamepad_state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X];
 		double right_y = gamepad_state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y];
 		double right_trigger = (gamepad_state.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER] + 1.0) / 2.0;
+		double left_trigger = (gamepad_state.axes[GLFW_GAMEPAD_AXIS_LEFT_TRIGGER] + 1.0) / 2.0;
 
 		constexpr auto limit = 0.1;
 		left_x = add_deadzone(left_x, limit);
@@ -88,6 +89,7 @@ namespace
 		right_x = add_deadzone(right_x, limit);
 		right_y = add_deadzone(right_y, limit);
 		right_trigger = add_deadzone(right_trigger, limit);
+		left_trigger = add_deadzone(left_trigger, limit);
 
 		state.right = std::max(left_x, 0.0);
 		state.left = std::abs(std::min(left_x, 0.0));
@@ -95,7 +97,7 @@ namespace
 		state.down = std::max(left_y, 0.0);
 		state.up = std::abs(std::min(left_y, 0.0));
 
-		state.boost = right_trigger;
+		state.boost = right_trigger + left_trigger;
 
 		state.mouse_x = right_x * 10.0;
 		state.mouse_y = right_y * 10.0;

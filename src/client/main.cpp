@@ -16,6 +16,8 @@
 
 CMRC_DECLARE(bird);
 
+//#define USE_ADAPTIVE_RENDER_DISTANCE
+
 namespace
 {
 	constexpr float ANIMATION_TIME = 350.0f;
@@ -187,10 +189,12 @@ namespace
 	{
 		++frame_counter;
 
-		uint64_t current_vertices = 0;
-		static uint64_t last_vertices = 0;
+		static double RENDER_DISTANCE = 1.4;
 
-		static double RENDER_DISTANCE = 2.0;
+		uint64_t current_vertices = 0;
+
+#ifdef USE_ADAPTIVE_RENDER_DISTANCE
+		static uint64_t last_vertices = 0;
 		constexpr auto min_render_distance = 1.0;
 		constexpr auto max_render_distance = 2.0;
 
@@ -216,6 +220,7 @@ namespace
 		{
 			RENDER_DISTANCE = min_render_distance;
 		}
+#endif
 
 		const auto current_time = static_cast<float>(window.get_current_time());
 
@@ -595,7 +600,7 @@ namespace
 			{
 				rocktree.get_bufferer().perform_cleanup();
 
-				if (frame_counter > (last_cleanup_frame + 10))
+				if (frame_counter > (last_cleanup_frame + 6))
 				{
 					clean = !clean;
 					perform_cleanup(rocktree, clean);
