@@ -217,7 +217,6 @@ namespace
 			RENDER_DISTANCE = min_render_distance;
 		}
 
-		const auto lock = rocktree.get_task_manager().lock_high_priority();
 		const auto current_time = static_cast<float>(window.get_current_time());
 
 		p.step("Input");
@@ -324,6 +323,8 @@ namespace
 
 		p.step("Loop1");
 
+		auto lock = rocktree.get_task_manager().lock_high_priority();
+
 		while (!valid.empty())
 		{
 			auto& entry = valid.front();
@@ -393,6 +394,8 @@ namespace
 				valid.emplace(std::move(nxt), bulk);
 			}
 		}
+
+		lock.unlock();
 
 		p.step("Between");
 

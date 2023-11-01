@@ -36,9 +36,9 @@ public:
 	size_t get_tasks() const;
 	size_t get_tasks(size_t i) const;
 
-	std::lock_guard<std::recursive_mutex> lock_high_priority()
+	std::unique_lock<std::recursive_mutex> lock_high_priority()
 	{
-		return std::lock_guard<std::recursive_mutex>{this->mutex_.high_priority()};
+		return std::unique_lock<std::recursive_mutex>{this->mutex_.high_priority()};
 	}
 
 private:
