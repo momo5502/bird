@@ -4,6 +4,15 @@ add_subdirectory(crn)
 
 ##########################################
 
+if(NOT MSVC)
+  option(GEN_FILES "" ON)
+  option(ENABLE_TESTING "" OFF)
+  option(ENABLE_PROGRAMS "" OFF)
+  add_subdirectory(mbedtls)
+endif()
+
+##########################################
+
 option(glew-cmake_BUILD_SHARED "" OFF)
 add_subdirectory(glew-cmake)
 
@@ -13,14 +22,26 @@ option(HTTP_ONLY "" ON)
 option(BUILD_CURL_EXE "" OFF)
 option(BUILD_SHARED_LIBS "" OFF)
 option(BUILD_STATIC_LIBS "" ON)
+option(CURL_ENABLE_EXPORT_TARGET "" OFF)
 
 if(MSVC)
   set(CURL_USE_SCHANNEL ON)
 else()
-  set(CURL_USE_GNUTLS ON)
+  set(SSL_ENABLED ON)
+  set(USE_MBEDTLS ON)
+  list(APPEND CURL_LIBS ${MBEDTLS_LIBRARIES})
+
+  get_target_property(MBEDTLS_INCLUDE_DIRS mbedtls INCLUDE_DIRECTORIES)
+  include_directories(${MBEDTLS_INCLUDE_DIRS})
 endif()
 
 add_subdirectory(curl)
+
+if(NOT MSVC)
+  target_link_libraries(libcurl_static PRIVATE
+    mbedtls
+  )
+endif()
 
 ##########################################
 
