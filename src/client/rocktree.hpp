@@ -23,7 +23,8 @@ class node final : public rocktree_object
 {
 public:
 	node(rocktree& rocktree, const bulk& parent, uint32_t epoch, std::string path, texture_format format,
-	     std::optional<uint32_t> imagery_epoch);
+	     std::optional<uint32_t> imagery_epoch, bool is_leaf);
+	~node() override;
 
 	bool can_have_data{};
 	float meters_per_texel{};
@@ -64,6 +65,8 @@ private:
 
 	texture_format format_{};
 	std::optional<uint32_t> imagery_epoch_{};
+
+	bool is_leaf_{};
 
 
 	std::string get_filename() const;
@@ -133,12 +136,27 @@ class rocktree
 public:
 	friend rocktree_object;
 
-	rocktree(std::string planet);
+	rocktree(reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world, std::string planet);
 	~rocktree();
 
 	const std::string& get_planet() const
 	{
 		return this->planet_;
+	}
+
+	std::unique_lock<std::recursive_mutex> get_physics_lock()
+	{
+		return std::unique_lock<std::recursive_mutex>{this->phys_mutex_};
+	}
+
+	reactphysics3d::PhysicsCommon& get_physics_common() const
+	{
+		return *this->common_;
+	}
+
+	reactphysics3d::PhysicsWorld& get_physics_world() const
+	{
+		return *this->world_;
 	}
 
 	planetoid* get_planetoid() const
@@ -165,6 +183,9 @@ public:
 
 private:
 	std::string planet_{};
+	std::recursive_mutex phys_mutex_{};
+	reactphysics3d::PhysicsCommon* common_{};
+	reactphysics3d::PhysicsWorld* world_{};
 
 	gl_bufferer bufferer_{};
 

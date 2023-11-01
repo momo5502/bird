@@ -4,6 +4,7 @@
 #pragma warning(push)
 #pragma warning(disable: 4127)
 #pragma warning(disable: 4244)
+#pragma warning(disable: 4245)
 #pragma warning(disable: 4458)
 #pragma warning(disable: 4702)
 #pragma warning(disable: 4996)
@@ -70,6 +71,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_access.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/vector_angle.hpp>
 
 #include <GL/glew.h>
@@ -79,6 +81,8 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+
+#include <reactphysics3d/reactphysics3d.h>
 
 #ifdef _WIN32
 #pragma warning(pop)

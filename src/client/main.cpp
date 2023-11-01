@@ -185,7 +185,8 @@ namespace
 
 	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
 	               const shader_context& ctx,
-	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer)
+	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer,
+	               reactphysics3d::PhysicsWorld& world)
 	{
 		++frame_counter;
 
@@ -254,6 +255,9 @@ namespace
 
 		// up is the vec from the planetoid's center towards the sky
 		const auto up = glm::normalize(eye);
+		const auto gravity = up * -9.81;
+
+		world.setGravity({gravity[0], gravity[1], gravity[2]});
 
 		// projection
 		const auto aspect_ratio = static_cast<double>(width) / static_cast<double>(height);
@@ -305,15 +309,47 @@ namespace
 		auto backwards = -direction * mag;
 		auto left = -sideways * mag;
 		auto right = sideways * mag;
-		auto new_eye = eye
-			+ state.up * forwards
+
+		const auto movement_vector = state.up * forwards
 			+ state.down * backwards
 			+ state.left * left
 			+ state.right * right;
+
+		auto new_eye = eye + movement_vector;
 		auto pot_altitude = glm::length(new_eye) - planet_radius;
-		if (pot_altitude < 1000 * 1000 * 10)
+		if (pot_altitude >= 1000 * 1000 * 10)
+		{
+			new_eye = eye;
+		}
+
+		reactphysics3d::Ray ray({eye.x, eye.y, eye.z}, {new_eye.x, new_eye.y, new_eye.z});
+
+		struct cb : reactphysics3d::RaycastCallback
+		{
+			bool did_hit = false;
+
+			reactphysics3d::decimal notifyRaycastHit(const reactphysics3d::RaycastInfo&) override
+			{
+				did_hit = true;
+				return 0.0;
+				//return info.hitFraction;
+			}
+		};
+
+
+		cb c{};
+		if( state.boost < 0.1)
+		{
+			const auto l = rocktree.get_physics_lock();
+			world.raycast(ray, &c);
+		}
+
+		if (!c.did_hit)
 		{
 			eye = new_eye;
+		}else
+		{
+			printf("HIT - %g\n", window.get_current_time());
 		}
 
 		const auto view = glm::lookAt(eye, eye + direction, up);
@@ -537,6 +573,9 @@ namespace
 			renderer.draw("Q " + std::to_string(i) + ": " + std::to_string(rocktree.get_tasks(i)), 25.0f,
 			              (offset += 25.0f), 1.0f, color);
 		}*/
+
+		const auto l = rocktree.get_physics_lock();
+		world.update(static_cast<double>(window.get_last_frame_time()) / 1'000'000.0);
 	}
 
 #ifdef _WIN32
@@ -633,7 +672,11 @@ namespace
 
 		const shader_context ctx{};
 
-		rocktree rocktree{"earth"};
+		reactphysics3d::PhysicsCommon physicsCommon{};
+
+		auto* world = physicsCommon.createPhysicsWorld();
+
+		rocktree rocktree{physicsCommon, *world, "earth"};
 
 		utils::concurrency::container<std::queue<node*>> nodes_to_buffer{};
 
@@ -653,7 +696,7 @@ namespace
 		window.show([&](profiler& p)
 		{
 			p.silence();
-			run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer, text_renderer);
+			run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer, text_renderer, *world);
 		});
 	}
 }

@@ -42,12 +42,17 @@ namespace
 }
 
 node::node(rocktree& rocktree, const bulk& parent, const uint32_t epoch, std::string path, const texture_format format,
-           std::optional<uint32_t> imagery_epoch)
+           std::optional<uint32_t> imagery_epoch, const bool is_leaf)
 	: rocktree_object(rocktree, &parent)
 	  , epoch_(epoch)
 	  , path_(std::move(path))
 	  , format_(format)
 	  , imagery_epoch_(std::move(imagery_epoch))
+	  , is_leaf_(is_leaf)
+{
+}
+
+node::~node()
 {
 }
 
@@ -311,6 +316,20 @@ void node::populate(const std::optional<std::string>& data)
 	this->vertices_ = 0;
 	this->meshes.reserve(static_cast<size_t>(node_data.meshes_size()));
 
+	std::unique_lock<std::recursive_mutex> l;
+	reactphysics3d::CollisionBody* body{};
+	reactphysics3d::TriangleMesh* triangleMesh{};
+
+	auto& common = this->get_rocktree().get_physics_common();
+	auto& world = this->get_rocktree().get_physics_world();
+
+	if (this->is_leaf_)
+	{
+		l = this->get_rocktree().get_physics_lock();
+		triangleMesh = common.createTriangleMesh();
+		body = world.createCollisionBody({});
+	}
+
 	for (const auto& mesh : node_data.meshes())
 	{
 		mesh_data m{};
@@ -373,8 +392,50 @@ void node::populate(const std::optional<std::string>& data)
 		m.texture_width = static_cast<int>(texture.width());
 		m.texture_height = static_cast<int>(texture.height());
 
+		if (body)
+		{
+			
+
+			struct float_vertex
+			{
+				float x, y, z;
+			};
+
+			auto* verts = new std::vector<float_vertex>();
+			verts->reserve(m.vertices.size());
+
+			for (const auto& vv : m.vertices)
+			{
+				auto v = this->matrix_globe_from_mesh * glm::dvec4((double)vv.x, (double)vv.y, (double)vv.z, 1.0);
+
+				verts->push_back(float_vertex{(float)v.x, (float)v.y, (float)v.z});
+			}
+
+			auto* indices = new std::vector<int>();
+			indices->reserve(m.indices.size());
+			for (auto index : m.indices)
+			{
+				indices->push_back(int((uint32_t)index));
+			}
+
+			auto va = new reactphysics3d::TriangleVertexArray((uint32_t)verts->size(), verts->data(),
+			                                                  (uint32_t)sizeof(float_vertex),
+			                                                  (uint32_t)(indices->size() / 3),
+			                                                  indices->data(), (uint32_t)(3 * sizeof(int)),
+			                                                  reactphysics3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
+			                                                  reactphysics3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE);
+
+			triangleMesh->addSubpart(va);
+		}
+
 		this->vertices_ += m.vertices.size();
 		this->meshes.emplace_back(std::move(m));
+	}
+
+	if(body)
+	{
+		auto* meshShape = common.createConcaveMeshShape(triangleMesh);
+		body->addCollider(meshShape, {});
 	}
 
 	this->meshes.shrink_to_fit();
@@ -568,7 +629,7 @@ void bulk::populate(const std::optional<std::string>& data)
 		auto n = this->allocate_object<node>(this->get_rocktree(), *this,
 		                                     node_meta.has_epoch() ? node_meta.epoch() : this->epoch_,
 		                                     this->path_ + aux.path, texture_format,
-		                                     std::move(imagery_epoch));
+		                                     std::move(imagery_epoch), is_leaf);
 
 		n->can_have_data = has_data;
 		n->meters_per_texel = node_meta.has_meters_per_texel()
@@ -628,8 +689,10 @@ void planetoid::clear()
 	}
 }
 
-rocktree::rocktree(std::string planet)
+rocktree::rocktree(reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world, std::string planet)
 	: planet_(std::move(planet))
+	  , common_(&common)
+	  , world_(&world)
 {
 	this->planetoid_ = std::make_unique<planetoid>(*this);
 }
