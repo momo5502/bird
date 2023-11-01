@@ -10,6 +10,10 @@
 #include <utils/thread.hpp>
 #include <utils/concurrency.hpp>
 
+#include <cmrc/cmrc.hpp>
+
+CMRC_DECLARE(bird);
+
 namespace
 {
 	constexpr double RENDER_DISTANCE = 1.4;
@@ -600,8 +604,10 @@ namespace
 		auto eye = lla_to_ecef(40.772185, -73.973186, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
 		glm::dvec3 direction{-0.295834, -0.662646, -0.688028};
 
-		const auto font = utils::io::read_file("segoeui.ttf");
-		text_renderer text_renderer(font, 24);
+		auto fs = cmrc::bird::get_filesystem();
+		auto opensans = fs.open("resources/font/OpenSans-Regular.ttf");
+
+		text_renderer text_renderer({opensans.cbegin(), opensans.cend()}, 24);
 
 		window.show([&](profiler& p)
 		{

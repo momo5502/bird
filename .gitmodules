@@ -26,3 +26,6 @@
 [submodule "deps/mbedtls"]
 	path = deps/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
+[submodule "deps/cmrc"]
+	path = deps/cmrc
+	url = https://github.com/vector-of-bool/cmrc.git

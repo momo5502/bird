@@ -1,3 +1,7 @@
+include(${CMAKE_CURRENT_LIST_DIR}/cmrc/CMakeRC.cmake)
+
+##########################################
+
 add_subdirectory(glm)
 add_subdirectory(glfw)
 add_subdirectory(crn)

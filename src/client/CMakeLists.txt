@@ -25,3 +25,13 @@ target_link_libraries(client PRIVATE
 set_target_properties(client PROPERTIES OUTPUT_NAME "bird")
 
 set_property(GLOBAL PROPERTY VS_STARTUP_PROJECT client)
+
+##########################################
+
+cmrc_add_resource_library(client-resources
+  ALIAS client::rc
+  NAMESPACE bird
+  resources/font/OpenSans-Regular.ttf
+)
+
+target_link_libraries(client PRIVATE client::rc)
