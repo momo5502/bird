@@ -322,7 +322,9 @@ namespace
 			new_eye = eye;
 		}
 
-		reactphysics3d::Ray ray({eye.x, eye.y, eye.z}, {new_eye.x, new_eye.y, new_eye.z});
+		auto new_eye_check = new_eye + (glm::normalize(movement_vector) * 2.0);
+
+		reactphysics3d::Ray ray({eye.x, eye.y, eye.z}, { new_eye_check.x, new_eye_check.y, new_eye_check.z});
 
 		struct cb : reactphysics3d::RaycastCallback
 		{
@@ -338,7 +340,7 @@ namespace
 
 
 		cb c{};
-		if( state.boost < 0.1)
+		if (state.boost < 0.1)
 		{
 			const auto l = rocktree.get_physics_lock();
 			world.raycast(ray, &c);
@@ -347,9 +349,6 @@ namespace
 		if (!c.did_hit)
 		{
 			eye = new_eye;
-		}else
-		{
-			printf("HIT - %g\n", window.get_current_time());
 		}
 
 		const auto view = glm::lookAt(eye, eye + direction, up);
@@ -539,6 +538,11 @@ namespace
 			}
 		});
 
+		{
+			const auto l = rocktree.get_physics_lock();
+			world.update(static_cast<double>(window.get_last_frame_time()) / 1'000'000.0);
+		}
+
 		p.step("Draw Text");
 
 		static double prevTime = 0;
@@ -573,9 +577,6 @@ namespace
 			renderer.draw("Q " + std::to_string(i) + ": " + std::to_string(rocktree.get_tasks(i)), 25.0f,
 			              (offset += 25.0f), 1.0f, color);
 		}*/
-
-		const auto l = rocktree.get_physics_lock();
-		world.update(static_cast<double>(window.get_last_frame_time()) / 1'000'000.0);
 	}
 
 #ifdef _WIN32

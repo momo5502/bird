@@ -323,7 +323,7 @@ void node::populate(const std::optional<std::string>& data)
 	auto& common = this->get_rocktree().get_physics_common();
 	auto& world = this->get_rocktree().get_physics_world();
 
-	if (this->is_leaf_)
+	if (this->is_leaf_ && node_data.meshes_size() > 0)
 	{
 		l = this->get_rocktree().get_physics_lock();
 		triangleMesh = common.createTriangleMesh();
@@ -392,10 +392,8 @@ void node::populate(const std::optional<std::string>& data)
 		m.texture_width = static_cast<int>(texture.width());
 		m.texture_height = static_cast<int>(texture.height());
 
-		if (body)
+		if (body && !m.indices.empty())
 		{
-			
-
 			struct float_vertex
 			{
 				float x, y, z;
@@ -411,19 +409,30 @@ void node::populate(const std::optional<std::string>& data)
 				verts->push_back(float_vertex{(float)v.x, (float)v.y, (float)v.z});
 			}
 
-			auto* indices = new std::vector<int>();
-			indices->reserve(m.indices.size());
-			for (auto index : m.indices)
+			auto* indices = new std::vector<uint16_t>();
+			indices->reserve(m.indices.size() * 3);
+			for (size_t i = 2; i < m.indices.size(); ++i)
 			{
-				indices->push_back(int((uint32_t)index));
+				auto index_0 = m.indices.at(i - 2);
+				auto index_1 = m.indices.at(i - 1);
+				auto index_2 = m.indices.at(i - 0);
+
+				if (i & 1)
+				{
+					std::swap(index_0, index_1);
+				}
+
+				indices->push_back(index_0);
+				indices->push_back(index_1);
+				indices->push_back(index_2);
 			}
 
 			auto va = new reactphysics3d::TriangleVertexArray((uint32_t)verts->size(), verts->data(),
 			                                                  (uint32_t)sizeof(float_vertex),
 			                                                  (uint32_t)(indices->size() / 3),
-			                                                  indices->data(), (uint32_t)(3 * sizeof(int)),
+			                                                  indices->data(), (uint32_t)(3 * sizeof(short)),
 			                                                  reactphysics3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
-			                                                  reactphysics3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE);
+			                                                  reactphysics3d::TriangleVertexArray::IndexDataType::INDEX_SHORT_TYPE);
 
 			triangleMesh->addSubpart(va);
 		}
@@ -432,7 +441,7 @@ void node::populate(const std::optional<std::string>& data)
 		this->meshes.emplace_back(std::move(m));
 	}
 
-	if(body)
+	if (body && triangleMesh->getNbSubparts() > 0)
 	{
 		auto* meshShape = common.createConcaveMeshShape(triangleMesh);
 		body->addCollider(meshShape, {});
