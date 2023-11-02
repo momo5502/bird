@@ -124,6 +124,7 @@ namespace utils::http
 		worker_thread& operator=(worker_thread&&) = delete;
 
 		void wakeup() const;
+		void request_stop();
 		void stop();
 
 		size_t get_downloads() const;

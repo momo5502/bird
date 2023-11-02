@@ -20,21 +20,7 @@ task_manager::task_manager(const size_t num_threads)
 
 task_manager::~task_manager()
 {
-	{
-		std::lock_guard _{this->mutex_};
-		this->stop_ = true;
-		this->queues_ = {};
-	}
-
-	this->condition_variable_.notify_all();
-
-	for (auto& thread : this->threads_)
-	{
-		if (thread.joinable())
-		{
-			thread.join();
-		}
-	}
+	this->stop();
 }
 
 void task_manager::schedule(std::deque<task>& q, task t, const bool is_high_priority_thread)
@@ -64,6 +50,7 @@ void task_manager::stop()
 	{
 		std::lock_guard _{this->mutex_};
 		this->stop_ = true;
+		this->queues_ = {};
 	}
 
 	this->condition_variable_.notify_all();

@@ -458,9 +458,20 @@ namespace utils::http
 		this->worker_->wakeup();
 	}
 
-	void worker_thread::stop()
+	void worker_thread::request_stop()
 	{
 		this->thread_.request_stop();
+		this->wakeup();
+	}
+
+	void worker_thread::stop()
+	{
+		this->request_stop();
+
+		if (this->thread_.joinable())
+		{
+			this->thread_.join();
+		}
 	}
 
 	size_t worker_thread::get_downloads() const
@@ -570,10 +581,13 @@ namespace utils::http
 	{
 		for (const auto& worker : this->workers_)
 		{
-			worker->stop();
+			worker->request_stop();
 		}
 
-		this->workers_.clear();
+		for (const auto& worker : this->workers_)
+		{
+			worker->stop();
+		}
 	}
 
 	size_t downloader::get_downloads() const
