@@ -61,6 +61,11 @@ public:
 	void unbuffer();
 	void buffer(gl_bufferer& bufferer);
 
+	const mesh_data& get_mesh_data() const
+	{
+		return this->mesh_data_;
+	}
+
 private:
 	mesh_data mesh_data_{};
 	std::optional<mesh_buffers> buffered_mesh_{};

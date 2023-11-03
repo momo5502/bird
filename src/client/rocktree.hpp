@@ -19,12 +19,53 @@ struct oriented_bounding_box
 	glm::dmat3 orientation{};
 };
 
+class physics_node
+{
+public:
+	physics_node() = default;
+	physics_node(rocktree& rocktree, const std::vector<mesh>& meshes, const glm::dmat4& world_matrix);
+	~physics_node();
+
+	physics_node(physics_node&&) = delete;
+	physics_node(const physics_node&) = delete;
+	physics_node& operator=(physics_node&&) = delete;
+	physics_node& operator=(const physics_node&) = delete;
+
+private:
+	struct vertex
+	{
+		float x{0.0f};
+		float y{0.0f};
+		float z{0.0f};
+	};
+
+	struct triangle
+	{
+		uint16_t x{};
+		uint16_t y{};
+		uint16_t z{};
+	};
+
+	struct physics_mesh
+	{
+		std::vector<vertex> vertices_{};
+		std::vector<triangle> triangles_{};
+		std::unique_ptr<reactphysics3d::TriangleVertexArray> vertex_array_{};
+	};
+
+	rocktree* rocktree_{};
+	std::vector<physics_mesh> meshes_{};
+
+	reactphysics3d::TriangleMesh* triangle_mesh_{};
+	reactphysics3d::ConcaveMeshShape* concave_shape_{};
+	reactphysics3d::CollisionBody* body_{};
+};
+
 class node final : public rocktree_object
 {
 public:
 	node(rocktree& rocktree, const bulk& parent, uint32_t epoch, std::string path, texture_format format,
 	     std::optional<uint32_t> imagery_epoch, bool is_leaf);
-	~node() override;
 
 	bool can_have_data{};
 	float meters_per_texel{};
@@ -67,6 +108,7 @@ private:
 	std::optional<uint32_t> imagery_epoch_{};
 
 	bool is_leaf_{};
+	std::optional<physics_node> physics_node_{};
 
 
 	std::string get_filename() const;
@@ -144,19 +186,11 @@ public:
 		return this->planet_;
 	}
 
-	std::unique_lock<std::recursive_mutex> get_physics_lock()
+	template <typename F>
+	void access_physics(F&& functor)
 	{
-		return std::unique_lock<std::recursive_mutex>{this->phys_mutex_};
-	}
-
-	reactphysics3d::PhysicsCommon& get_physics_common() const
-	{
-		return *this->common_;
-	}
-
-	reactphysics3d::PhysicsWorld& get_physics_world() const
-	{
-		return *this->world_;
+		std::lock_guard _{this->phys_mutex_};
+		functor(*this->common_, *this->world_);
 	}
 
 	planetoid* get_planetoid() const

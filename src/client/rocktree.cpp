@@ -41,6 +41,125 @@ namespace
 	}
 }
 
+physics_node::physics_node(rocktree& rocktree, const std::vector<mesh>& meshes, const glm::dmat4& world_matrix)
+	: rocktree_(&rocktree)
+{
+	if (meshes.empty())
+	{
+		return;
+	}
+
+	this->meshes_.reserve(meshes.size());
+
+	bool has_indices{false};
+	for (const auto& mesh : meshes)
+	{
+		const auto& mesh_data = mesh.get_mesh_data();
+		if (mesh_data.indices.empty())
+		{
+			continue;
+		}
+
+		has_indices = true;
+
+		physics_mesh p_mesh{};
+		p_mesh.vertices_.reserve(mesh_data.vertices.size());
+
+		for (const auto& vertex : mesh_data.vertices)
+		{
+			const glm::dvec4 local_position{
+				static_cast<double>(vertex.x), //
+				static_cast<double>(vertex.y), //
+				static_cast<double>(vertex.z), //
+				1.0,
+			};
+
+			const auto position = world_matrix * local_position;
+
+			p_mesh.vertices_.emplace_back(physics_node::vertex{
+				static_cast<float>(position.x), //
+				static_cast<float>(position.y), //
+				static_cast<float>(position.z), //
+			});
+		}
+
+		// technically -2, but fuck it
+		p_mesh.triangles_.reserve(mesh_data.indices.size());
+		for (size_t i = 2; i < mesh_data.indices.size(); ++i)
+		{
+			auto& triangle = p_mesh.triangles_.emplace_back(physics_node::triangle{
+				mesh_data.indices.at(i - 2), //
+				mesh_data.indices.at(i - 1), //
+				mesh_data.indices.at(i - 0), //
+			});
+
+			if (i & 1)
+			{
+				std::swap(triangle.x, triangle.y);
+			}
+		}
+
+		this->meshes_.emplace_back(std::move(p_mesh));
+	}
+
+	if (!has_indices)
+	{
+		return;
+	}
+
+	rocktree.access_physics([this](reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world)
+	{
+		this->triangle_mesh_ = common.createTriangleMesh();
+
+		for (auto& mesh : this->meshes_)
+		{
+			mesh.vertex_array_ = std::make_unique<reactphysics3d::TriangleVertexArray>(
+				static_cast<uint32_t>(mesh.vertices_.size()), mesh.vertices_.data(),
+				static_cast<uint32_t>(sizeof(physics_node::vertex)),
+				static_cast<uint32_t>(mesh.triangles_.size()), mesh.triangles_.data(),
+				static_cast<uint32_t>(sizeof(physics_node::triangle)),
+				reactphysics3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
+				reactphysics3d::TriangleVertexArray::IndexDataType::INDEX_SHORT_TYPE);
+
+			this->triangle_mesh_->addSubpart(mesh.vertex_array_.get());
+		}
+
+		this->concave_shape_ = common.createConcaveMeshShape(this->triangle_mesh_);
+
+		this->body_ = world.createCollisionBody({});
+		this->body_->addCollider(this->concave_shape_, {});
+	});
+}
+
+physics_node::~physics_node()
+{
+	if (!this->rocktree_)
+	{
+		return;
+	}
+
+	this->rocktree_->access_physics([this](reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world)
+	{
+		if (this->body_)
+		{
+			world.destroyCollisionBody(this->body_);
+			this->body_ = nullptr;
+		}
+
+		if (this->concave_shape_)
+		{
+			common.destroyConcaveMeshShape(this->concave_shape_);
+			this->concave_shape_ = nullptr;
+		}
+
+		if (this->triangle_mesh_)
+		{
+			common.destroyTriangleMesh(this->triangle_mesh_);
+			this->triangle_mesh_ = nullptr;
+		}
+	});
+}
+
 node::node(rocktree& rocktree, const bulk& parent, const uint32_t epoch, std::string path, const texture_format format,
            std::optional<uint32_t> imagery_epoch, const bool is_leaf)
 	: rocktree_object(rocktree, &parent)
@@ -49,10 +168,6 @@ node::node(rocktree& rocktree, const bulk& parent, const uint32_t epoch, std::st
 	  , format_(format)
 	  , imagery_epoch_(std::move(imagery_epoch))
 	  , is_leaf_(is_leaf)
-{
-}
-
-node::~node()
 {
 }
 
@@ -316,20 +431,6 @@ void node::populate(const std::optional<std::string>& data)
 	this->vertices_ = 0;
 	this->meshes.reserve(static_cast<size_t>(node_data.meshes_size()));
 
-	std::unique_lock<std::recursive_mutex> l;
-	reactphysics3d::CollisionBody* body{};
-	reactphysics3d::TriangleMesh* triangleMesh{};
-
-	auto& common = this->get_rocktree().get_physics_common();
-	auto& world = this->get_rocktree().get_physics_world();
-
-	if (this->is_leaf_ && node_data.meshes_size() > 0)
-	{
-		l = this->get_rocktree().get_physics_lock();
-		triangleMesh = common.createTriangleMesh();
-		body = world.createCollisionBody({});
-	}
-
 	for (const auto& mesh : node_data.meshes())
 	{
 		mesh_data m{};
@@ -392,66 +493,21 @@ void node::populate(const std::optional<std::string>& data)
 		m.texture_width = static_cast<int>(texture.width());
 		m.texture_height = static_cast<int>(texture.height());
 
-		if (body && !m.indices.empty())
-		{
-			struct float_vertex
-			{
-				float x, y, z;
-			};
-
-			auto* verts = new std::vector<float_vertex>();
-			verts->reserve(m.vertices.size());
-
-			for (const auto& vv : m.vertices)
-			{
-				auto v = this->matrix_globe_from_mesh * glm::dvec4((double)vv.x, (double)vv.y, (double)vv.z, 1.0);
-
-				verts->push_back(float_vertex{(float)v.x, (float)v.y, (float)v.z});
-			}
-
-			auto* indices = new std::vector<uint16_t>();
-			indices->reserve(m.indices.size() * 3);
-			for (size_t i = 2; i < m.indices.size(); ++i)
-			{
-				auto index_0 = m.indices.at(i - 2);
-				auto index_1 = m.indices.at(i - 1);
-				auto index_2 = m.indices.at(i - 0);
-
-				if (i & 1)
-				{
-					std::swap(index_0, index_1);
-				}
-
-				indices->push_back(index_0);
-				indices->push_back(index_1);
-				indices->push_back(index_2);
-			}
-
-			auto va = new reactphysics3d::TriangleVertexArray((uint32_t)verts->size(), verts->data(),
-			                                                  (uint32_t)sizeof(float_vertex),
-			                                                  (uint32_t)(indices->size() / 3),
-			                                                  indices->data(), (uint32_t)(3 * sizeof(short)),
-			                                                  reactphysics3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
-			                                                  reactphysics3d::TriangleVertexArray::IndexDataType::INDEX_SHORT_TYPE);
-
-			triangleMesh->addSubpart(va);
-		}
-
 		this->vertices_ += m.vertices.size();
 		this->meshes.emplace_back(std::move(m));
 	}
 
-	if (body && triangleMesh->getNbSubparts() > 0)
-	{
-		auto* meshShape = common.createConcaveMeshShape(triangleMesh);
-		body->addCollider(meshShape, {});
-	}
-
 	this->meshes.shrink_to_fit();
+
+	if (this->is_leaf_ && !this->meshes.empty())
+	{
+		this->physics_node_.emplace(this->get_rocktree(), this->meshes, this->matrix_globe_from_mesh);
+	}
 }
 
 void node::clear()
 {
+	this->physics_node_ = std::nullopt;
 	this->meshes.clear();
 	this->draw_time_ = {};
 	this->buffer_state_ = buffer_state::unbuffered;

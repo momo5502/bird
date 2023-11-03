@@ -185,8 +185,7 @@ namespace
 
 	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
 	               const shader_context& ctx,
-	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer,
-	               reactphysics3d::PhysicsWorld& world)
+	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer)
 	{
 		++frame_counter;
 
@@ -257,8 +256,6 @@ namespace
 		const auto up = glm::normalize(eye);
 		const auto gravity = up * -9.81;
 
-		world.setGravity({gravity[0], gravity[1], gravity[2]});
-
 		// projection
 		const auto aspect_ratio = static_cast<double>(width) / static_cast<double>(height);
 		constexpr auto fov = 0.25 * glm::pi<double>();
@@ -324,7 +321,7 @@ namespace
 
 		auto new_eye_check = new_eye + (glm::normalize(movement_vector) * 2.0);
 
-		reactphysics3d::Ray ray({eye.x, eye.y, eye.z}, { new_eye_check.x, new_eye_check.y, new_eye_check.z});
+		reactphysics3d::Ray ray({eye.x, eye.y, eye.z}, {new_eye_check.x, new_eye_check.y, new_eye_check.z});
 
 		struct cb : reactphysics3d::RaycastCallback
 		{
@@ -342,8 +339,10 @@ namespace
 		cb c{};
 		if (state.boost < 0.1)
 		{
-			const auto l = rocktree.get_physics_lock();
-			world.raycast(ray, &c);
+			rocktree.access_physics([&](reactphysics3d::PhysicsCommon&, const reactphysics3d::PhysicsWorld& world)
+			{
+				world.raycast(ray, &c);
+			});
 		}
 
 		if (!c.did_hit)
@@ -538,10 +537,11 @@ namespace
 			}
 		});
 
+		rocktree.access_physics([&](reactphysics3d::PhysicsCommon&, reactphysics3d::PhysicsWorld& world)
 		{
-			const auto l = rocktree.get_physics_lock();
+			world.setGravity({gravity[0], gravity[1], gravity[2]});
 			world.update(static_cast<double>(window.get_last_frame_time()) / 1'000'000.0);
-		}
+		});
 
 		p.step("Draw Text");
 
@@ -697,7 +697,7 @@ namespace
 		window.show([&](profiler& p)
 		{
 			p.silence();
-			run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer, text_renderer, *world);
+			run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer, text_renderer);
 		});
 	}
 }
