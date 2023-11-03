@@ -264,7 +264,7 @@ namespace
 		paint_sky(altitude);
 
 		const auto horizon = sqrt(altitude * (2 * planet_radius + altitude));
-		auto near_val = 1.0;
+		auto near_val = 0.5;
 		auto far_val = horizon;
 
 		if (horizon > 370000)
