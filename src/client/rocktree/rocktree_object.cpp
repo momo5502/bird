@@ -1,6 +1,6 @@
 #include "rocktree_object.hpp"
 
-#include "../rocktree.hpp"
+#include "rocktree.hpp"
 
 #include <utils/io.hpp>
 

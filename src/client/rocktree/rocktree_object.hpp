@@ -2,6 +2,21 @@
 
 #include "generic_object.hpp"
 
+inline std::filesystem::path octant_path_to_directory(const std::string& path)
+{
+	std::filesystem::path p = {};
+
+	char path_chars[2] = { 0, 0 };
+
+	for (const auto c : path)
+	{
+		path_chars[0] = c;
+		p /= path_chars;
+	}
+
+	return p;
+}
+
 class rocktree;
 
 class rocktree_object : public generic_object

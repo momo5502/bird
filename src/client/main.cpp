@@ -1,6 +1,6 @@
 #include "std_include.hpp"
 #include "window.hpp"
-#include "rocktree.hpp"
+#include "rocktree/rocktree.hpp"
 #include "input.hpp"
 
 #include "text_renderer.hpp"
