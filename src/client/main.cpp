@@ -337,13 +337,18 @@ namespace
 
 
 		cb c{};
-		if (state.boost < 0.1)
+
+		rocktree.access_physics([&](reactphysics3d::PhysicsCommon&, reactphysics3d::PhysicsWorld& world)
 		{
-			rocktree.access_physics([&](reactphysics3d::PhysicsCommon&, const reactphysics3d::PhysicsWorld& world)
+			world.setGravity({gravity[0], gravity[1], gravity[2]});
+			world.update(static_cast<double>(window.get_last_frame_time()) / 1'000'000.0);
+
+			if (state.boost < 0.1)
 			{
 				world.raycast(ray, &c);
-			});
-		}
+			}
+		}, true);
+
 
 		if (!c.did_hit)
 		{
@@ -535,12 +540,6 @@ namespace
 
 				nodes.push(node);
 			}
-		});
-
-		rocktree.access_physics([&](reactphysics3d::PhysicsCommon&, reactphysics3d::PhysicsWorld& world)
-		{
-			world.setGravity({gravity[0], gravity[1], gravity[2]});
-			world.update(static_cast<double>(window.get_last_frame_time()) / 1'000'000.0);
 		});
 
 		p.step("Draw Text");

@@ -187,10 +187,18 @@ public:
 	}
 
 	template <typename F>
-	void access_physics(F&& functor)
+	void access_physics(F&& functor, const bool high_priority = false)
 	{
-		std::lock_guard _{this->phys_mutex_};
-		functor(*this->common_, *this->world_);
+		if (high_priority)
+		{
+			std::lock_guard _{this->phys_mutex_.high_priority()};
+			functor(*this->common_, *this->world_);
+		}
+		else
+		{
+			std::lock_guard _{this->phys_mutex_};
+			functor(*this->common_, *this->world_);
+		}
 	}
 
 	planetoid* get_planetoid() const
@@ -217,7 +225,7 @@ public:
 
 private:
 	std::string planet_{};
-	std::recursive_mutex phys_mutex_{};
+	utils::priority_mutex phys_mutex_{};
 	reactphysics3d::PhysicsCommon* common_{};
 	reactphysics3d::PhysicsWorld* world_{};
 
