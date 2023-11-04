@@ -13,6 +13,7 @@
 
 #include <cmrc/cmrc.hpp>
 
+#include "world/world.hpp"
 #include "world/world_mesh.hpp"
 
 CMRC_DECLARE(bird);
@@ -185,7 +186,6 @@ namespace
 	std::atomic_uint64_t frame_counter{0};
 
 	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
-	               const shader_context& ctx,
 	               utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, text_renderer& renderer)
 	{
 		++frame_counter;
@@ -336,10 +336,11 @@ namespace
 			}
 		};
 
+		auto& game_world = rocktree.with<world>();
 
 		cb c{};
 
-		rocktree.access_physics([&](reactphysics3d::PhysicsCommon&, reactphysics3d::PhysicsWorld& world)
+		game_world.access_physics([&](reactphysics3d::PhysicsCommon&, reactphysics3d::PhysicsWorld& world)
 		{
 			world.setGravity({gravity[0], gravity[1], gravity[2]});
 			world.update(static_cast<double>(window.get_last_frame_time()) / 1'000'000.0);
@@ -463,6 +464,7 @@ namespace
 
 		p.step("Loop 2");
 
+		const auto& ctx = game_world.get_shader_context();
 		ctx.use_shader();
 
 		glUniform1f(ctx.animation_time_loc, ANIMATION_TIME);
@@ -640,7 +642,7 @@ namespace
 			auto last_cleanup_frame = frame_counter.load();
 			while (!token.stop_requested())
 			{
-				rocktree.get_bufferer().perform_cleanup();
+				rocktree.with<world>().get_bufferer().perform_cleanup();
 
 				if (frame_counter > (last_cleanup_frame + 6))
 				{
@@ -673,13 +675,8 @@ namespace
 
 		window window(1280, 800, "game");
 
-		const shader_context ctx{};
-
-		reactphysics3d::PhysicsCommon physicsCommon{};
-
-		auto* world = physicsCommon.createPhysicsWorld();
-
-		custom_rocktree<int, world_mesh> rocktree{physicsCommon, *world, "earth", 0};
+		world game_world{};
+		custom_rocktree<world, world_mesh> rocktree{"earth", game_world};
 
 		utils::concurrency::container<std::queue<world_mesh*>> meshes_to_buffer{};
 
@@ -699,7 +696,7 @@ namespace
 		window.show([&](profiler& p)
 		{
 			p.silence();
-			run_frame(p, window, rocktree, eye, direction, ctx, meshes_to_buffer, text_renderer);
+			run_frame(p, window, rocktree, eye, direction, meshes_to_buffer, text_renderer);
 		});
 	}
 }

@@ -2,8 +2,8 @@
 
 #include "../rocktree/rocktree.hpp"
 
-physics_node::physics_node(rocktree& rocktree, const std::vector<mesh_data>& meshes, const glm::dmat4& world_matrix)
-	: rocktree_(&rocktree)
+physics_node::physics_node(world& game_world, const std::vector<mesh_data>& meshes, const glm::dmat4& world_matrix)
+	: game_world_(&game_world)
 {
 	if (meshes.empty())
 	{
@@ -67,7 +67,7 @@ physics_node::physics_node(rocktree& rocktree, const std::vector<mesh_data>& mes
 		return;
 	}
 
-	rocktree.access_physics([this](reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world)
+	this->game_world_->access_physics([this](reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world)
 	{
 		this->triangle_mesh_ = common.createTriangleMesh();
 
@@ -93,12 +93,12 @@ physics_node::physics_node(rocktree& rocktree, const std::vector<mesh_data>& mes
 
 physics_node::~physics_node()
 {
-	if (!this->rocktree_)
+	if (!this->game_world_)
 	{
 		return;
 	}
 
-	this->rocktree_->access_physics([this](reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world)
+	this->game_world_->access_physics([this](reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world)
 	{
 		if (this->body_)
 		{

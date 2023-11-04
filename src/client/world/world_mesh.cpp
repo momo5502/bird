@@ -13,7 +13,7 @@ world_mesh::world_mesh(node& node)
 
 	if (node.sdata_.is_leaf && !node.meshes_.empty())
 	{
-		this->physics_node_.emplace(node.get_rocktree(), node.meshes_, node.matrix_globe_from_mesh);
+		this->physics_node_.emplace(node.get_rocktree().with<world>(), node.meshes_, node.matrix_globe_from_mesh);
 	}
 }
 
@@ -99,11 +99,12 @@ bool world_mesh::buffer_meshes_internal()
 		return false;
 	}
 
-	auto& node = this->get_node();
+	const auto& node = this->get_node();
+	auto& bufferer = node.get_rocktree().with<world>().get_bufferer();
 
 	for (auto& m : this->meshes_)
 	{
-		m.buffer(node.get_rocktree().get_bufferer());
+		m.buffer(bufferer);
 	}
 
 	return true;

@@ -1,12 +1,13 @@
 #pragma once
 
 #include "../rocktree/node.hpp"
+#include "../world/world.hpp"
 
 class physics_node
 {
 public:
 	physics_node() = default;
-	physics_node(rocktree& rocktree, const std::vector<mesh_data>& meshes, const glm::dmat4& world_matrix);
+	physics_node(world& game_world, const std::vector<mesh_data>& meshes, const glm::dmat4& world_matrix);
 	~physics_node();
 
 	physics_node(physics_node&&) = delete;
@@ -36,7 +37,7 @@ private:
 		std::unique_ptr<reactphysics3d::TriangleVertexArray> vertex_array_{};
 	};
 
-	rocktree* rocktree_{};
+	world* game_world_{};
 	std::vector<physics_mesh> meshes_{};
 
 	reactphysics3d::TriangleMesh* triangle_mesh_{};

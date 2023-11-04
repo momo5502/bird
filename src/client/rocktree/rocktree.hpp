@@ -7,10 +7,8 @@
 #include "planetoid.hpp"
 
 #include "../task_manager.hpp"
-#include "../gl_objects.hpp"
 
 #include <utils/http.hpp>
-#include <utils/priority_mutex.hpp>
 
 class planetoid;
 
@@ -22,7 +20,7 @@ class rocktree
 public:
 	friend rocktree_object;
 
-	rocktree(reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world, std::string planet);
+	rocktree(std::string planet);
 	virtual ~rocktree();
 
 	const std::string& get_planet() const
@@ -30,29 +28,9 @@ public:
 		return this->planet_;
 	}
 
-	template <typename F>
-	void access_physics(F&& functor, const bool high_priority = false)
-	{
-		if (high_priority)
-		{
-			std::lock_guard _{this->phys_mutex_.high_priority()};
-			functor(*this->common_, *this->world_);
-		}
-		else
-		{
-			std::lock_guard _{this->phys_mutex_};
-			functor(*this->common_, *this->world_);
-		}
-	}
-
 	planetoid* get_planetoid() const
 	{
 		return this->planetoid_.get();
-	}
-
-	gl_bufferer& get_bufferer()
-	{
-		return this->bufferer_;
 	}
 
 	task_manager& get_task_manager()
@@ -92,22 +70,17 @@ public:
 	template <typename RocktreeData>
 	RocktreeData& with()
 	{
-		return this->with<RocktreeData>().get();
+		return this->as<RocktreeData>().get();
 	}
 
 	template <typename RocktreeData>
 	const RocktreeData& as() const
 	{
-		return this->with<RocktreeData>().get();
+		return this->as<RocktreeData>().get();
 	}
 
 private:
 	std::string planet_{};
-	utils::priority_mutex phys_mutex_{};
-	reactphysics3d::PhysicsCommon* common_{};
-	reactphysics3d::PhysicsWorld* world_{};
-
-	gl_bufferer bufferer_{};
 
 	using object_list = std::list<std::unique_ptr<generic_object>>;
 	utils::concurrency::container<object_list> objects_{};
@@ -126,25 +99,25 @@ template <typename RocktreeData>
 class typed_rocktree : public rocktree
 {
 public:
-	typed_rocktree(reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world, std::string planet,
-	               RocktreeData data)
-		: rocktree(common, world, std::move(planet))
-		  , data_(std::move(data))
+	typed_rocktree(std::string planet,
+	               RocktreeData& data)
+		: rocktree(std::move(planet))
+		  , data_(&data)
 	{
 	}
 
 	RocktreeData& get()
 	{
-		return this->data_;
+		return *this->data_;
 	}
 
 	const RocktreeData& get() const
 	{
-		return this->data_;
+		return *this->data_;
 	}
 
 private:
-	RocktreeData data_{};
+	RocktreeData* data_{};
 };
 
 template <typename RocktreeData, typename NodeData>

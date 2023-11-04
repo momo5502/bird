@@ -9,10 +9,8 @@
 #include <utils/timer.hpp>
 #include <utils/finally.hpp>
 
-rocktree::rocktree(reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world, std::string planet)
+rocktree::rocktree(std::string planet)
 	: planet_(std::move(planet))
-	  , common_(&common)
-	  , world_(&world)
 {
 	this->planetoid_ = std::make_unique<planetoid>(*this);
 }
