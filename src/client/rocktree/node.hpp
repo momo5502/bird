@@ -28,9 +28,9 @@ public:
 private:
 	struct vertex
 	{
-		float x{ 0.0f };
-		float y{ 0.0f };
-		float z{ 0.0f };
+		float x{0.0f};
+		float y{0.0f};
+		float z{0.0f};
 	};
 
 	struct triangle
@@ -59,7 +59,7 @@ class node : public rocktree_object
 {
 public:
 	node(rocktree& rocktree, const bulk& parent, uint32_t epoch, std::string path, texture_format format,
-		std::optional<uint32_t> imagery_epoch, bool is_leaf);
+	     std::optional<uint32_t> imagery_epoch, bool is_leaf);
 
 	bool can_have_data{};
 	float meters_per_texel{};
@@ -72,7 +72,7 @@ public:
 	bool mark_for_buffering();
 
 	float draw(const shader_context& ctx, float current_time, const std::array<float, 8>& child_draw_time,
-		const std::array<int, 8>& octant_mask);
+	           const std::array<int, 8>& octant_mask);
 
 	static void buffer_queue(std::queue<node*> nodes);
 
@@ -92,7 +92,7 @@ private:
 	};
 
 	std::optional<float> draw_time_{};
-	std::atomic<buffer_state> buffer_state_{ buffer_state::unbuffered };
+	std::atomic<buffer_state> buffer_state_{buffer_state::unbuffered};
 
 	uint64_t vertices_{};
 	uint32_t epoch_{};

@@ -52,6 +52,30 @@ namespace
 
 		return obb;
 	}
+
+	struct node_data_path_and_flags
+	{
+		std::string path{};
+		uint32_t flags{};
+		int level{};
+	};
+
+	node_data_path_and_flags unpack_path_and_flags(const NodeMetadata& node_meta)
+	{
+		node_data_path_and_flags result{};
+		auto path_id = node_meta.path_and_flags();
+
+		result.level = static_cast<int>(1 + (path_id & 3));
+		path_id >>= 2;
+		for (int i = 0; i < result.level; i++)
+		{
+			result.path.push_back(static_cast<char>('0' + (path_id & 7)));
+			path_id >>= 3;
+		}
+		result.flags = path_id;
+
+		return result;
+	}
 }
 
 
@@ -60,30 +84,6 @@ bulk::bulk(rocktree& rocktree, const generic_object& parent, const uint32_t epoc
 	  , epoch_(epoch)
 	  , path_(std::move(path))
 {
-}
-
-struct node_data_path_and_flags
-{
-	std::string path{};
-	uint32_t flags{};
-	int level{};
-};
-
-node_data_path_and_flags unpack_path_and_flags(const NodeMetadata& node_meta)
-{
-	node_data_path_and_flags result{};
-	auto path_id = node_meta.path_and_flags();
-
-	result.level = static_cast<int>(1 + (path_id & 3));
-	path_id >>= 2;
-	for (int i = 0; i < result.level; i++)
-	{
-		result.path.push_back(static_cast<char>('0' + (path_id & 7)));
-		path_id >>= 3;
-	}
-	result.flags = path_id;
-
-	return result;
 }
 
 const std::string& bulk::get_path() const
