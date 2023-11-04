@@ -9,10 +9,11 @@
 #include <utils/nt.hpp>
 #include <utils/thread.hpp>
 #include <utils/concurrency.hpp>
+#include <utils/finally.hpp>
 
 #include <cmrc/cmrc.hpp>
 
-#include "utils/finally.hpp"
+#include "world/world_mesh.hpp"
 
 CMRC_DECLARE(bird);
 
@@ -185,7 +186,7 @@ namespace
 
 	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
 	               const shader_context& ctx,
-	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer)
+	               utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, text_renderer& renderer)
 	{
 		++frame_counter;
 
@@ -443,7 +444,7 @@ namespace
 
 		p.step("Between");
 
-		std::queue<node*> new_nodes_to_buffer{};
+		std::queue<world_mesh*> new_meshes_to_buffer{};
 
 		using mask_list = std::array<int, 8>;
 		using time_list = std::array<float, 8>;
@@ -476,11 +477,13 @@ namespace
 			assert(level > 0);
 			assert(node->can_have_data);
 
-			if (!node->is_buffered())
+			auto& mesh = node->with<world_mesh>();
+
+			if (!mesh.is_buffered())
 			{
-				if (node->mark_for_buffering())
+				if (mesh.mark_for_buffering())
 				{
-					new_nodes_to_buffer.push(node);
+					new_meshes_to_buffer.push(&mesh);
 				}
 
 				continue;
@@ -513,7 +516,7 @@ namespace
 
 			p.step("Loop2Draw");
 
-			mask_entry.times[octant] = node->draw(ctx, current_time, mask.times, mask.masks);
+			mask_entry.times[octant] = mesh.draw(ctx, current_time, mask.times, mask.masks);
 			current_vertices += node->get_vertices();
 
 			p.step("Loop 2");
@@ -523,22 +526,22 @@ namespace
 
 		size_t buffer_queue{0};
 
-		nodes_to_buffer.access([&](std::queue<::node*>& nodes)
+		meshes_to_buffer.access([&](std::queue<::world_mesh*>& meshes)
 		{
-			buffer_queue = nodes.size() + new_nodes_to_buffer.size();
+			buffer_queue = meshes.size() + new_meshes_to_buffer.size();
 
-			if (nodes.empty())
+			if (meshes.empty())
 			{
-				nodes = std::move(new_nodes_to_buffer);
+				meshes = std::move(new_meshes_to_buffer);
 				return;
 			}
 
-			while (!new_nodes_to_buffer.empty())
+			while (!new_meshes_to_buffer.empty())
 			{
-				auto* node = new_nodes_to_buffer.front();
-				new_nodes_to_buffer.pop();
+				auto* node = new_meshes_to_buffer.front();
+				new_meshes_to_buffer.pop();
 
-				nodes.push(node);
+				meshes.push(node);
 			}
 		});
 
@@ -604,32 +607,32 @@ namespace
 	}
 #endif
 
-	bool buffer_queue(utils::concurrency::container<std::queue<node*>>& nodes_to_buffer)
+	bool buffer_queue(utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer)
 	{
-		std::queue<node*> node_queue{};
+		std::queue<world_mesh*> mesh_queue{};
 
-		nodes_to_buffer.access([&node_queue](std::queue<node*>& nodes)
+		meshes_to_buffer.access([&mesh_queue](std::queue<world_mesh*>& nodes)
 		{
 			if (nodes.empty())
 			{
 				return;
 			}
 
-			node_queue = std::move(nodes);
+			mesh_queue = std::move(nodes);
 			nodes = {};
 		});
 
-		if (node_queue.empty())
+		if (mesh_queue.empty())
 		{
 			return false;
 		}
 
-		node::buffer_queue(node_queue);
+		world_mesh::buffer_queue(mesh_queue);
 		return true;
 	}
 
 	void bufferer(const std::stop_token& token, window& window,
-	              utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, rocktree& rocktree)
+	              utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, rocktree& rocktree)
 	{
 		window.use_shared_context([&]
 		{
@@ -646,7 +649,7 @@ namespace
 					last_cleanup_frame = frame_counter.load();
 				}
 
-				if (!buffer_queue(nodes_to_buffer))
+				if (!buffer_queue(meshes_to_buffer))
 				{
 					std::this_thread::sleep_for(10ms);
 				}
@@ -676,13 +679,13 @@ namespace
 
 		auto* world = physicsCommon.createPhysicsWorld();
 
-		rocktree rocktree{physicsCommon, *world, "earth"};
+		custom_rocktree<int, world_mesh> rocktree{physicsCommon, *world, "earth", 0};
 
-		utils::concurrency::container<std::queue<node*>> nodes_to_buffer{};
+		utils::concurrency::container<std::queue<world_mesh*>> meshes_to_buffer{};
 
 		const auto buffer_thread = utils::thread::create_named_jthread("Bufferer", [&](const std::stop_token& token)
 		{
-			bufferer(token, window, nodes_to_buffer, rocktree);
+			bufferer(token, window, meshes_to_buffer, rocktree);
 		});
 
 		auto eye = lla_to_ecef(40.772185, -73.973186, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
@@ -696,7 +699,7 @@ namespace
 		window.show([&](profiler& p)
 		{
 			p.silence();
-			run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer, text_renderer);
+			run_frame(p, window, rocktree, eye, direction, ctx, meshes_to_buffer, text_renderer);
 		});
 	}
 }

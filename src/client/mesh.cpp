@@ -24,8 +24,8 @@ namespace
 	}
 }
 
-mesh::mesh(mesh_data mesh_data)
-	: mesh_data_(std::move(mesh_data))
+mesh::mesh(const mesh_data& mesh_data)
+	: mesh_data_(&mesh_data)
 {
 }
 
@@ -38,7 +38,7 @@ void mesh::buffer(gl_bufferer& bufferer)
 {
 	if (!this->buffered_mesh_)
 	{
-		this->buffered_mesh_.emplace(bufferer, this->mesh_data_);
+		this->buffered_mesh_.emplace(bufferer, *this->mesh_data_);
 	}
 }
 

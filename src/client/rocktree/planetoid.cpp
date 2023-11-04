@@ -24,7 +24,10 @@ void planetoid::populate(const std::optional<std::string>& data)
 	}
 
 	this->radius = planetoid.radius();
-	this->root_bulk = this->allocate_object<bulk>(this->get_rocktree(), *this, planetoid.root_node_metadata().epoch());
+	this->root_bulk = this->allocate_object<bulk>(this->get_rocktree(), *this,
+	                                              static_bulk_data{
+		                                              planetoid.root_node_metadata().epoch(),
+	                                              });
 }
 
 void planetoid::clear()

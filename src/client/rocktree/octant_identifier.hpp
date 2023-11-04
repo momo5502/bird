@@ -16,12 +16,17 @@ public:
 	{
 	}
 
-	octant_identifier(const std::string& str)
+	octant_identifier(const std::string_view& str)
 	{
 		for (auto& val : str)
 		{
 			this->add(val - '0');
 		}
+	}
+
+	octant_identifier(const std::string& str)
+		: octant_identifier(std::string_view(str))
+	{
 	}
 
 	size_t size() const
@@ -52,6 +57,21 @@ public:
 	{
 		octant_identifier new_value = *this;
 		new_value.add(value);
+
+		return new_value;
+	}
+
+	octant_identifier operator+(const octant_identifier& value) const
+	{
+		octant_identifier new_value = *this;
+
+		const auto current_size = new_value.size();
+		const auto value_bit = current_size * 3;
+		const auto new_value_bits = value.value_ << value_bit;
+
+		new_value.value_ |= new_value_bits;
+		new_value.set_size(current_size + value.size());
+
 
 		return new_value;
 	}

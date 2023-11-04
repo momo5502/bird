@@ -133,7 +133,8 @@ namespace
 					layer_bounds[m++] = k;
 				}
 			}
-			auto v = unpack_var_int(packed, &offset);
+
+			const auto v = unpack_var_int(packed, &offset);
 			for (auto j = 0; j < v; j++)
 			{
 				const auto idx = indices[idx_i++];
@@ -153,227 +154,31 @@ namespace
 	}
 }
 
-physics_node::physics_node(rocktree& rocktree, const std::vector<mesh>& meshes, const glm::dmat4& world_matrix)
-	: rocktree_(&rocktree)
-{
-	if (meshes.empty())
-	{
-		return;
-	}
-
-	this->meshes_.reserve(meshes.size());
-
-	bool has_indices{false};
-	for (const auto& mesh : meshes)
-	{
-		const auto& mesh_data = mesh.get_mesh_data();
-		if (mesh_data.indices.empty())
-		{
-			continue;
-		}
-
-		has_indices = true;
-
-		physics_mesh p_mesh{};
-		p_mesh.vertices_.reserve(mesh_data.vertices.size());
-
-		for (const auto& vertex : mesh_data.vertices)
-		{
-			const glm::dvec4 local_position{
-				static_cast<double>(vertex.x), //
-				static_cast<double>(vertex.y), //
-				static_cast<double>(vertex.z), //
-				1.0,
-			};
-
-			const auto position = world_matrix * local_position;
-
-			p_mesh.vertices_.emplace_back(physics_node::vertex{
-				static_cast<float>(position.x), //
-				static_cast<float>(position.y), //
-				static_cast<float>(position.z), //
-			});
-		}
-
-		// technically -2, but fuck it
-		p_mesh.triangles_.reserve(mesh_data.indices.size());
-		for (size_t i = 2; i < mesh_data.indices.size(); ++i)
-		{
-			auto& triangle = p_mesh.triangles_.emplace_back(physics_node::triangle{
-				mesh_data.indices.at(i - 2), //
-				mesh_data.indices.at(i - 1), //
-				mesh_data.indices.at(i - 0), //
-			});
-
-			if (i & 1)
-			{
-				std::swap(triangle.x, triangle.y);
-			}
-		}
-
-		this->meshes_.emplace_back(std::move(p_mesh));
-	}
-
-	if (!has_indices)
-	{
-		return;
-	}
-
-	rocktree.access_physics([this](reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world)
-	{
-		this->triangle_mesh_ = common.createTriangleMesh();
-
-		for (auto& mesh : this->meshes_)
-		{
-			mesh.vertex_array_ = std::make_unique<reactphysics3d::TriangleVertexArray>(
-				static_cast<uint32_t>(mesh.vertices_.size()), mesh.vertices_.data(),
-				static_cast<uint32_t>(sizeof(physics_node::vertex)),
-				static_cast<uint32_t>(mesh.triangles_.size()), mesh.triangles_.data(),
-				static_cast<uint32_t>(sizeof(physics_node::triangle)),
-				reactphysics3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
-				reactphysics3d::TriangleVertexArray::IndexDataType::INDEX_SHORT_TYPE);
-
-			this->triangle_mesh_->addSubpart(mesh.vertex_array_.get());
-		}
-
-		this->concave_shape_ = common.createConcaveMeshShape(this->triangle_mesh_);
-
-		this->body_ = world.createCollisionBody({});
-		this->body_->addCollider(this->concave_shape_, {});
-	});
-}
-
-physics_node::~physics_node()
-{
-	if (!this->rocktree_)
-	{
-		return;
-	}
-
-	this->rocktree_->access_physics([this](reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world)
-	{
-		if (this->body_)
-		{
-			world.destroyCollisionBody(this->body_);
-			this->body_ = nullptr;
-		}
-
-		if (this->concave_shape_)
-		{
-			common.destroyConcaveMeshShape(this->concave_shape_);
-			this->concave_shape_ = nullptr;
-		}
-
-		if (this->triangle_mesh_)
-		{
-			common.destroyTriangleMesh(this->triangle_mesh_);
-			this->triangle_mesh_ = nullptr;
-		}
-	});
-}
-
-node::node(rocktree& rocktree, const bulk& parent, const uint32_t epoch, std::string path, const texture_format format,
-           std::optional<uint32_t> imagery_epoch, const bool is_leaf)
+node::node(rocktree& rocktree, const bulk& parent, static_node_data&& sdata)
 	: rocktree_object(rocktree, &parent)
-	  , epoch_(epoch)
-	  , path_(std::move(path))
-	  , format_(format)
-	  , imagery_epoch_(std::move(imagery_epoch))
-	  , is_leaf_(is_leaf)
+	  , sdata_(std::move(sdata))
 {
-}
-
-void node::buffer_meshes()
-{
-	if (this->buffer_meshes_internal())
-	{
-		this->mark_as_buffered();
-	}
-}
-
-bool node::is_buffered() const
-{
-	return this->buffer_state_ == buffer_state::buffered;
-}
-
-bool node::is_buffering() const
-{
-	return this->buffer_state_ == buffer_state::buffering;
-}
-
-bool node::mark_for_buffering()
-{
-	auto expected = buffer_state::unbuffered;
-	return this->buffer_state_.compare_exchange_strong(expected, buffer_state::buffering);
-}
-
-float node::draw(const shader_context& ctx, float current_time, const std::array<float, 8>& child_draw_time,
-                 const std::array<int, 8>& octant_mask)
-{
-	if (!this->draw_time_)
-	{
-		this->draw_time_ = current_time;
-	}
-
-	const auto own_draw_time = *this->draw_time_;
-
-	glUniform1f(ctx.current_time_loc, current_time);
-	glUniform1f(ctx.own_draw_time_loc, own_draw_time);
-
-	glUniform1iv(ctx.octant_mask_loc, 8, octant_mask.data());
-	glUniform1fv(ctx.child_draw_times_loc, 8, child_draw_time.data());
-
-	for (auto& mesh : this->meshes)
-	{
-		mesh.draw(ctx);
-	}
-
-	return own_draw_time;
-}
-
-void node::buffer_queue(std::queue<node*> nodes)
-{
-	std::queue<node*> nodes_to_notify{};
-
-	while (!nodes.empty())
-	{
-		auto* node = nodes.front();
-		nodes.pop();
-
-		if (node && !node->is_being_deleted() && node->buffer_meshes_internal())
-		{
-			nodes_to_notify.push(node);
-		}
-	}
-
-	glFinish();
-
-	while (!nodes_to_notify.empty())
-	{
-		auto* node = nodes_to_notify.front();
-		nodes_to_notify.pop();
-
-		node->mark_as_buffered();
-	}
 }
 
 std::string node::get_filename() const
 {
-	const auto texture_format = std::to_string(this->format_ == texture_format::rgb
+	const auto texture_format = std::to_string(this->sdata_.format == texture_format::rgb
 		                                           ? Texture_Format_JPG
 		                                           : Texture_Format_DXT1);
 
-	if (this->imagery_epoch_)
+	const auto path = this->sdata_.path.to_string();
+
+	if (this->sdata_.imagery_epoch)
 	{
-		return "pb=!1m2!1s" + this->path_ //
-			+ "!2u" + std::to_string(this->epoch_) //
+		return "pb=!1m2!1s" + path //
+			+ "!2u" + std::to_string(this->sdata_.epoch) //
 			+ "!2e" + texture_format //
-			+ "!3u" + std::to_string(*this->imagery_epoch_) //
+			+ "!3u" + std::to_string(*this->sdata_.imagery_epoch) //
 			+ "!4b0";
 	}
 
-	return "pb=!1m2!1s" + this->path_ //
-		+ "!2u" + std::to_string(this->epoch_) //
+	return "pb=!1m2!1s" + path //
+		+ "!2u" + std::to_string(this->sdata_.epoch) //
 		+ "!2e" + texture_format //
 		+ "!4b0";
 }
@@ -385,7 +190,7 @@ std::string node::get_url() const
 
 std::filesystem::path node::get_filepath() const
 {
-	return "NodeData" / octant_path_to_directory(this->path_) / this->get_filename();
+	return "NodeData" / octant_path_to_directory(this->sdata_.path.to_string()) / this->get_filename();
 }
 
 void node::populate(const std::optional<std::string>& data)
@@ -408,7 +213,7 @@ void node::populate(const std::optional<std::string>& data)
 	}
 
 	this->vertices_ = 0;
-	this->meshes.reserve(static_cast<size_t>(node_data.meshes_size()));
+	this->meshes_.reserve(static_cast<size_t>(node_data.meshes_size()));
 
 	for (const auto& mesh : node_data.meshes())
 	{
@@ -472,47 +277,14 @@ void node::populate(const std::optional<std::string>& data)
 		m.texture_height = static_cast<int>(texture.height());
 
 		this->vertices_ += m.vertices.size();
-		this->meshes.emplace_back(std::move(m));
+		this->meshes_.emplace_back(std::move(m));
 	}
 
-	this->meshes.shrink_to_fit();
-
-	if (this->is_leaf_ && !this->meshes.empty())
-	{
-		this->physics_node_.emplace(this->get_rocktree(), this->meshes, this->matrix_globe_from_mesh);
-	}
+	this->meshes_.shrink_to_fit();
 }
 
 void node::clear()
 {
-	this->physics_node_ = std::nullopt;
-	this->meshes.clear();
-	this->draw_time_ = {};
-	this->buffer_state_ = buffer_state::unbuffered;
+	this->meshes_ = {};
 	this->vertices_ = 0;
-}
-
-bool node::can_be_deleted() const
-{
-	return this->buffer_state_ != buffer_state::buffering;
-}
-
-bool node::buffer_meshes_internal()
-{
-	if (this->is_buffered())
-	{
-		return false;
-	}
-
-	for (auto& m : this->meshes)
-	{
-		m.buffer(this->get_rocktree().get_bufferer());
-	}
-
-	return true;
-}
-
-void node::mark_as_buffered()
-{
-	this->buffer_state_ = buffer_state::buffered;
 }

@@ -2,13 +2,14 @@
 
 #include "bulk.hpp"
 #include "node.hpp"
+#include "rocktree.hpp"
 
 #include "rocktree_proto.hpp"
 
 namespace
 {
 	oriented_bounding_box unpack_obb(const std::string& packed, const glm::vec3& head_node_center,
-		const double meters_per_texel)
+	                                 const double meters_per_texel)
 	{
 		assert(packed.size() == 15);
 
@@ -79,21 +80,20 @@ namespace
 }
 
 
-bulk::bulk(rocktree& rocktree, const generic_object& parent, const uint32_t epoch, std::string path)
+bulk::bulk(rocktree& rocktree, const generic_object& parent, static_bulk_data&& sdata)
 	: rocktree_object(rocktree, &parent)
-	  , epoch_(epoch)
-	  , path_(std::move(path))
+	  , sdata_(std::move(sdata))
 {
 }
 
-const std::string& bulk::get_path() const
+const octant_identifier<>& bulk::get_path() const
 {
-	return this->path_;
+	return this->sdata_.path;
 }
 
 std::string bulk::get_filename() const
 {
-	return "pb=!1m2!1s" + this->path_ + "!2u" + std::to_string(this->epoch_);
+	return "pb=!1m2!1s" + this->get_path().to_string() + "!2u" + std::to_string(this->sdata_.epoch);
 }
 
 std::string bulk::get_url() const
@@ -103,7 +103,7 @@ std::string bulk::get_url() const
 
 std::filesystem::path bulk::get_filepath() const
 {
-	return "BulkMetadata" / octant_path_to_directory(this->path_) / this->get_filename();
+	return "BulkMetadata" / octant_path_to_directory(this->get_path().to_string()) / this->get_filename();
 }
 
 void bulk::populate(const std::optional<std::string>& data)
@@ -130,12 +130,12 @@ void bulk::populate(const std::optional<std::string>& data)
 
 		if (has_bulk)
 		{
-			auto epoch = node_meta.has_bulk_metadata_epoch()
-				             ? node_meta.bulk_metadata_epoch()
-				             : bulk_meta.head_node_key().epoch();
+			const auto epoch = node_meta.has_bulk_metadata_epoch()
+				                   ? node_meta.bulk_metadata_epoch()
+				                   : bulk_meta.head_node_key().epoch();
 
 			this->bulks[aux.path] = this->allocate_object<bulk>(
-				this->get_rocktree(), *this, epoch, this->path_ + aux.path);
+				this->get_rocktree(), *this, static_bulk_data{epoch, this->get_path() + aux.path});
 		}
 
 		if (!has_nodes || !node_meta.has_oriented_bounding_box())
@@ -161,10 +161,13 @@ void bulk::populate(const std::optional<std::string>& data)
 				                : bulk_meta.default_imagery_epoch();
 		}
 
-		auto n = this->allocate_object<node>(this->get_rocktree(), *this,
-		                                     node_meta.has_epoch() ? node_meta.epoch() : this->epoch_,
-		                                     this->path_ + aux.path, texture_format,
-		                                     std::move(imagery_epoch), is_leaf);
+
+		auto n = this->get_rocktree().allocate_node(*this,
+		                                            static_node_data{
+			                                            node_meta.has_epoch() ? node_meta.epoch() : this->sdata_.epoch,
+			                                            this->get_path() + aux.path, texture_format,
+			                                            std::move(imagery_epoch), is_leaf
+		                                            });
 
 		n->can_have_data = has_data;
 		n->meters_per_texel = node_meta.has_meters_per_texel()

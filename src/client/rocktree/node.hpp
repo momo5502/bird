@@ -1,5 +1,6 @@
 #pragma once
 
+#include "octant_identifier.hpp"
 #include "rocktree_object.hpp"
 
 #include "../mesh.hpp"
@@ -13,106 +14,156 @@ struct oriented_bounding_box
 	glm::dmat3 orientation{};
 };
 
-class physics_node
+class node_data;
+
+template <typename NodeData>
+class typed_node;
+
+struct static_node_data
 {
-public:
-	physics_node() = default;
-	physics_node(rocktree& rocktree, const std::vector<mesh>& meshes, const glm::dmat4& world_matrix);
-	~physics_node();
-
-	physics_node(physics_node&&) = delete;
-	physics_node(const physics_node&) = delete;
-	physics_node& operator=(physics_node&&) = delete;
-	physics_node& operator=(const physics_node&) = delete;
-
-private:
-	struct vertex
-	{
-		float x{0.0f};
-		float y{0.0f};
-		float z{0.0f};
-	};
-
-	struct triangle
-	{
-		uint16_t x{};
-		uint16_t y{};
-		uint16_t z{};
-	};
-
-	struct physics_mesh
-	{
-		std::vector<vertex> vertices_{};
-		std::vector<triangle> triangles_{};
-		std::unique_ptr<reactphysics3d::TriangleVertexArray> vertex_array_{};
-	};
-
-	rocktree* rocktree_{};
-	std::vector<physics_mesh> meshes_{};
-
-	reactphysics3d::TriangleMesh* triangle_mesh_{};
-	reactphysics3d::ConcaveMeshShape* concave_shape_{};
-	reactphysics3d::CollisionBody* body_{};
+	uint32_t epoch{};
+	octant_identifier<> path{};
+	texture_format format{};
+	std::optional<uint32_t> imagery_epoch{};
+	bool is_leaf{};
 };
 
 class node : public rocktree_object
 {
 public:
-	node(rocktree& rocktree, const bulk& parent, uint32_t epoch, std::string path, texture_format format,
-	     std::optional<uint32_t> imagery_epoch, bool is_leaf);
+	friend node_data;
+
+	node(rocktree& rocktree, const bulk& parent, static_node_data&& sdata);
 
 	bool can_have_data{};
 	float meters_per_texel{};
 	oriented_bounding_box obb{};
 	glm::dmat4 matrix_globe_from_mesh{};
 
-	void buffer_meshes();
-	bool is_buffered() const;
-	bool is_buffering() const;
-	bool mark_for_buffering();
+	static_node_data sdata_{};
 
-	float draw(const shader_context& ctx, float current_time, const std::array<float, 8>& child_draw_time,
-	           const std::array<int, 8>& octant_mask);
-
-	static void buffer_queue(std::queue<node*> nodes);
+	uint64_t vertices_{};
+	std::vector<mesh_data> meshes_{};
 
 	uint64_t get_vertices() const
 	{
 		return this->vertices_;
 	}
 
-	std::vector<mesh> meshes{};
+	template <typename NodeData>
+	typed_node<NodeData>& as()
+	{
+		return static_cast<typed_node<NodeData>&>(*this);
+	}
+
+	template <typename NodeData>
+	const typed_node<NodeData>& as() const
+	{
+		return static_cast<const typed_node<NodeData>&>(*this);
+	}
+
+	template <typename NodeData>
+	NodeData& with()
+	{
+		return this->as<NodeData>().get();
+	}
+
+	template <typename NodeData>
+	const NodeData& as() const
+	{
+		return this->as<NodeData>().get();
+	}
 
 private:
-	enum class buffer_state
-	{
-		unbuffered,
-		buffering,
-		buffered,
-	};
-
-	std::optional<float> draw_time_{};
-	std::atomic<buffer_state> buffer_state_{buffer_state::unbuffered};
-
-	uint64_t vertices_{};
-	uint32_t epoch_{};
-	std::string path_{};
-
-	texture_format format_{};
-	std::optional<uint32_t> imagery_epoch_{};
-
-	bool is_leaf_{};
-	std::optional<physics_node> physics_node_{};
-
-
 	std::string get_filename() const;
 	std::string get_url() const override;
 	std::filesystem::path get_filepath() const override;
 
+protected:
 	void populate(const std::optional<std::string>& data) override;
 	void clear() override;
-	bool can_be_deleted() const override;
+};
 
-	bool buffer_meshes_internal();
-	void mark_as_buffered();
+class node_data
+{
+public:
+	node_data(node& node)
+		: node_(&node)
+	{
+	}
+
+	node_data(node_data&&) = delete;
+	node_data(const node_data&) = delete;
+	node_data& operator=(node_data&&) = delete;
+	node_data& operator=(const node_data&) = delete;
+
+	virtual ~node_data() = default;
+
+	node& get_node()
+	{
+		return *this->node_;
+	}
+
+	const node& get_node() const
+	{
+		return *this->node_;
+	}
+
+	virtual bool can_be_deleted() const
+	{
+		return true;
+	}
+
+private:
+	node* node_{};
+};
+
+template <typename NodeData>
+class typed_node : public node
+{
+public:
+	static_assert(std::is_base_of_v<node_data, NodeData>);
+
+	using node::node;
+
+	NodeData& get()
+	{
+		if (!this->data_)
+		{
+			throw std::runtime_error("Node not ready!");
+		}
+
+		return *this->data_;
+	}
+
+	const NodeData& get() const
+	{
+		if (!this->data_)
+		{
+			throw std::runtime_error("Node not ready!");
+		}
+
+		return *this->data_;
+	}
+
+private:
+	std::unique_ptr<NodeData> data_{};
+
+	void populate(const std::optional<std::string>& data) override
+	{
+		node::populate(data);
+		this->data_ = std::make_unique<NodeData>(*this);
+	}
+
+	void clear() override
+	{
+		this->data_ = {};
+		node::clear();
+	}
+
+	bool can_be_deleted() const override
+	{
+		return node::can_be_deleted() && //
+			(!this->data_ || static_cast<const node_data&>(*this->data_).can_be_deleted());
+	}
 };
