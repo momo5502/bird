@@ -1,6 +1,6 @@
 #include "std_include.hpp"
 #include "window.hpp"
-#include "rocktree.hpp"
+#include "rocktree/rocktree.hpp"
 #include "input.hpp"
 
 #include "text_renderer.hpp"
@@ -9,10 +9,12 @@
 #include <utils/nt.hpp>
 #include <utils/thread.hpp>
 #include <utils/concurrency.hpp>
+#include <utils/finally.hpp>
 
 #include <cmrc/cmrc.hpp>
 
-#include "utils/finally.hpp"
+#include "world/world.hpp"
+#include "world/world_mesh.hpp"
 
 CMRC_DECLARE(bird);
 
@@ -184,8 +186,7 @@ namespace
 	std::atomic_uint64_t frame_counter{0};
 
 	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
-	               const shader_context& ctx,
-	               utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, text_renderer& renderer)
+	               utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, text_renderer& renderer)
 	{
 		++frame_counter;
 
@@ -254,6 +255,7 @@ namespace
 
 		// up is the vec from the planetoid's center towards the sky
 		const auto up = glm::normalize(eye);
+		const auto gravity = up * -9.81;
 
 		// projection
 		const auto aspect_ratio = static_cast<double>(width) / static_cast<double>(height);
@@ -263,7 +265,7 @@ namespace
 		paint_sky(altitude);
 
 		const auto horizon = sqrt(altitude * (2 * planet_radius + altitude));
-		auto near_val = 1.0;
+		auto near_val = 0.5;
 		auto far_val = horizon;
 
 		if (horizon > 370000)
@@ -305,13 +307,52 @@ namespace
 		auto backwards = -direction * mag;
 		auto left = -sideways * mag;
 		auto right = sideways * mag;
-		auto new_eye = eye
-			+ state.up * forwards
+
+		const auto movement_vector = state.up * forwards
 			+ state.down * backwards
 			+ state.left * left
 			+ state.right * right;
+
+		auto new_eye = eye + movement_vector;
 		auto pot_altitude = glm::length(new_eye) - planet_radius;
-		if (pot_altitude < 1000 * 1000 * 10)
+		if (pot_altitude >= 1000 * 1000 * 10)
+		{
+			new_eye = eye;
+		}
+
+		auto new_eye_check = new_eye + (glm::normalize(movement_vector) * 2.0);
+
+		reactphysics3d::Ray ray({eye.x, eye.y, eye.z}, {new_eye_check.x, new_eye_check.y, new_eye_check.z});
+
+		struct cb : reactphysics3d::RaycastCallback
+		{
+			bool did_hit = false;
+
+			reactphysics3d::decimal notifyRaycastHit(const reactphysics3d::RaycastInfo&) override
+			{
+				did_hit = true;
+				return 0.0;
+				//return info.hitFraction;
+			}
+		};
+
+		auto& game_world = rocktree.with<world>();
+
+		cb c{};
+
+		game_world.access_physics([&](reactphysics3d::PhysicsCommon&, reactphysics3d::PhysicsWorld& world)
+		{
+			world.setGravity({gravity[0], gravity[1], gravity[2]});
+			world.update(static_cast<double>(window.get_last_frame_time()) / 1'000'000.0);
+
+			if (state.boost < 0.1)
+			{
+				world.raycast(ray, &c);
+			}
+		}, true);
+
+
+		if (!c.did_hit)
 		{
 			eye = new_eye;
 		}
@@ -404,7 +445,7 @@ namespace
 
 		p.step("Between");
 
-		std::queue<node*> new_nodes_to_buffer{};
+		std::queue<world_mesh*> new_meshes_to_buffer{};
 
 		using mask_list = std::array<int, 8>;
 		using time_list = std::array<float, 8>;
@@ -423,6 +464,7 @@ namespace
 
 		p.step("Loop 2");
 
+		const auto& ctx = game_world.get_shader_context();
 		ctx.use_shader();
 
 		glUniform1f(ctx.animation_time_loc, ANIMATION_TIME);
@@ -437,11 +479,13 @@ namespace
 			assert(level > 0);
 			assert(node->can_have_data);
 
-			if (!node->is_buffered())
+			auto& mesh = node->with<world_mesh>();
+
+			if (!mesh.is_buffered())
 			{
-				if (node->mark_for_buffering())
+				if (mesh.mark_for_buffering())
 				{
-					new_nodes_to_buffer.push(node);
+					new_meshes_to_buffer.push(&mesh);
 				}
 
 				continue;
@@ -474,7 +518,7 @@ namespace
 
 			p.step("Loop2Draw");
 
-			mask_entry.times[octant] = node->draw(ctx, current_time, mask.times, mask.masks);
+			mask_entry.times[octant] = mesh.draw(ctx, current_time, mask.times, mask.masks);
 			current_vertices += node->get_vertices();
 
 			p.step("Loop 2");
@@ -484,22 +528,22 @@ namespace
 
 		size_t buffer_queue{0};
 
-		nodes_to_buffer.access([&](std::queue<::node*>& nodes)
+		meshes_to_buffer.access([&](std::queue<::world_mesh*>& meshes)
 		{
-			buffer_queue = nodes.size() + new_nodes_to_buffer.size();
+			buffer_queue = meshes.size() + new_meshes_to_buffer.size();
 
-			if (nodes.empty())
+			if (meshes.empty())
 			{
-				nodes = std::move(new_nodes_to_buffer);
+				meshes = std::move(new_meshes_to_buffer);
 				return;
 			}
 
-			while (!new_nodes_to_buffer.empty())
+			while (!new_meshes_to_buffer.empty())
 			{
-				auto* node = new_nodes_to_buffer.front();
-				new_nodes_to_buffer.pop();
+				auto* node = new_meshes_to_buffer.front();
+				new_meshes_to_buffer.pop();
 
-				nodes.push(node);
+				meshes.push(node);
 			}
 		});
 
@@ -565,32 +609,32 @@ namespace
 	}
 #endif
 
-	bool buffer_queue(utils::concurrency::container<std::queue<node*>>& nodes_to_buffer)
+	bool buffer_queue(utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer)
 	{
-		std::queue<node*> node_queue{};
+		std::queue<world_mesh*> mesh_queue{};
 
-		nodes_to_buffer.access([&node_queue](std::queue<node*>& nodes)
+		meshes_to_buffer.access([&mesh_queue](std::queue<world_mesh*>& nodes)
 		{
 			if (nodes.empty())
 			{
 				return;
 			}
 
-			node_queue = std::move(nodes);
+			mesh_queue = std::move(nodes);
 			nodes = {};
 		});
 
-		if (node_queue.empty())
+		if (mesh_queue.empty())
 		{
 			return false;
 		}
 
-		node::buffer_queue(node_queue);
+		world_mesh::buffer_queue(mesh_queue);
 		return true;
 	}
 
 	void bufferer(const std::stop_token& token, window& window,
-	              utils::concurrency::container<std::queue<node*>>& nodes_to_buffer, rocktree& rocktree)
+	              utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, rocktree& rocktree)
 	{
 		window.use_shared_context([&]
 		{
@@ -598,7 +642,7 @@ namespace
 			auto last_cleanup_frame = frame_counter.load();
 			while (!token.stop_requested())
 			{
-				rocktree.get_bufferer().perform_cleanup();
+				rocktree.with<world>().get_bufferer().perform_cleanup();
 
 				if (frame_counter > (last_cleanup_frame + 6))
 				{
@@ -607,7 +651,7 @@ namespace
 					last_cleanup_frame = frame_counter.load();
 				}
 
-				if (!buffer_queue(nodes_to_buffer))
+				if (!buffer_queue(meshes_to_buffer))
 				{
 					std::this_thread::sleep_for(10ms);
 				}
@@ -631,15 +675,14 @@ namespace
 
 		window window(1280, 800, "game");
 
-		const shader_context ctx{};
+		world game_world{};
+		custom_rocktree<world, world_mesh> rocktree{"earth", game_world};
 
-		rocktree rocktree{"earth"};
-
-		utils::concurrency::container<std::queue<node*>> nodes_to_buffer{};
+		utils::concurrency::container<std::queue<world_mesh*>> meshes_to_buffer{};
 
 		const auto buffer_thread = utils::thread::create_named_jthread("Bufferer", [&](const std::stop_token& token)
 		{
-			bufferer(token, window, nodes_to_buffer, rocktree);
+			bufferer(token, window, meshes_to_buffer, rocktree);
 		});
 
 		auto eye = lla_to_ecef(40.772185, -73.973186, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
@@ -653,7 +696,7 @@ namespace
 		window.show([&](profiler& p)
 		{
 			p.silence();
-			run_frame(p, window, rocktree, eye, direction, ctx, nodes_to_buffer, text_renderer);
+			run_frame(p, window, rocktree, eye, direction, meshes_to_buffer, text_renderer);
 		});
 	}
 }

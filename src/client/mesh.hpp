@@ -47,21 +47,26 @@ private:
 class mesh
 {
 public:
-	mesh(mesh_data mesh_data);
+	mesh(const mesh_data& mesh_data);
 
 	template <typename... Args>
 	void draw(Args&&... args) const
 	{
 		if (this->buffered_mesh_)
 		{
-			this->buffered_mesh_->draw(this->mesh_data_, std::forward<Args>(args)...);
+			this->buffered_mesh_->draw(*this->mesh_data_, std::forward<Args>(args)...);
 		}
 	}
 
 	void unbuffer();
 	void buffer(gl_bufferer& bufferer);
 
+	const mesh_data& get_mesh_data() const
+	{
+		return *this->mesh_data_;
+	}
+
 private:
-	mesh_data mesh_data_{};
+	const mesh_data* mesh_data_{};
 	std::optional<mesh_buffers> buffered_mesh_{};
 };
