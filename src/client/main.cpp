@@ -685,7 +685,7 @@ namespace
 			bufferer(token, window, meshes_to_buffer, rocktree);
 		});
 
-		auto eye = lla_to_ecef(40.772185, -73.973186, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
+		auto eye = lla_to_ecef(48.994556, 8.400166, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
 		glm::dvec3 direction{-0.295834, -0.662646, -0.688028};
 
 		auto fs = cmrc::bird::get_filesystem();
