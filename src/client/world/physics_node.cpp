@@ -86,7 +86,8 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 
 		this->concave_shape_ = common.createConcaveMeshShape(this->triangle_mesh_);
 
-		this->body_ = world.createCollisionBody({});
+		this->body_ = world.createRigidBody({});
+		this->body_->setType(reactphysics3d::BodyType::STATIC);
 		this->body_->addCollider(this->concave_shape_, {});
 	});
 }
@@ -102,7 +103,7 @@ physics_node::~physics_node()
 	{
 		if (this->body_)
 		{
-			world.destroyCollisionBody(this->body_);
+			world.destroyRigidBody(this->body_);
 			this->body_ = nullptr;
 		}
 

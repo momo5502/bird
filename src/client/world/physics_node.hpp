@@ -42,5 +42,5 @@ private:
 
 	reactphysics3d::TriangleMesh* triangle_mesh_{};
 	reactphysics3d::ConcaveMeshShape* concave_shape_{};
-	reactphysics3d::CollisionBody* body_{};
+	reactphysics3d::RigidBody* body_{};
 };
