@@ -5,11 +5,21 @@
 
 #include <utils/priority_mutex.hpp>
 
+#include "reactphysics3d/engine/PhysicsWorld.h"
+
+static reactphysics3d::PhysicsWorld::WorldSettings get_world_settings()
+{
+	reactphysics3d::PhysicsWorld::WorldSettings settings{};
+	settings.defaultVelocitySolverNbIterations = 10;
+	settings.defaultPositionSolverNbIterations = 5;
+		return settings;
+}
+
 class world
 {
 public:
 	world()
-		: world_(common_.createPhysicsWorld())
+		: world_(common_.createPhysicsWorld(get_world_settings()))
 	{
 	}
 

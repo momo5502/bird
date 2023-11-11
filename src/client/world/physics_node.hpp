@@ -21,6 +21,22 @@ private:
 		float x{0.0f};
 		float y{0.0f};
 		float z{0.0f};
+
+		bool operator==(const vertex& v) const
+		{
+			const auto equal = [](const float a, const float b)
+			{
+				constexpr auto epsilon = std::numeric_limits<float>::epsilon();
+				return fabs(a - b) < epsilon;
+			};
+
+			return equal(this->x, v.x) && equal(this->y, v.y) && equal(this->z, v.z);
+		}
+
+		operator glm::vec3() const
+		{
+			return {x, y, z};
+		}
 	};
 
 	struct triangle
