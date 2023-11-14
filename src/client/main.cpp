@@ -335,7 +335,7 @@ namespace
 		auto& game_world = rocktree.with<world>();
 
 		const auto can_fly = state.boost >= 0.1;
-		auto velocity = movement_vector * gravitational_force;
+		auto velocity = movement_vector * gravitational_force * 1000.0;
 
 		const auto movement_length = glm::length(movement_vector);
 		const auto is_moving = movement_length > 0.0;
@@ -429,7 +429,8 @@ namespace
 
 				// cull outside frustum using obb
 				// todo: check if it could cull more
-				if (obb_frustum_outside == classify_obb_frustum(node->obb, frustum_planes))
+				bool is_visible = obb_frustum_outside != classify_obb_frustum(node->obb, frustum_planes);
+				if (!is_visible && glm::distance2(node->obb.center, eye) > 10000)
 				{
 					continue;
 				}
@@ -450,7 +451,7 @@ namespace
 					}
 				}
 
-				if (node->can_be_used() && node->can_have_data)
+				if (node->can_be_used() && node->can_have_data && is_visible)
 				{
 					potential_nodes[nxt] = node;
 				}
@@ -713,9 +714,7 @@ namespace
 			const auto quat = glm::angleAxis(0.0, direction);
 
 			const reactphysics3d::Transform transform( //
-				reactphysics3d::Vector3{
-					eye.x, eye.y, eye.z,
-				},
+				v(eye),
 				reactphysics3d::Quaternion{
 					quat.x, quat.y, quat.z, quat.w,
 				}
