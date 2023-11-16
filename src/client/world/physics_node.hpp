@@ -50,13 +50,8 @@ private:
 	{
 		std::vector<vertex> vertices_{};
 		std::vector<triangle> triangles_{};
-		std::unique_ptr<reactphysics3d::TriangleVertexArray> vertex_array_{};
 	};
 
 	world* game_world_{};
 	std::vector<physics_mesh> meshes_{};
-
-	reactphysics3d::TriangleMesh* triangle_mesh_{};
-	reactphysics3d::ConcaveMeshShape* concave_shape_{};
-	reactphysics3d::RigidBody* body_{};
 };

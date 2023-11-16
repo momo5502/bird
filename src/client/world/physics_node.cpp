@@ -83,30 +83,6 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 	{
 		return;
 	}
-
-	this->game_world_->access_physics([this](reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world)
-	{
-		this->triangle_mesh_ = common.createTriangleMesh();
-
-		for (auto& mesh : this->meshes_)
-		{
-			mesh.vertex_array_ = std::make_unique<reactphysics3d::TriangleVertexArray>(
-				static_cast<uint32_t>(mesh.vertices_.size()), mesh.vertices_.data(),
-				static_cast<uint32_t>(sizeof(physics_node::vertex)),
-				static_cast<uint32_t>(mesh.triangles_.size()), mesh.triangles_.data(),
-				static_cast<uint32_t>(sizeof(physics_node::triangle)),
-				reactphysics3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
-				reactphysics3d::TriangleVertexArray::IndexDataType::INDEX_SHORT_TYPE);
-
-			this->triangle_mesh_->addSubpart(mesh.vertex_array_.get());
-		}
-
-		this->concave_shape_ = common.createConcaveMeshShape(this->triangle_mesh_);
-
-		this->body_ = world.createRigidBody({});
-		this->body_->setType(reactphysics3d::BodyType::STATIC);
-		this->body_->addCollider(this->concave_shape_, {});
-	});
 }
 
 physics_node::~physics_node()
@@ -115,25 +91,4 @@ physics_node::~physics_node()
 	{
 		return;
 	}
-
-	this->game_world_->access_physics([this](reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world)
-	{
-		if (this->body_)
-		{
-			world.destroyRigidBody(this->body_);
-			this->body_ = nullptr;
-		}
-
-		if (this->concave_shape_)
-		{
-			common.destroyConcaveMeshShape(this->concave_shape_);
-			this->concave_shape_ = nullptr;
-		}
-
-		if (this->triangle_mesh_)
-		{
-			common.destroyTriangleMesh(this->triangle_mesh_);
-			this->triangle_mesh_ = nullptr;
-		}
-	});
 }
