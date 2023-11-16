@@ -87,3 +87,25 @@ add_library(xxHash
 target_include_directories(xxHash INTERFACE
     "${CMAKE_CURRENT_LIST_DIR}/xxHash"
 )
+
+##########################################
+
+set(DOUBLE_PRECISION ON)
+set(GENERATE_DEBUG_SYMBOLS ON)
+set(CROSS_PLATFORM_DETERMINISTIC OFF)
+set(INTERPROCEDURAL_OPTIMIZATION OFF)
+set(FLOATING_POINT_EXCEPTIONS_ENABLED OFF)
+
+set(OBJECT_LAYER_BITS 16)
+
+set(USE_SSE4_1 ON)
+set(USE_SSE4_2 ON)
+set(USE_AVX OFF)
+set(USE_AVX2 OFF)
+set(USE_AVX512 OFF)
+set(USE_LZCNT ON)
+set(USE_TZCNT ON)
+set(USE_F16C ON)
+set(USE_FMADD ON)
+
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/JoltPhysics/Build")

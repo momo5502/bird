@@ -20,7 +20,7 @@ target_link_libraries(client PRIVATE
   crn
   freetype
   xxHash
-  reactphysics3d
+  Jolt
 )
 
 set_target_properties(client PROPERTIES OUTPUT_NAME "bird")

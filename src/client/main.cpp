@@ -24,16 +24,6 @@ namespace
 {
 	constexpr float ANIMATION_TIME = 350.0f;
 
-	glm::dvec3 v(const reactphysics3d::Vector3& vector)
-	{
-		return {vector.x, vector.y, vector.z};
-	}
-
-	reactphysics3d::Vector3 v(const glm::dvec3& vector)
-	{
-		return {vector.x, vector.y, vector.z};
-	}
-
 	bool perform_object_cleanup(generic_object& obj)
 	{
 		if (obj.try_perform_deletion())
@@ -322,14 +312,27 @@ namespace
 
 		auto new_eye = eye + movement_vector;
 		auto pot_altitude = glm::length(new_eye) - planet_radius;
-		bool can_change = pot_altitude < 1000 * 1000 * 10;
+		const auto can_change = pot_altitude < 1000 * 1000 * 10;
+		const auto is_boosting = state.boost > 0.1;
 
-		if(can_change)
+		const auto raycast_vector = movement_vector + glm::normalize(movement_vector);
+
+		JPH::RRayCast ray;
+		ray.mOrigin = JPH::RVec3(eye.x, eye.y, eye.z);
+		ray.mDirection = JPH::Vec3( //
+			static_cast<float>(raycast_vector.x), //
+			static_cast<float>(raycast_vector.y), //
+			static_cast<float>(raycast_vector.z) //
+		);
+
+		JPH::RayCastResult result{};
+
+		const auto is_blocked = rocktree.with<world>().get_physics_system().GetNarrowPhaseQuery().CastRay(ray, result);
+
+		if (can_change && (!is_blocked || is_boosting))
 		{
 			eye = new_eye;
 		}
-
-
 
 		auto& game_world = rocktree.with<world>();
 

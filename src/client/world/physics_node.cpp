@@ -10,9 +10,9 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 		return;
 	}
 
-	this->meshes_.reserve(meshes.size());
+	JPH::VertexList vertices{};
+	JPH::IndexedTriangleList triangles{};
 
-	bool has_indices{false};
 	for (const auto& mesh_data : meshes)
 	{
 		if (mesh_data.indices.empty())
@@ -20,8 +20,7 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 			continue;
 		}
 
-		physics_mesh p_mesh{};
-		p_mesh.vertices_.reserve(mesh_data.vertices.size());
+		const auto base_index = static_cast<uint32_t>(vertices.size());
 
 		for (const auto& vertex : mesh_data.vertices)
 		{
@@ -34,61 +33,57 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 
 			const auto position = world_matrix * local_position;
 
-			p_mesh.vertices_.emplace_back(physics_node::vertex{
+			vertices.emplace_back( //
 				static_cast<float>(position.x), //
 				static_cast<float>(position.y), //
-				static_cast<float>(position.z), //
-			});
+				static_cast<float>(position.z) //
+			);
 		}
 
-		p_mesh.triangles_.reserve(std::max(static_cast<size_t>(2), mesh_data.indices.size()) - 2);
 		for (size_t i = 2; i < mesh_data.indices.size(); ++i)
 		{
-			physics_node::triangle t{
-				mesh_data.indices.at(i - 2), //
-				mesh_data.indices.at(i - 1), //
-				mesh_data.indices.at(i - 0), //
-			};
+			auto index1 = base_index + mesh_data.indices.at(i - 2);
+			auto index2 = base_index + mesh_data.indices.at(i - 1);
+			auto index3 = base_index + mesh_data.indices.at(i - 0);
 
 			if (i & 1)
 			{
-				std::swap(t.x, t.y);
+				std::swap(index1, index2);
 			}
 
-			if (t.x == t.y || t.x == t.z || t.y == t.z)
-			{
-				continue;
-			}
-
-			const glm::vec3 v1 = p_mesh.vertices_.at(t.x);
-			const glm::vec3 v2 = p_mesh.vertices_.at(t.y);
-			const glm::vec3 v3 = p_mesh.vertices_.at(t.z);
-
-			const auto vec1 = v1 - v2;
-			const auto vec2 = v1 - v3;
-
-			const auto normal = glm::cross(vec1, vec2);
-
-			if (glm::length(normal) > 0.0f)
-			{
-				p_mesh.triangles_.emplace_back(std::move(t));
-			}
+			triangles.emplace_back(index1, index2, index3);
 		}
-
-		has_indices |= !p_mesh.triangles_.empty();
-		this->meshes_.emplace_back(std::move(p_mesh));
 	}
 
-	if (!has_indices)
+	auto& body_interface = this->game_world_->get_physics_system().GetBodyInterface();
+
+	JPH::MeshShapeSettings mesh_shape_settings(std::move(vertices), std::move(triangles));
+	if (mesh_shape_settings.mIndexedTriangles.empty())
 	{
 		return;
 	}
+
+	this->shape_ = mesh_shape_settings.Create();
+
+	JPH::BodyCreationSettings body_settings(this->shape_.Get(), JPH::RVec3(0.0_r, 0.0_r, 0.0_r),
+	                                        JPH::Quat::sIdentity(),
+	                                        JPH::EMotionType::Static, Layers::NON_MOVING);
+
+	this->body_ = body_interface.CreateBody(body_settings);
+	assert(this->body_);
+
+	body_interface.AddBody(this->body_->GetID(), JPH::EActivation::DontActivate);
 }
 
 physics_node::~physics_node()
 {
-	if (!this->game_world_)
+	if (!this->game_world_ || !this->body_)
 	{
 		return;
 	}
+
+	auto& body_interface = this->game_world_->get_physics_system().GetBodyInterface();
+
+	body_interface.RemoveBody(this->body_->GetID());
+	body_interface.DestroyBody(this->body_->GetID());
 }
