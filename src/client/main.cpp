@@ -24,6 +24,16 @@ namespace
 {
 	constexpr float ANIMATION_TIME = 350.0f;
 
+	glm::dvec3 v(const reactphysics3d::Vector3& vector)
+	{
+		return {vector.x, vector.y, vector.z};
+	}
+
+	reactphysics3d::Vector3 v(const glm::dvec3& vector)
+	{
+		return {vector.x, vector.y, vector.z};
+	}
+
 	bool perform_object_cleanup(generic_object& obj)
 	{
 		if (obj.try_perform_deletion())
@@ -186,7 +196,8 @@ namespace
 	std::atomic_uint64_t frame_counter{0};
 
 	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
-	               utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, text_renderer& renderer)
+	               utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, text_renderer& renderer,
+	               reactphysics3d::RigidBody* camera)
 	{
 		++frame_counter;
 
@@ -241,9 +252,8 @@ namespace
 
 		auto* current_bulk = planetoid->root_bulk;
 		if (!current_bulk || !current_bulk->can_be_used()) return;
-
 		const auto planet_radius = planetoid->radius;
-
+		constexpr auto gravitational_force = 9.81;
 
 		p.step("Calculate");
 
@@ -255,7 +265,8 @@ namespace
 
 		// up is the vec from the planetoid's center towards the sky
 		const auto up = glm::normalize(eye);
-		const auto gravity = up * -9.81;
+		const auto down = -up;
+		const auto gravity = down * gravitational_force;
 
 		// projection
 		const auto aspect_ratio = static_cast<double>(width) / static_cast<double>(height);
@@ -313,49 +324,56 @@ namespace
 			+ state.left * left
 			+ state.right * right;
 
+		auto pos = camera->getTransform().getPosition();
+		eye = glm::dvec3(pos.x, pos.y, pos.z);
+
+
 		auto new_eye = eye + movement_vector;
 		auto pot_altitude = glm::length(new_eye) - planet_radius;
-		if (pot_altitude >= 1000 * 1000 * 10)
-		{
-			new_eye = eye;
-		}
-
-		auto new_eye_check = new_eye + (glm::normalize(movement_vector) * 2.0);
-
-		reactphysics3d::Ray ray({eye.x, eye.y, eye.z}, {new_eye_check.x, new_eye_check.y, new_eye_check.z});
-
-		struct cb : reactphysics3d::RaycastCallback
-		{
-			bool did_hit = false;
-
-			reactphysics3d::decimal notifyRaycastHit(const reactphysics3d::RaycastInfo&) override
-			{
-				did_hit = true;
-				return 0.0;
-				//return info.hitFraction;
-			}
-		};
+		bool can_change = pot_altitude < 1000 * 1000 * 10;
 
 		auto& game_world = rocktree.with<world>();
 
-		cb c{};
+		const auto can_fly = state.boost >= 0.1;
+		auto velocity = movement_vector * gravitational_force * 1000.0;
+
+		const auto movement_length = glm::length(movement_vector);
+		const auto is_moving = movement_length > 0.0;
+
+
+		if (!can_fly)
+		{
+			if (is_moving)
+			{
+				const auto direction_vector = glm::normalize(movement_vector);
+				const auto right_vector = glm::cross(direction_vector, up);
+				const auto forward_vector = glm::cross(up, right_vector);
+				const auto forward_unit = glm::normalize(forward_vector);
+				const auto forward_length = glm::dot(direction_vector, forward_unit);
+				velocity = forward_unit * forward_length;
+			}
+		}
 
 		game_world.access_physics([&](reactphysics3d::PhysicsCommon&, reactphysics3d::PhysicsWorld& world)
 		{
+			camera->enableGravity(!can_fly);
+
+			if (can_change && is_moving)
+			{
+				camera->applyWorldForceAtCenterOfMass(v(velocity));
+			}
+
 			world.setGravity({gravity[0], gravity[1], gravity[2]});
 			world.update(static_cast<double>(window.get_last_frame_time()) / 1'000'000.0);
 
-			if (state.boost < 0.1)
-			{
-				world.raycast(ray, &c);
-			}
+			pos = camera->getTransform().getPosition();
+			eye = v(pos);
 		}, true);
 
-
-		if (!c.did_hit)
+		/*if (!c.did_hit)
 		{
 			eye = new_eye;
-		}
+		}*/
 
 		const auto view = glm::lookAt(eye, eye + direction, up);
 		const auto viewprojection = projection * view;
@@ -411,7 +429,8 @@ namespace
 
 				// cull outside frustum using obb
 				// todo: check if it could cull more
-				if (obb_frustum_outside == classify_obb_frustum(node->obb, frustum_planes))
+				bool is_visible = obb_frustum_outside != classify_obb_frustum(node->obb, frustum_planes);
+				if (!is_visible && glm::distance2(node->obb.center, eye) > 10000)
 				{
 					continue;
 				}
@@ -432,7 +451,7 @@ namespace
 					}
 				}
 
-				if (node->can_be_used() && node->can_have_data)
+				if (node->can_be_used() && node->can_have_data && is_visible)
 				{
 					potential_nodes[nxt] = node;
 				}
@@ -685,8 +704,39 @@ namespace
 			bufferer(token, window, meshes_to_buffer, rocktree);
 		});
 
-		auto eye = lla_to_ecef(48.994556, 8.400166, 6364810.2166); // {4134696.707, 611925.83, 4808504.534};
+		auto eye = lla_to_ecef(48.994556, 8.400166, 6364810.2166);
 		glm::dvec3 direction{-0.295834, -0.662646, -0.688028};
+
+		reactphysics3d::RigidBody* camera{};
+
+		game_world.access_physics([&](reactphysics3d::PhysicsCommon& common, reactphysics3d::PhysicsWorld& world)
+		{
+			const auto quat = glm::angleAxis(0.0, direction);
+
+			const reactphysics3d::Transform transform( //
+				v(eye),
+				reactphysics3d::Quaternion{
+					quat.x, quat.y, quat.z, quat.w,
+				}
+			);
+
+			camera = world.createRigidBody(transform);
+
+			const reactphysics3d::Vector3 halfExtents(2.0, 3.0, 5.0);
+			reactphysics3d::BoxShape* boxShape = common.createBoxShape(halfExtents);
+
+			auto* collider = camera->addCollider(boxShape, {});
+			collider->getMaterial().setMassDensity(4);
+			collider->getMaterial().setBounciness(0.0);
+			collider->getMaterial().setFrictionCoefficient(0.3);
+			camera->updateMassPropertiesFromColliders();
+
+			camera->setType(reactphysics3d::BodyType::DYNAMIC);
+			camera->enableGravity(true);
+
+			camera->setLinearDamping(0.2f);
+			camera->setAngularDamping(0.2f);
+		});
 
 		auto fs = cmrc::bird::get_filesystem();
 		auto opensans = fs.open("resources/font/OpenSans-Regular.ttf");
@@ -696,7 +746,7 @@ namespace
 		window.show([&](profiler& p)
 		{
 			p.silence();
-			run_frame(p, window, rocktree, eye, direction, meshes_to_buffer, text_renderer);
+			run_frame(p, window, rocktree, eye, direction, meshes_to_buffer, text_renderer, camera);
 		});
 	}
 }

@@ -20,8 +20,6 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 			continue;
 		}
 
-		has_indices = true;
-
 		physics_mesh p_mesh{};
 		p_mesh.vertices_.reserve(mesh_data.vertices.size());
 
@@ -43,22 +41,41 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 			});
 		}
 
-		// technically -2, but fuck it
-		p_mesh.triangles_.reserve(mesh_data.indices.size());
+		p_mesh.triangles_.reserve(std::max(static_cast<size_t>(2), mesh_data.indices.size()) - 2);
 		for (size_t i = 2; i < mesh_data.indices.size(); ++i)
 		{
-			auto& triangle = p_mesh.triangles_.emplace_back(physics_node::triangle{
+			physics_node::triangle t{
 				mesh_data.indices.at(i - 2), //
 				mesh_data.indices.at(i - 1), //
 				mesh_data.indices.at(i - 0), //
-			});
+			};
 
 			if (i & 1)
 			{
-				std::swap(triangle.x, triangle.y);
+				std::swap(t.x, t.y);
+			}
+
+			if (t.x == t.y || t.x == t.z || t.y == t.z)
+			{
+				continue;
+			}
+
+			const glm::vec3 v1 = p_mesh.vertices_.at(t.x);
+			const glm::vec3 v2 = p_mesh.vertices_.at(t.y);
+			const glm::vec3 v3 = p_mesh.vertices_.at(t.z);
+
+			const auto vec1 = v1 - v2;
+			const auto vec2 = v1 - v3;
+
+			const auto normal = glm::cross(vec1, vec2);
+
+			if (glm::length(normal) > 0.0f)
+			{
+				p_mesh.triangles_.emplace_back(std::move(t));
 			}
 		}
 
+		has_indices |= !p_mesh.triangles_.empty();
 		this->meshes_.emplace_back(std::move(p_mesh));
 	}
 
@@ -86,7 +103,8 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 
 		this->concave_shape_ = common.createConcaveMeshShape(this->triangle_mesh_);
 
-		this->body_ = world.createCollisionBody({});
+		this->body_ = world.createRigidBody({});
+		this->body_->setType(reactphysics3d::BodyType::STATIC);
 		this->body_->addCollider(this->concave_shape_, {});
 	});
 }
@@ -102,7 +120,7 @@ physics_node::~physics_node()
 	{
 		if (this->body_)
 		{
-			world.destroyCollisionBody(this->body_);
+			world.destroyRigidBody(this->body_);
 			this->body_ = nullptr;
 		}
 
