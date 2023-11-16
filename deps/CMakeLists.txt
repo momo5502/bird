@@ -8,11 +8,6 @@ add_subdirectory(crn)
 
 ##########################################
 
-option(RP3D_DOUBLE_PRECISION_ENABLED "" ON)
-add_subdirectory(reactphysics3d)
-
-##########################################
-
 if(NOT MSVC)
   option(GEN_FILES "" ON)
   option(ENABLE_TESTING "" OFF)

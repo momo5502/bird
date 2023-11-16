@@ -29,6 +29,3 @@
 [submodule "deps/cmrc"]
 	path = deps/cmrc
 	url = https://github.com/vector-of-bool/cmrc.git
-[submodule "deps/reactphysics3d"]
-	path = deps/reactphysics3d
-	url = https://github.com/DanielChappuis/reactphysics3d.git
