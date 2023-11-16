@@ -41,8 +41,7 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 			});
 		}
 
-		// technically -2, but fuck it
-		p_mesh.triangles_.reserve(mesh_data.indices.size());
+		p_mesh.triangles_.reserve(std::max(static_cast<size_t>(2), mesh_data.indices.size()) - 2);
 		for (size_t i = 2; i < mesh_data.indices.size(); ++i)
 		{
 			physics_node::triangle t{
