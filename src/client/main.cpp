@@ -206,7 +206,7 @@ namespace
 	std::atomic_uint64_t frame_counter{0};
 
 
-	void HandleInput(JPH::Character* mCharacter, JPH::Vec3 inMovementDirection, const JPH::Vec3& up)
+	void handle_input(JPH::Character* mCharacter, JPH::Vec3 inMovementDirection, const JPH::Vec3& up, const bool jump)
 	{
 		// Cancel movement in opposite direction of normal when touching something we can't walk up
 		const JPH::Character::EGroundState ground_state = mCharacter->GetGroundState();
@@ -217,31 +217,34 @@ namespace
 			oldState = ground_state;
 		}
 
-		/*if (ground_state == JPH::Character::EGroundState::OnSteepGround
+		if (ground_state == JPH::Character::EGroundState::OnSteepGround
 			|| ground_state == JPH::Character::EGroundState::NotSupported)
 		{
 			JPH::Vec3 normal = mCharacter->GetGroundNormal();
 			normal.SetY(0.0f);
-			float dot = normal.Dot(inMovementDirection);
+			const float dot = normal.Dot(inMovementDirection);
 			if (dot < 0.0f)
 				inMovementDirection -= (dot * normal) / normal.LengthSq();
-		}*/
+		}
 
-		//if (/*sControlMovementDuringJump ||*/ mCharacter->IsSupported())
+		if (/*sControlMovementDuringJump ||*/ mCharacter->IsSupported())
 		{
 			constexpr float sCharacterSpeed = 6.0f;
+			constexpr float sJumpSpeed = 6.0f;
 
 			// Update velocity
 			const JPH::Vec3 current_velocity = mCharacter->GetLinearVelocity();
 
 			const auto up_magnitude = current_velocity.Dot(up);
 
-			JPH::Vec3 desired_velocity = sCharacterSpeed * inMovementDirection + (up_magnitude * up);
+			const JPH::Vec3 desired_velocity = sCharacterSpeed * inMovementDirection + (up_magnitude * up);
 			JPH::Vec3 new_velocity = 0.75f * current_velocity + 0.25f * desired_velocity;
 
 			// Jump
-			//if (inJump && ground_state == JPH::Character::EGroundState::OnGround)
-			//	new_velocity += JPH::Vec3(0, sJumpSpeed, 0);
+			if (jump && ground_state == JPH::Character::EGroundState::OnGround)
+			{
+				new_velocity += sJumpSpeed * up;
+			}
 
 			// Update the velocity
 			mCharacter->SetLinearVelocity(new_velocity);
@@ -395,8 +398,6 @@ namespace
 		auto& physics_system = game_world.get_physics_system();
 		physics_system.SetGravity(v<JPH::Vec3>(gravity));
 
-		character.SetUp(v<JPH::Vec3>(up));
-
 		constexpr auto normal_up = glm::dvec3(0.0, 1.0, 0.0);
 
 		const auto axis = glm::cross(normal_up, down);
@@ -412,6 +413,10 @@ namespace
 			rotationQuat.w, //
 		};
 
+		const auto up_vector = v<JPH::Vec3>(up);
+
+		character.SetUp(up_vector);
+		character.SetSupportingVolume(JPH::Plane(up_vector, -0.6f));
 		character.SetRotation(quat.Normalized());
 
 		if (can_change)
@@ -430,7 +435,7 @@ namespace
 				const auto forward_length = glm::dot(direction_vector, forward_unit);
 				velocity = forward_unit * forward_length;
 
-				HandleInput(&character, v<JPH::Vec3>(velocity), v<JPH::Vec3>(up));
+				handle_input(&character, v<JPH::Vec3>(velocity), up_vector, state.jumping);
 			}
 		}
 
@@ -440,7 +445,7 @@ namespace
 
 		physics_system.Update(static_cast<float>(time_delta), std::max(1, frames),
 		                      &game_world.get_temp_allocator(), &game_world.get_job_system());
-		character.PostSimulation(1.0);
+		character.PostSimulation(0.05f);
 
 
 		const auto view = glm::lookAt(eye, eye + direction, up);

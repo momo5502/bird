@@ -13,6 +13,8 @@ struct input_state
 
 	double mouse_x{0.0};
 	double mouse_y{0.0};
+
+	bool jumping{false};
 };
 
 class window;

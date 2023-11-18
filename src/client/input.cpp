@@ -40,7 +40,10 @@ namespace
 		state.down = get_pressed_key_value(window, GLFW_KEY_DOWN, GLFW_KEY_S);
 		state.right = get_pressed_key_value(window, GLFW_KEY_RIGHT, GLFW_KEY_D);
 
-		state.boost = get_pressed_key_value(window, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_RIGHT_SHIFT, GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL);
+		state.boost = get_pressed_key_value(window, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_RIGHT_SHIFT, GLFW_KEY_LEFT_CONTROL,
+		                                    GLFW_KEY_RIGHT_CONTROL);
+
+		state.jumping = is_any_key_pressed(window, GLFW_KEY_SPACE);
 
 		const auto mouse_position = window.get_mouse_position();
 		state.mouse_x = mouse_position.first;
@@ -120,6 +123,8 @@ namespace
 
 		state.mouse_x = state_1.mouse_x + state_2.mouse_x;
 		state.mouse_y = state_1.mouse_y + state_2.mouse_y;
+
+		state.jumping = state_1.jumping || state_2.jumping;
 
 		return state;
 	}
