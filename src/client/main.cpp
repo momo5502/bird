@@ -13,6 +13,8 @@
 
 #include <cmrc/cmrc.hpp>
 
+#include "Jolt/Physics/Collision/Shape/CapsuleShape.h"
+#include "Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h"
 #include "world/world.hpp"
 #include "world/world_mesh.hpp"
 
@@ -23,6 +25,24 @@ CMRC_DECLARE(bird);
 namespace
 {
 	constexpr float ANIMATION_TIME = 350.0f;
+
+	template <typename T>
+	T v(const glm::dvec3& vec)
+	{
+		using Type = decltype(static_cast<T*>(nullptr)->GetX());
+
+		return T(static_cast<Type>(vec.x), static_cast<Type>(vec.y), static_cast<Type>(vec.z));
+	}
+
+	glm::dvec3 v(const JPH::Vec3& vec)
+	{
+		return {vec.GetX(), vec.GetY(), vec.GetZ()};
+	}
+
+	glm::dvec3 v(const JPH::RVec3& vec)
+	{
+		return {vec.GetX(), vec.GetY(), vec.GetZ()};
+	}
 
 	bool perform_object_cleanup(generic_object& obj)
 	{
@@ -185,8 +205,52 @@ namespace
 
 	std::atomic_uint64_t frame_counter{0};
 
+
+	void HandleInput(JPH::Character* mCharacter, JPH::Vec3 inMovementDirection, const JPH::Vec3& up)
+	{
+		// Cancel movement in opposite direction of normal when touching something we can't walk up
+		JPH::Character::EGroundState ground_state = mCharacter->GetGroundState();
+		static auto oldState = ground_state;
+		if (oldState != ground_state)
+		{
+			printf("%s\n", JPH::CharacterBase::sToString(ground_state));
+			oldState = ground_state;
+		}
+
+		if (ground_state == JPH::Character::EGroundState::OnSteepGround
+			|| ground_state == JPH::Character::EGroundState::NotSupported)
+		{
+			JPH::Vec3 normal = mCharacter->GetGroundNormal();
+			normal.SetY(0.0f);
+			float dot = normal.Dot(inMovementDirection);
+			if (dot < 0.0f)
+				inMovementDirection -= (dot * normal) / normal.LengthSq();
+		}
+
+		//if (/*sControlMovementDuringJump ||*/ mCharacter->IsSupported())
+		{
+			constexpr float sCharacterSpeed = 6.0f;
+
+			// Update velocity
+			const JPH::Vec3 current_velocity = mCharacter->GetLinearVelocity();
+
+			const auto up_magnitude = current_velocity.Dot(up);
+
+			JPH::Vec3 desired_velocity = sCharacterSpeed * inMovementDirection + (up_magnitude * up);
+			JPH::Vec3 new_velocity = 0.75f * current_velocity + 0.25f * desired_velocity;
+
+			// Jump
+			//if (inJump && ground_state == JPH::Character::EGroundState::OnGround)
+			//	new_velocity += JPH::Vec3(0, sJumpSpeed, 0);
+
+			// Update the velocity
+			mCharacter->SetLinearVelocity(new_velocity);
+		}
+	}
+
 	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
-	               utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, text_renderer& renderer)
+	               utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, text_renderer& renderer,
+	               JPH::Character& character)
 	{
 		++frame_counter;
 
@@ -251,8 +315,15 @@ namespace
 		const auto width = viewport[2];
 		const auto height = viewport[3];
 
+		auto pos = character.GetPosition();
+		eye = v(pos);
+
 		// up is the vec from the planetoid's center towards the sky
 		const auto up = glm::normalize(eye);
+		const auto down = -up;
+
+		constexpr auto gravitational_force = 9.81;
+		const auto gravity = down * gravitational_force;
 
 		// projection
 		const auto aspect_ratio = static_cast<double>(width) / static_cast<double>(height);
@@ -312,29 +383,60 @@ namespace
 
 		auto new_eye = eye + movement_vector;
 		auto pot_altitude = glm::length(new_eye) - planet_radius;
-		const auto can_change = pot_altitude < 1000 * 1000 * 10;
-		const auto is_boosting = state.boost > 0.1;
+		bool can_change = pot_altitude < 1000 * 1000 * 10;
+		const auto is_boosting = state.boost >= 0.01;
 
-		const auto raycast_vector = movement_vector + glm::normalize(movement_vector);
+		auto velocity = movement_vector * gravitational_force;
 
-		JPH::RRayCast ray;
-		ray.mOrigin = JPH::RVec3(eye.x, eye.y, eye.z);
-		ray.mDirection = JPH::Vec3( //
-			static_cast<float>(raycast_vector.x), //
-			static_cast<float>(raycast_vector.y), //
-			static_cast<float>(raycast_vector.z) //
-		);
-
-		JPH::RayCastResult result{};
-
-		const auto is_blocked = rocktree.with<world>().get_physics_system().GetNarrowPhaseQuery().CastRay(ray, result);
-
-		if (can_change && (!is_blocked || is_boosting))
-		{
-			eye = new_eye;
-		}
+		const auto movement_length = glm::length(movement_vector);
+		const auto is_moving = movement_length > 0.0;
 
 		auto& game_world = rocktree.with<world>();
+		auto& physics_system = game_world.get_physics_system();
+		physics_system.SetGravity(v<JPH::Vec3>(gravity));
+		character.SetUp(v<JPH::Vec3>(up));
+
+		constexpr auto normal_up = glm::dvec3(0.0, 1.0, 0.0);
+		const auto cross = glm::cross(normal_up, up);
+		const auto w = sqrt(glm::length2(normal_up) * glm::length2(up)) + glm::dot(normal_up, up);
+
+		JPH::Quat quat{
+			static_cast<float>(cross.x), //
+			static_cast<float>(cross.y), //
+			static_cast<float>(cross.z), //
+			static_cast<float>(w),
+		};
+
+		character.SetRotation(quat.Normalized());
+
+		if (can_change)
+		{
+			if (is_boosting)
+			{
+				character.SetPosition(v<JPH::RVec3>(eye + movement_vector));
+				character.SetLinearVelocity({});
+			}
+			else if (is_moving)
+			{
+				const auto direction_vector = glm::normalize(movement_vector);
+				const auto right_vector = glm::cross(direction_vector, up);
+				const auto forward_vector = glm::cross(up, right_vector);
+				const auto forward_unit = glm::normalize(forward_vector);
+				const auto forward_length = glm::dot(direction_vector, forward_unit);
+				velocity = forward_unit * forward_length;
+
+				HandleInput(&character, v<JPH::Vec3>(velocity), v<JPH::Vec3>(up));
+			}
+		}
+
+		constexpr auto one_frame = 1 / 60.0;
+		const auto time_delta = static_cast<double>(window.get_last_frame_time()) / (1000.0 * 1000.0);
+		const auto frames = static_cast<int>(time_delta / one_frame);
+
+		physics_system.Update(static_cast<float>(time_delta), std::max(1, frames),
+		                      &game_world.get_temp_allocator(), &game_world.get_job_system());
+		character.PostSimulation(1.0);
+
 
 		const auto view = glm::lookAt(eye, eye + direction, up);
 		const auto viewprojection = projection * view;
@@ -658,15 +760,35 @@ namespace
 		world game_world{};
 		custom_rocktree<world, world_mesh> rocktree{"earth", game_world};
 
+		auto eye = lla_to_ecef(48.994556, 8.400166, 6364810.2166);
+		glm::dvec3 direction{-0.295834, -0.662646, -0.688028};
+
+		static constexpr float cCharacterHeightStanding = 10.0f;
+		static constexpr float cCharacterRadiusStanding = 0.5f;
+
+		auto standingShape = JPH::RotatedTranslatedShapeSettings(
+			JPH::Vec3(0, 0.5f * cCharacterHeightStanding + cCharacterRadiusStanding, 0), JPH::Quat::sIdentity(),
+			new JPH::CapsuleShape(0.5f * cCharacterHeightStanding, cCharacterRadiusStanding)).Create();
+
+		JPH::CharacterSettings character_settings{};
+		character_settings.mLayer = Layers::MOVING;
+		character_settings.mMaxSlopeAngle = JPH::DegreesToRadians(65.0f);
+		character_settings.mShape = standingShape.Get();
+		character_settings.mFriction = 5.0f;
+		character_settings.mMass = 800.0f;
+		//character_settings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -0.3f);
+
+		JPH::Character character(&character_settings, JPH::RVec3::sZero(), JPH::Quat::sIdentity(), 0,
+		                         &game_world.get_physics_system());
+		character.AddToPhysicsSystem(JPH::EActivation::Activate);
+		character.SetPosition(v<JPH::RVec3>(eye));
+
 		utils::concurrency::container<std::queue<world_mesh*>> meshes_to_buffer{};
 
 		const auto buffer_thread = utils::thread::create_named_jthread("Bufferer", [&](const std::stop_token& token)
 		{
 			bufferer(token, window, meshes_to_buffer, rocktree);
 		});
-
-		auto eye = lla_to_ecef(48.994556, 8.400166, 6364810.2166);
-		glm::dvec3 direction{-0.295834, -0.662646, -0.688028};
 
 		auto fs = cmrc::bird::get_filesystem();
 		auto opensans = fs.open("resources/font/OpenSans-Regular.ttf");
@@ -676,8 +798,10 @@ namespace
 		window.show([&](profiler& p)
 		{
 			p.silence();
-			run_frame(p, window, rocktree, eye, direction, meshes_to_buffer, text_renderer);
+			run_frame(p, window, rocktree, eye, direction, meshes_to_buffer, text_renderer, character);
 		});
+
+		character.RemoveFromPhysicsSystem();
 	}
 }
 

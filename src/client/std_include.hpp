@@ -98,6 +98,7 @@
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Character/Character.h>
 
 #ifdef _WIN32
 #pragma warning(pop)

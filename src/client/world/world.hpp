@@ -148,12 +148,14 @@ class world
 {
 public:
 	world()
-		: job_system_(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers,
+		: temp_allocator_(10 * 1024 * 1024),
+		  job_system_(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers,
 		              static_cast<int>(std::thread::hardware_concurrency()) - 2)
 
 
 	{
-		physics_system_.Init(1024 * 100, 0, 1024, 1024, broad_phase_layer_interface_, object_vs_broadphase_layer_filter_,
+		physics_system_.Init(1024 * 100, 0, 1024, 1024, broad_phase_layer_interface_,
+		                     object_vs_broadphase_layer_filter_,
 		                     object_vs_object_layer_filter_);
 	}
 
@@ -174,8 +176,19 @@ public:
 		return this->physics_system_;
 	}
 
+	JPH::TempAllocatorImpl& get_temp_allocator()
+	{
+		return this->temp_allocator_;
+	}
+
+	JPH::JobSystemThreadPool& get_job_system()
+	{
+		return this->job_system_;
+	}
+
 private:
 	physics_setup setup_{};
+	JPH::TempAllocatorImpl temp_allocator_;
 	JPH::JobSystemThreadPool job_system_;
 
 	BPLayerInterfaceImpl broad_phase_layer_interface_;
