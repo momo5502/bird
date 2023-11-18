@@ -10,6 +10,34 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 		return;
 	}
 
+	glm::dvec3 scale{};
+	glm::dquat orientation{};
+	glm::dvec3 translation{};
+	glm::dvec3 skew{};
+	glm::dvec4 perspective{};
+
+	if (!glm::decompose(world_matrix, scale, orientation, translation, skew, perspective))
+	{
+		assert(false);
+	}
+
+	auto scale_matrix = glm::scale(scale);
+
+#ifndef NDEBUG
+	constexpr auto e = std::numeric_limits<double>::epsilon() * 100;
+#endif
+
+	assert(std::abs(skew.x) <= e);
+	assert(std::abs(skew.y) <= e);
+	assert(std::abs(skew.z) <= e);
+
+	assert(std::abs(perspective.x) <= e);
+	assert(std::abs(perspective.y) <= e);
+	assert(std::abs(perspective.z) <= e);
+	assert(std::abs(perspective.w) <= 1.0);
+
+	glm::quat rotation = orientation;
+
 	JPH::VertexList vertices{};
 	JPH::IndexedTriangleList triangles{};
 
@@ -31,7 +59,7 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 				1.0,
 			};
 
-			const auto position = world_matrix * local_position;
+			const auto position = scale_matrix * local_position;
 
 			vertices.emplace_back( //
 				static_cast<float>(position.x), //
@@ -58,6 +86,7 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 	auto& body_interface = this->game_world_->get_physics_system().GetBodyInterface();
 
 	JPH::MeshShapeSettings mesh_shape_settings(std::move(vertices), std::move(triangles));
+	mesh_shape_settings.Sanitize();
 	if (mesh_shape_settings.mIndexedTriangles.empty())
 	{
 		return;
@@ -65,8 +94,8 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 
 	this->shape_ = mesh_shape_settings.Create();
 
-	JPH::BodyCreationSettings body_settings(this->shape_.Get(), JPH::RVec3(0.0_r, 0.0_r, 0.0_r),
-	                                        JPH::Quat::sIdentity(),
+	JPH::BodyCreationSettings body_settings(this->shape_.Get(), JPH::RVec3(translation.x, translation.y, translation.z),
+	                                        JPH::Quat(rotation.x, rotation.y, rotation.z, rotation.w),
 	                                        JPH::EMotionType::Static, Layers::NON_MOVING);
 
 	this->body_ = body_interface.CreateBody(body_settings);

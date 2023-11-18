@@ -209,7 +209,7 @@ namespace
 	void HandleInput(JPH::Character* mCharacter, JPH::Vec3 inMovementDirection, const JPH::Vec3& up)
 	{
 		// Cancel movement in opposite direction of normal when touching something we can't walk up
-		JPH::Character::EGroundState ground_state = mCharacter->GetGroundState();
+		const JPH::Character::EGroundState ground_state = mCharacter->GetGroundState();
 		static auto oldState = ground_state;
 		if (oldState != ground_state)
 		{
@@ -217,7 +217,7 @@ namespace
 			oldState = ground_state;
 		}
 
-		if (ground_state == JPH::Character::EGroundState::OnSteepGround
+		/*if (ground_state == JPH::Character::EGroundState::OnSteepGround
 			|| ground_state == JPH::Character::EGroundState::NotSupported)
 		{
 			JPH::Vec3 normal = mCharacter->GetGroundNormal();
@@ -225,7 +225,7 @@ namespace
 			float dot = normal.Dot(inMovementDirection);
 			if (dot < 0.0f)
 				inMovementDirection -= (dot * normal) / normal.LengthSq();
-		}
+		}*/
 
 		//if (/*sControlMovementDuringJump ||*/ mCharacter->IsSupported())
 		{
@@ -267,9 +267,9 @@ namespace
 		constexpr auto min_change_vertices = 100'000ULL;
 
 		const auto _ = utils::finally([&]
-		{
-			last_vertices = current_vertices;
-		});
+			{
+				last_vertices = current_vertices;
+			});
 
 		if (RENDER_DISTANCE < max_render_distance && last_vertices + min_change_vertices < max_vertices)
 		{
@@ -394,17 +394,22 @@ namespace
 		auto& game_world = rocktree.with<world>();
 		auto& physics_system = game_world.get_physics_system();
 		physics_system.SetGravity(v<JPH::Vec3>(gravity));
+
 		character.SetUp(v<JPH::Vec3>(up));
 
 		constexpr auto normal_up = glm::dvec3(0.0, 1.0, 0.0);
-		const auto cross = glm::cross(normal_up, up);
-		const auto w = sqrt(glm::length2(normal_up) * glm::length2(up)) + glm::dot(normal_up, up);
+
+		const auto axis = glm::cross(normal_up, down);
+		const auto dotProduct = glm::dot(normal_up, down);
+		const auto angle = acos(dotProduct);
+
+		glm::quat rotationQuat = glm::angleAxis(angle, glm::normalize(axis));
 
 		JPH::Quat quat{
-			static_cast<float>(cross.x), //
-			static_cast<float>(cross.y), //
-			static_cast<float>(cross.z), //
-			static_cast<float>(w),
+			rotationQuat.x, //
+			rotationQuat.y, //
+			rotationQuat.z, //
+			rotationQuat.w, //
 		};
 
 		character.SetRotation(quat.Normalized());
@@ -657,6 +662,8 @@ namespace
 		renderer.draw("Objects: " + std::to_string(rocktree.get_objects()), 25.0f, (offset += 25.0f), 1.0f, color);
 		renderer.draw("Vertices: " + std::to_string(current_vertices), 25.0f, (offset += 25.0f), 1.0f, color);
 		renderer.draw("Distance: " + std::to_string(RENDER_DISTANCE), 25.0f, (offset += 25.0f), 1.0f, color);
+		renderer.draw("Up: " + std::to_string(up.x) + " " + std::to_string(up.y) + " " + std::to_string(up.z), 25.0f,
+		              (offset += 25.0f), 1.0f, color);
 
 		/*for (size_t i = 0; i < task_manager::QUEUE_COUNT; ++i)
 		{
@@ -763,8 +770,8 @@ namespace
 		auto eye = lla_to_ecef(48.994556, 8.400166, 6364810.2166);
 		glm::dvec3 direction{-0.295834, -0.662646, -0.688028};
 
-		static constexpr float cCharacterHeightStanding = 10.0f;
-		static constexpr float cCharacterRadiusStanding = 0.5f;
+		static constexpr float cCharacterHeightStanding = 1.0f;
+		static constexpr float cCharacterRadiusStanding = 0.6f;
 
 		auto standingShape = JPH::RotatedTranslatedShapeSettings(
 			JPH::Vec3(0, 0.5f * cCharacterHeightStanding + cCharacterRadiusStanding, 0), JPH::Quat::sIdentity(),
@@ -772,16 +779,15 @@ namespace
 
 		JPH::CharacterSettings character_settings{};
 		character_settings.mLayer = Layers::MOVING;
-		character_settings.mMaxSlopeAngle = JPH::DegreesToRadians(65.0f);
+		character_settings.mMaxSlopeAngle = JPH::DegreesToRadians(45.0f);
 		character_settings.mShape = standingShape.Get();
-		character_settings.mFriction = 5.0f;
-		character_settings.mMass = 800.0f;
-		//character_settings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -0.3f);
+		character_settings.mFriction = 10.0f;
+		character_settings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cCharacterRadiusStanding);
 
-		JPH::Character character(&character_settings, JPH::RVec3::sZero(), JPH::Quat::sIdentity(), 0,
+		JPH::Character character(&character_settings, v<JPH::RVec3>(eye), JPH::Quat::sIdentity(), 0,
 		                         &game_world.get_physics_system());
+
 		character.AddToPhysicsSystem(JPH::EActivation::Activate);
-		character.SetPosition(v<JPH::RVec3>(eye));
 
 		utils::concurrency::container<std::queue<world_mesh*>> meshes_to_buffer{};
 
