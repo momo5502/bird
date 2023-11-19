@@ -470,11 +470,9 @@ namespace
 			}
 		}
 
-		constexpr auto one_frame = 1 / 60.0;
 		const auto time_delta = static_cast<double>(window.get_last_frame_time()) / (1000.0 * 1000.0);
-		const auto frames = static_cast<int>(time_delta / one_frame);
 
-		physics_system.Update(static_cast<float>(time_delta), std::max(1, frames),
+		physics_system.Update(static_cast<float>(time_delta), 1,
 		                      &game_world.get_temp_allocator(), &game_world.get_job_system());
 		character.PostSimulation(0.05f);
 
