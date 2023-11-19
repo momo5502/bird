@@ -62,9 +62,9 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 			const auto position = scale_matrix * local_position;
 
 			vertices.emplace_back( //
-				static_cast<float>(position.x), //
-				static_cast<float>(position.y), //
-				static_cast<float>(position.z) //
+				static_cast<float>(position.x / position.w), //
+				static_cast<float>(position.y / position.w), //
+				static_cast<float>(position.z / position.w) //
 			);
 		}
 
