@@ -267,9 +267,19 @@ namespace
 		return glm::normalize(forward_vector);
 	}
 
+	struct my_character : JPH::Character
+	{
+		using JPH::Character::Character;
+
+		void set_supporting_volume(JPH::Plane plane)
+		{
+			this->mSupportingVolume = std::move(plane);
+		}
+	};
+
 	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
 	               utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, text_renderer& renderer,
-	               JPH::Character& character, input& input)
+	               my_character& character, input& input)
 	{
 		++frame_counter;
 
@@ -432,7 +442,7 @@ namespace
 		const auto up_vector = v<JPH::Vec3>(up);
 
 		character.SetUp(up_vector);
-		character.SetSupportingVolume(JPH::Plane(up_vector, -0.6f));
+		character.set_supporting_volume(JPH::Plane(up_vector, -0.6f));
 		character.SetRotation(quat.Normalized());
 
 		if (can_change)
@@ -809,8 +819,8 @@ namespace
 		character_settings.mFriction = 10.0f;
 		character_settings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cCharacterRadiusStanding);
 
-		JPH::Character character(&character_settings, v<JPH::RVec3>(eye), JPH::Quat::sIdentity(), 0,
-		                         &game_world.get_physics_system());
+		my_character character(&character_settings, v<JPH::RVec3>(eye), JPH::Quat::sIdentity(), 0,
+		                       &game_world.get_physics_system());
 
 		character.AddToPhysicsSystem(JPH::EActivation::Activate);
 
