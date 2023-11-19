@@ -15,8 +15,22 @@ struct input_state
 	double mouse_y{0.0};
 
 	bool jumping{false};
+	bool sprinting{false};
 };
 
 class window;
 
-input_state get_input_state(const window& window);
+class input
+{
+public:
+	input(const window& window)
+		: window_(window)
+	{
+	}
+
+	input_state get_input_state();
+
+private:
+	const window& window_;
+	bool was_sprinting_{false};
+};

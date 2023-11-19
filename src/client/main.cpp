@@ -251,13 +251,29 @@ namespace
 		}
 	}
 
+	glm::dvec3 align_vector(const glm::dvec3& source_vector, const glm::dvec3& target_vec)
+	{
+		const auto source = glm::normalize(source_vector);
+		const auto magnitude = glm::dot(source, target_vec);
+
+		return source * magnitude;
+	}
+
+	glm::dvec3 vector_forward(const glm::dvec3& vec, const glm::dvec3& up)
+	{
+		const auto unit_vector = glm::normalize(vec);
+		const auto right_vector = glm::cross(unit_vector, up);
+		const auto forward_vector = glm::cross(up, right_vector);
+		return glm::normalize(forward_vector);
+	}
+
 	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
 	               utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, text_renderer& renderer,
-	               JPH::Character& character)
+	               JPH::Character& character, input& input)
 	{
 		++frame_counter;
 
-		static double RENDER_DISTANCE = 1.4;
+		static double RENDER_DISTANCE = 2.0; //1.4;
 
 		uint64_t current_vertices = 0;
 
@@ -294,7 +310,7 @@ namespace
 
 		p.step("Input");
 
-		const auto state = get_input_state(window);
+		const auto state = input.get_input_state();
 		if (state.exit)
 		{
 			window.close();
@@ -428,12 +444,17 @@ namespace
 			}
 			else if (is_moving)
 			{
-				const auto direction_vector = glm::normalize(movement_vector);
-				const auto right_vector = glm::cross(direction_vector, up);
-				const auto forward_vector = glm::cross(up, right_vector);
-				const auto forward_unit = glm::normalize(forward_vector);
-				const auto forward_length = glm::dot(direction_vector, forward_unit);
-				velocity = forward_unit * forward_length;
+				const auto forward_unit = vector_forward(movement_vector, up);
+				velocity = align_vector(forward_unit, movement_vector);
+
+				if (state.sprinting)
+				{
+					const auto view_forward = vector_forward(direction, up);
+					const auto move_forward = align_vector(view_forward, velocity);
+
+					const auto rest = velocity - move_forward;
+					velocity = move_forward * 3.0 + rest * 1.5;
+				}
 
 				handle_input(&character, v<JPH::Vec3>(velocity), up_vector, state.jumping);
 			}
@@ -667,8 +688,6 @@ namespace
 		renderer.draw("Objects: " + std::to_string(rocktree.get_objects()), 25.0f, (offset += 25.0f), 1.0f, color);
 		renderer.draw("Vertices: " + std::to_string(current_vertices), 25.0f, (offset += 25.0f), 1.0f, color);
 		renderer.draw("Distance: " + std::to_string(RENDER_DISTANCE), 25.0f, (offset += 25.0f), 1.0f, color);
-		renderer.draw("Up: " + std::to_string(up.x) + " " + std::to_string(up.y) + " " + std::to_string(up.z), 25.0f,
-		              (offset += 25.0f), 1.0f, color);
 
 		/*for (size_t i = 0; i < task_manager::QUEUE_COUNT; ++i)
 		{
@@ -768,6 +787,7 @@ namespace
 		utils::thread::set_priority(utils::thread::priority::high);
 
 		window window(1280, 800, "game");
+		input input(window);
 
 		world game_world{};
 		custom_rocktree<world, world_mesh> rocktree{"earth", game_world};
@@ -809,7 +829,7 @@ namespace
 		window.show([&](profiler& p)
 		{
 			p.silence();
-			run_frame(p, window, rocktree, eye, direction, meshes_to_buffer, text_renderer, character);
+			run_frame(p, window, rocktree, eye, direction, meshes_to_buffer, text_renderer, character, input);
 		});
 
 		character.RemoveFromPhysicsSystem();

@@ -3,8 +3,6 @@
 #include "input.hpp"
 #include "window.hpp"
 
-#include <utils/nt.hpp>
-
 namespace
 {
 	template <typename... Integers>
@@ -44,6 +42,7 @@ namespace
 		                                    GLFW_KEY_RIGHT_CONTROL);
 
 		state.jumping = is_any_key_pressed(window, GLFW_KEY_SPACE);
+		state.sprinting = is_any_key_pressed(window, GLFW_KEY_LEFT_ALT);
 
 		const auto mouse_position = window.get_mouse_position();
 		state.mouse_x = mouse_position.first;
@@ -67,7 +66,7 @@ namespace
 		return 0.0;
 	}
 
-	input_state get_gamepad_state()
+	input_state get_gamepad_state(bool& was_sprinting)
 	{
 		input_state state{};
 
@@ -78,6 +77,8 @@ namespace
 		}
 
 		state.exit = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_CIRCLE] == GLFW_PRESS;
+		state.jumping = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_CROSS] == GLFW_PRESS;
+		state.sprinting = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_THUMB] == GLFW_PRESS || was_sprinting;
 
 		double left_x = gamepad_state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
 		double left_y = gamepad_state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
@@ -105,6 +106,9 @@ namespace
 		state.mouse_x = right_x * 10.0;
 		state.mouse_y = right_y * 10.0;
 
+		const auto is_moving = (state.right > 0.0 || state.left > 0.0 || state.up > 0.0 || state.down > 0.0);
+		was_sprinting = state.sprinting && is_moving;
+
 		return state;
 	}
 
@@ -125,15 +129,21 @@ namespace
 		state.mouse_y = state_1.mouse_y + state_2.mouse_y;
 
 		state.jumping = state_1.jumping || state_2.jumping;
+		state.sprinting = state_1.sprinting || state_2.sprinting;
 
 		return state;
 	}
+
+	input_state get_input_state(const window& window, bool& was_sprinting)
+	{
+		const auto keyboard_state = get_keyboard_state(window);
+		const auto gamepad_state = get_gamepad_state(was_sprinting);
+
+		return merge_input_states(keyboard_state, gamepad_state);
+	}
 }
 
-input_state get_input_state(const window& window)
+input_state input::get_input_state()
 {
-	const auto keyboard_state = get_keyboard_state(window);
-	const auto gamepad_state = get_gamepad_state();
-
-	return merge_input_states(keyboard_state, gamepad_state);
+	return ::get_input_state(this->window_, this->was_sprinting_);
 }
