@@ -29,3 +29,6 @@
 [submodule "deps/cmrc"]
 	path = deps/cmrc
 	url = https://github.com/vector-of-bool/cmrc.git
+[submodule "deps/JoltPhysics"]
+	path = deps/JoltPhysics
+	url = https://github.com/jrouwe/JoltPhysics.git
