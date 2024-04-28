@@ -95,8 +95,8 @@ namespace
 		constexpr auto limit = 0.1;
 		left_x = add_deadzone(left_x, limit);
 		left_y = add_deadzone(left_y, limit);
-		right_x = add_deadzone(right_x, limit) / 2.0;
-		right_y = add_deadzone(right_y, limit) / 2.0;
+		right_x = add_deadzone(right_x, limit);
+		right_y = add_deadzone(right_y, limit);
 		right_trigger = add_deadzone(right_trigger, limit);
 		left_trigger = add_deadzone(left_trigger, limit);
 
