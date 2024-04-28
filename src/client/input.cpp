@@ -66,7 +66,7 @@ namespace
 		return 0.0;
 	}
 
-	input_state get_gamepad_state(bool& was_sprinting)
+	input_state get_gamepad_state(bool& was_sprinting, bool& was_gravity_toggled)
 	{
 		input_state state{};
 
@@ -80,6 +80,11 @@ namespace
 		state.jumping = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_CROSS] == GLFW_PRESS;
 		state.sprinting = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_THUMB] == GLFW_PRESS || was_sprinting;
 
+		const auto select_pressed = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_BACK] == GLFW_PRESS;
+		state.gravity_toggle = select_pressed && !was_gravity_toggled;
+		was_gravity_toggled = select_pressed;
+
+
 		double left_x = gamepad_state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
 		double left_y = gamepad_state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
 		double right_x = gamepad_state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X];
@@ -90,8 +95,8 @@ namespace
 		constexpr auto limit = 0.1;
 		left_x = add_deadzone(left_x, limit);
 		left_y = add_deadzone(left_y, limit);
-		right_x = add_deadzone(right_x, limit);
-		right_y = add_deadzone(right_y, limit);
+		right_x = add_deadzone(right_x, limit) / 2.0;
+		right_y = add_deadzone(right_y, limit) / 2.0;
 		right_trigger = add_deadzone(right_trigger, limit);
 		left_trigger = add_deadzone(left_trigger, limit);
 
@@ -131,13 +136,15 @@ namespace
 		state.jumping = state_1.jumping || state_2.jumping;
 		state.sprinting = state_1.sprinting || state_2.sprinting;
 
+		state.gravity_toggle = state_1.gravity_toggle || state_2.gravity_toggle;
+
 		return state;
 	}
 
-	input_state get_input_state(const window& window, bool& was_sprinting)
+	input_state get_input_state(const window& window, bool& was_sprinting, bool& was_gravity_toggled)
 	{
 		const auto keyboard_state = get_keyboard_state(window);
-		const auto gamepad_state = get_gamepad_state(was_sprinting);
+		const auto gamepad_state = get_gamepad_state(was_sprinting, was_gravity_toggled);
 
 		return merge_input_states(keyboard_state, gamepad_state);
 	}
@@ -145,5 +152,5 @@ namespace
 
 input_state input::get_input_state()
 {
-	return ::get_input_state(this->window_, this->was_sprinting_);
+	return ::get_input_state(this->window_, this->was_sprinting_, this->was_gravity_toggled_);
 }

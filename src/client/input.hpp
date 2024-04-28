@@ -16,6 +16,8 @@ struct input_state
 
 	bool jumping{false};
 	bool sprinting{false};
+
+	bool gravity_toggle{false};
 };
 
 class window;
@@ -33,4 +35,5 @@ public:
 private:
 	const window& window_;
 	bool was_sprinting_{false};
+	bool was_gravity_toggled_{false};
 };

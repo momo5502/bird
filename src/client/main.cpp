@@ -279,7 +279,7 @@ namespace
 
 	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
 	               utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, text_renderer& renderer,
-	               my_character& character, input& input)
+	               my_character& character, input& input, bool& gravity_on)
 	{
 		++frame_counter;
 
@@ -325,6 +325,11 @@ namespace
 		{
 			window.close();
 			return;
+		}
+
+		if (state.gravity_toggle)
+		{
+			gravity_on = !gravity_on;
 		}
 
 		p.step("Prepare");
@@ -447,7 +452,7 @@ namespace
 
 		if (can_change)
 		{
-			if (is_boosting)
+			if (is_boosting || !gravity_on)
 			{
 				character.SetPosition(v<JPH::RVec3>(eye + movement_vector));
 				character.SetLinearVelocity({});
@@ -696,6 +701,7 @@ namespace
 		renderer.draw("Objects: " + std::to_string(rocktree.get_objects()), 25.0f, (offset += 25.0f), 1.0f, color);
 		renderer.draw("Vertices: " + std::to_string(current_vertices), 25.0f, (offset += 25.0f), 1.0f, color);
 		renderer.draw("Distance: " + std::to_string(RENDER_DISTANCE), 25.0f, (offset += 25.0f), 1.0f, color);
+		renderer.draw("Gravity: " + std::string(gravity_on ? "on" : "off"), 25.0f, (offset += 25.0f), 1.0f, color);
 
 		/*for (size_t i = 0; i < task_manager::QUEUE_COUNT; ++i)
 		{
@@ -834,10 +840,13 @@ namespace
 
 		text_renderer text_renderer({opensans.cbegin(), opensans.cend()}, 24);
 
+		bool gravity_on = true;
+
 		window.show([&](profiler& p)
 		{
 			p.silence();
-			run_frame(p, window, rocktree, eye, direction, meshes_to_buffer, text_renderer, character, input);
+			run_frame(p, window, rocktree, eye, direction, meshes_to_buffer, text_renderer, character, input,
+			          gravity_on);
 		});
 
 		character.RemoveFromPhysicsSystem();
