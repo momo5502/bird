@@ -71,7 +71,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
-          sudo apt install -y g++-11 ninja-build libwayland-dev
+          sudo apt install -y g++-11 ninja-build libwayland-dev libx11-dev libxkbcommon-x11-0
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 30
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 30
           sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30
@@ -110,6 +110,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
+
+      - name: Install ninja
+        uses: seanmiddleditch/gha-setup-ninja@v4
 
       - name: CMake Build
         run: cmake --workflow --preset=${{matrix.preset}}
