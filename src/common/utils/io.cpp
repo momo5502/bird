@@ -1,6 +1,7 @@
 #include "io.hpp"
 #include "nt.hpp"
 #include <fstream>
+#include <sstream>
 
 namespace utils::io
 {
