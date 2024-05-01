@@ -7,10 +7,13 @@ option(MOMO_ENABLE_SANITIZER "Enable sanitizer" OFF)
 ##########################################
 
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0)
+set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
 
 ##########################################
 

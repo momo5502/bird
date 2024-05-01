@@ -92,7 +92,7 @@ jobs:
             build/${{matrix.preset}}/artifacts/bird
 
   build-mac-arm:
-    name: Build macOS arm64
+    name: Build macOS
     runs-on: macos-latest
     strategy:
       fail-fast: false
@@ -115,41 +115,6 @@ jobs:
         run: |
           brew install ninja
           python3 -m pip install --break-system-packages --user -r ./deps/mbedtls/scripts/basic.requirements.txt
-  
-      - name: CMake Build
-        run: cmake --workflow --preset=${{matrix.preset}}
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macOS arm64 ${{matrix.configuration}} Artifacts
-          path: |
-            build/${{matrix.preset}}/artifacts/bird
-
-  build-mac-intel:
-    name: Build macOS x64
-    runs-on: macos-13
-    strategy:
-      fail-fast: false
-      matrix:
-        configuration:
-          - Debug
-          - Release
-        include:
-          - configuration: Debug
-            preset: debug
-          - configuration: Release
-            preset: release
-    steps:
-      - name: Checkout Source
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install Dependencies
-        run: |
-          brew install ninja
-          python3 -m pip install --break-system-packages --user -r ./deps/mbedtls/scripts/basic.requirements.txt
 
       - name: CMake Build
         run: cmake --workflow --preset=${{matrix.preset}}
@@ -157,6 +122,6 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macOS x64 ${{matrix.configuration}} Artifacts
+          name: macOS ${{matrix.configuration}} Artifacts
           path: |
             build/${{matrix.preset}}/artifacts/bird
