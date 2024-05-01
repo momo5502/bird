@@ -73,15 +73,7 @@ namespace
 
 	std::filesystem::path build_cache_url(const std::string_view& planet, const std::filesystem::path& path)
 	{
-		const std::filesystem::path momo = "C:\\Users\\mauri\\source\\repos\\bird\\build";
-		static const auto is_momo = utils::io::directory_exists(momo);
-
-		if (is_momo)
-		{
-			return momo / "cache" / (planet / path);
-		}
-
-		return "cache" / (planet / path);
+		return std::filesystem::temp_directory_path() / "bird" / (planet / path);
 	}
 
 	void fetch_google_data(task_manager& manager, utils::http::downloader& downloader, const std::string_view& planet,
