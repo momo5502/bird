@@ -21,11 +21,18 @@ namespace
 		return {vao, delete_vertex_array_object};
 	}
 
-	std::string_view get_vertex_shader()
+	std::string get_vertex_fixup()
 	{
-		return R"code(
-#version 150 core
+#ifdef __APPLE__
+		return "#version 150\n#define varying out\n#define attribute in\n";
+#else
+		return "";
+#endif
+	}
 
+	std::string get_vertex_shader()
+	{
+		return get_vertex_fixup() + R"code(
 uniform mat4 transform;
 uniform vec2 uv_offset;
 uniform vec2 uv_scale;
@@ -69,16 +76,23 @@ void main() {
 )code";
 	}
 
-	std::string_view get_fragment_shader()
+	std::string get_fragment_fixup()
 	{
-		return R"code(
-#version 150 core
+#ifdef __APPLE__
+		return "#version 150\n#define varying in\n#define texture2D texture\n#define textureCube texture\n#define gl_FragColor fragColor\nout vec4 fragColor;\n";
+#else
+		return "";
+#endif
+	}
 
+	std::string get_fragment_shader()
+	{
+		return get_fragment_fixup()+ R"code(
 #ifdef GL_ES
 precision mediump float;
 #endif
 
-uniform sampler2D texture;
+uniform sampler2D textureObj;
 varying vec2 v_texcoords;
 varying float v_alpha;
 
@@ -110,7 +124,7 @@ void main() {
 		}
 	}
 
-	gl_FragColor = vec4(texture2D(texture, v_texcoords).rgb, 1.0);
+	gl_FragColor = vec4(texture2D(textureObj, v_texcoords).rgb, 1.0);
 }
 )code";
 	}
