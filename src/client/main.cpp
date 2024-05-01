@@ -698,11 +698,14 @@ namespace
 			}
 		}
 
-		const auto time_delta = static_cast<double>(c.win.get_last_frame_time()) / (1000.0 * 1000.0);
+		if (c.gravity_on)
+		{
+			const auto time_delta = static_cast<double>(c.win.get_last_frame_time()) / (1000.0 * 1000.0);
 
-		physics_system.Update(static_cast<float>(time_delta), 1,
-		                      &game_world.get_temp_allocator(), &game_world.get_job_system());
-		c.character.PostSimulation(0.05f);
+			physics_system.Update(static_cast<float>(time_delta), 1,
+			                      &game_world.get_temp_allocator(), &game_world.get_job_system());
+			c.character.PostSimulation(0.05f);
+		}
 
 
 		const auto view = glm::lookAt(c.eye, c.eye + c.direction, up);
