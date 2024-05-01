@@ -30,7 +30,7 @@ option(CURL_ENABLE_EXPORT_TARGET "" OFF)
 
 if(MSVC)
   set(CURL_USE_SCHANNEL ON)
-else()
+elseif(LINUX)
   set(CURL_USE_OPENSSL OFF)
   set(SSL_ENABLED ON)
   set(USE_MBEDTLS ON)
@@ -38,6 +38,8 @@ else()
 
   get_target_property(MBEDTLS_INCLUDE_DIRS mbedtls INCLUDE_DIRECTORIES)
   include_directories(${MBEDTLS_INCLUDE_DIRS})
+else()
+  set(CURL_USE_OPENSSL ON)
 endif()
 
 add_subdirectory(curl)

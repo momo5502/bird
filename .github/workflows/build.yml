@@ -71,7 +71,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
-          sudo apt install -y g++-11 ninja-build libwayland-dev libx11-dev libxkbcommon-x11-0
+          sudo apt install -y g++-11 ninja-build libwayland-dev libx11-dev libxkbcommon-x11-dev
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 30
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 30
           sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30
@@ -112,7 +112,9 @@ jobs:
           submodules: recursive
 
       - name: Install Dependencies
-        run: python3 -m pip install --break-system-packages --user -r ./deps/mbedtls/scripts/basic.requirements.txt
+        run: |
+          python3 -m pip install --break-system-packages --user -r ./deps/mbedtls/scripts/basic.requirements.txt
+          brew install openssl
 
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v4
