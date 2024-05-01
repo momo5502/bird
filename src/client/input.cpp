@@ -40,6 +40,7 @@ namespace
 
 		state.boost = get_pressed_key_value(window, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_RIGHT_SHIFT, GLFW_KEY_LEFT_CONTROL,
 		                                    GLFW_KEY_RIGHT_CONTROL);
+		state.gravity_toggle = get_pressed_key_value(window, GLFW_KEY_TAB);
 
 		state.jumping = is_any_key_pressed(window, GLFW_KEY_SPACE);
 		state.sprinting = is_any_key_pressed(window, GLFW_KEY_LEFT_ALT);
@@ -66,7 +67,7 @@ namespace
 		return 0.0;
 	}
 
-	input_state get_gamepad_state(bool& was_sprinting, bool& was_gravity_toggled)
+	input_state get_gamepad_state()
 	{
 		input_state state{};
 
@@ -78,12 +79,9 @@ namespace
 
 		state.exit = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_CIRCLE] == GLFW_PRESS;
 		state.jumping = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_CROSS] == GLFW_PRESS;
-		state.sprinting = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_THUMB] == GLFW_PRESS || was_sprinting;
+		state.sprinting = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_THUMB] == GLFW_PRESS;
 
-		const auto select_pressed = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_BACK] == GLFW_PRESS;
-		state.gravity_toggle = select_pressed && !was_gravity_toggled;
-		was_gravity_toggled = select_pressed;
-
+		state.gravity_toggle = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_BACK] == GLFW_PRESS;
 
 		double left_x = gamepad_state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
 		double left_y = gamepad_state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
@@ -110,9 +108,6 @@ namespace
 
 		state.mouse_x = right_x * 10.0;
 		state.mouse_y = right_y * 10.0;
-
-		const auto is_moving = (state.right > 0.0 || state.left > 0.0 || state.up > 0.0 || state.down > 0.0);
-		was_sprinting = state.sprinting && is_moving;
 
 		return state;
 	}
@@ -144,9 +139,19 @@ namespace
 	input_state get_input_state(const window& window, bool& was_sprinting, bool& was_gravity_toggled)
 	{
 		const auto keyboard_state = get_keyboard_state(window);
-		const auto gamepad_state = get_gamepad_state(was_sprinting, was_gravity_toggled);
+		const auto gamepad_state = get_gamepad_state();
 
-		return merge_input_states(keyboard_state, gamepad_state);
+		auto state = merge_input_states(keyboard_state, gamepad_state);
+		state.sprinting |= was_sprinting;
+
+		const auto is_moving = (state.right > 0.0 || state.left > 0.0 || state.up > 0.0 || state.down > 0.0);
+		was_sprinting = state.sprinting && is_moving;
+
+		const auto is_toggling = state.gravity_toggle;
+		state.gravity_toggle &= !was_gravity_toggled;
+		was_gravity_toggled = is_toggling;
+
+		return state;
 	}
 }
 
