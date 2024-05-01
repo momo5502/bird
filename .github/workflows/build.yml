@@ -1,0 +1,94 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+    types: [opened, synchronize, reopened]
+    
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - Debug
+          - Release
+        include:
+          - configuration: Debug
+            preset: debug
+          - configuration: Release
+            preset: release
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Enable Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1.12.1        
+
+      - name: CMake Build
+        run: cmake --workflow --preset=${{matrix.preset}}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: Windows ${{matrix.configuration}} Artifacts
+          path: |
+            build/${{matrix.preset}}/artifacts/bird.exe
+            build/${{matrix.preset}}/artifacts/bird.pdb
+    
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - Debug
+          - Release
+        include:
+          - configuration: Debug
+            preset: debug
+          - configuration: Release
+            preset: release
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+
+      - name: Install Dependencies
+        run: |
+          sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
+          sudo apt install -y g++-11 ninja-build
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 30
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 30
+          sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30
+          sudo update-alternatives --set cc /usr/bin/gcc
+          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30
+          sudo update-alternatives --set c++ /usr/bin/g++
+          sudo update-alternatives --config gcc
+          sudo update-alternatives --config g++
+
+      - name: CMake Build
+        run: cmake --workflow --preset=${{matrix.preset}}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: Linux ${{matrix.configuration}} Artifacts
+          path: |
+            build/${{matrix.preset}}/artifacts/bird.exe
+            build/${{matrix.preset}}/artifacts/bird.pdb
