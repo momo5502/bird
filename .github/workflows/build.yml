@@ -111,6 +111,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Dependencies
+        run: python3 -m pip install -r ./deps/mbedtls/scripts/basic.requirements.txt
+
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v4
 
