@@ -710,6 +710,16 @@ namespace
 		return viewprojection;
 	}
 
+	void reset_viewport(const window& window)
+	{
+		int framebuffer_width{};
+		int framebuffer_height{};
+
+		glfwGetFramebufferSize(window, &framebuffer_width,
+		                       &framebuffer_height);
+		glViewport(0, 0, framebuffer_width, framebuffer_height);
+	}
+
 	void run_frame(rendering_context& c, profiler& p)
 	{
 		++c.total_frame_counter;
@@ -734,6 +744,7 @@ namespace
 		}
 
 		p.step("Prepare");
+		reset_viewport(c.window);
 
 		auto& game_world = c.rocktree.with<world>();
 
