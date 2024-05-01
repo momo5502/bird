@@ -20,7 +20,7 @@
 
 CMRC_DECLARE(bird);
 
-//#define USE_ADAPTIVE_RENDER_DISTANCE
+#define USE_ADAPTIVE_RENDER_DISTANCE
 
 namespace
 {
@@ -128,7 +128,7 @@ namespace
 		return glm::dvec3{x, y, z};
 	}
 
-	void paint_sky(const double altitude)
+	void draw_sky(const double altitude)
 	{
 		constexpr auto up_limit = 500'000.0;
 		constexpr auto low_limit = 10'000.0;
@@ -203,9 +203,6 @@ namespace
 		return result;
 	}
 
-	std::atomic_uint64_t frame_counter{0};
-
-
 	void handle_input(JPH::Character* mCharacter, JPH::Vec3 inMovementDirection, const JPH::Vec3& up, const bool jump)
 	{
 		// Cancel movement in opposite direction of normal when touching something we can't walk up
@@ -277,228 +274,190 @@ namespace
 		}
 	};
 
-	void run_frame(profiler& p, window& window, rocktree& rocktree, glm::dvec3& eye, glm::dvec3& direction,
-	               utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, text_renderer& renderer,
-	               my_character& character, input& input, bool& gravity_on)
+	struct simulation_objects
 	{
-		++frame_counter;
+		window& window;
+		rocktree& rocktree;
+		glm::dvec3& eye;
+		glm::dvec3& direction;
 
-		static double RENDER_DISTANCE = 2.0; //1.4;
+		text_renderer& renderer;
+		my_character& character;
+		input& input;
+	};
 
-		uint64_t current_vertices = 0;
+	struct fps_context
+	{
+		std::atomic_uint64_t total_frame_counter{0};
 
-#ifdef USE_ADAPTIVE_RENDER_DISTANCE
-		static uint64_t last_vertices = 0;
-		constexpr auto min_render_distance = 1.0;
-		constexpr auto max_render_distance = 2.0;
+		double last_frame_time{0};
+		uint32_t frame_counter{0};
+		int fps{60};
+	};
 
-		constexpr auto max_vertices = 2'500'000ULL;
-		constexpr auto min_change_vertices = 100'000ULL;
+	struct rendering_context : simulation_objects, fps_context
+	{
+		utils::concurrency::container<std::queue<world_mesh*>> meshes_to_buffer{};
+		bool gravity_on{true};
+		double render_distance{2.0};
+		uint64_t last_vertices{0};
+	};
 
-		const auto _ = utils::finally([&]
+	void update_fps(fps_context& c)
+	{
+		const auto current_frame_time = glfwGetTime();
+		const auto time_diff = current_frame_time - c.last_frame_time;
+
+		c.frame_counter++;
+
+		if (time_diff >= 1.0 / 4)
+		{
+			c.fps = static_cast<int>((1.0 / time_diff) * c.frame_counter);
+			c.last_frame_time = current_frame_time;
+			c.frame_counter = 0;
+		}
+	}
+
+	void draw_text(const rendering_context& c, const size_t buffer_queue, const uint64_t current_vertices)
+	{
+		constexpr auto color = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
+
+		auto offset = 35.0f;
+
+		c.renderer.draw("FPS: " + std::to_string(c.fps), 25.0f, (offset += 25.0f), 1.0f, color);
+		c.renderer.draw("Tasks: " + std::to_string(c.rocktree.get_tasks()), 25.0f, (offset += 25.0f), 1.0f, color);
+		c.renderer.draw("Downloads: " + std::to_string(c.rocktree.get_downloads()), 25.0f, (offset += 25.0f), 1.0f,
+		                color);
+		c.renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, (offset += 25.0f), 1.0f, color);
+		c.renderer.draw("Objects: " + std::to_string(c.rocktree.get_objects()), 25.0f, (offset += 25.0f), 1.0f, color);
+		c.renderer.draw("Vertices: " + std::to_string(current_vertices), 25.0f, (offset += 25.0f), 1.0f, color);
+		c.renderer.draw("Distance: " + std::to_string(c.render_distance), 25.0f, (offset += 25.0f), 1.0f, color);
+		c.renderer.draw("Gravity: " + std::string(c.gravity_on ? "on" : "off"), 25.0f, (offset += 25.0f), 1.0f, color);
+	}
+
+	size_t push_meshes_for_buffering(rendering_context& c, std::queue<world_mesh*> new_meshes_to_buffer)
+	{
+		size_t buffer_queue{0};
+
+		c.meshes_to_buffer.access([&](std::queue<::world_mesh*>& meshes)
+		{
+			buffer_queue = meshes.size() + new_meshes_to_buffer.size();
+
+			if (meshes.empty())
 			{
-				last_vertices = current_vertices;
-			});
+				meshes = std::move(new_meshes_to_buffer);
+				return;
+			}
 
-		if (RENDER_DISTANCE < max_render_distance && last_vertices + min_change_vertices < max_vertices)
+			while (!new_meshes_to_buffer.empty())
+			{
+				auto* node = new_meshes_to_buffer.front();
+				new_meshes_to_buffer.pop();
+
+				meshes.push(node);
+			}
+		});
+
+		return buffer_queue;
+	}
+
+	std::queue<world_mesh*> draw_world(profiler& p, const world& game_world, float current_time,
+	                                   const glm::dmat4& viewprojection, uint64_t& current_vertices,
+	                                   const std::map<octant_identifier<>, node*>& potential_nodes)
+	{
+		std::queue<world_mesh*> new_meshes_to_buffer{};
+
+		using mask_list = std::array<int, 8>;
+		using time_list = std::array<float, 8>;
+
+		struct octant_mask
 		{
-			RENDER_DISTANCE += 0.01;
-		}
-
-		if (last_vertices > max_vertices + min_change_vertices)
-		{
-			RENDER_DISTANCE -= 0.01;
-		}
-
-		if (RENDER_DISTANCE < min_render_distance)
-		{
-			RENDER_DISTANCE = min_render_distance;
-		}
-#endif
-
-		const auto current_time = static_cast<float>(window.get_current_time());
-
-		p.step("Input");
-
-		const auto state = input.get_input_state();
-		if (state.exit)
-		{
-			window.close();
-			return;
-		}
-
-		if (state.gravity_toggle)
-		{
-			gravity_on = !gravity_on;
-		}
-
-		p.step("Prepare");
-
-		const auto planetoid = rocktree.get_planetoid();
-		if (!planetoid || !planetoid->can_be_used()) return;
-
-		auto* current_bulk = planetoid->root_bulk;
-		if (!current_bulk || !current_bulk->can_be_used()) return;
-		const auto planet_radius = planetoid->radius;
-
-		p.step("Calculate");
-
-		GLint viewport[4]{};
-		glGetIntegerv(GL_VIEWPORT, viewport);
-
-		const auto width = viewport[2];
-		const auto height = viewport[3];
-
-		auto pos = character.GetPosition();
-		eye = v(pos);
-
-		// up is the vec from the planetoid's center towards the sky
-		const auto up = glm::normalize(eye);
-		const auto down = -up;
-
-		constexpr auto gravitational_force = 9.81;
-		const auto gravity = down * gravitational_force;
-
-		// projection
-		const auto aspect_ratio = static_cast<double>(width) / static_cast<double>(height);
-		constexpr auto fov = 0.25 * glm::pi<double>();
-		const auto altitude = glm::length(eye) - planet_radius;
-
-		paint_sky(altitude);
-
-		const auto horizon = sqrt(altitude * (2 * planet_radius + altitude));
-		auto near_val = 0.5;
-		auto far_val = horizon;
-
-		if (horizon > 370000)
-		{
-			near_val = altitude / 2;
-		}
-
-		if (near_val >= far_val) near_val = far_val - 1;
-		if (std::isnan(far_val) || far_val < near_val) far_val = near_val + 1;
-
-		const glm::dmat4 projection = glm::perspective(fov, aspect_ratio, near_val, far_val);
-
-		// rotation
-		double yaw = state.mouse_x * 0.005;
-		double pitch = -state.mouse_y * 0.005;
-		const auto overhead = glm::dot(direction, -up);
-
-		if ((overhead > 0.99 && pitch < 0) || (overhead < -0.99 && pitch > 0))
-		{
-			pitch = 0;
-		}
-
-		auto pitch_axis = glm::cross(direction, up);
-		auto yaw_axis = glm::cross(direction, pitch_axis);
-
-		pitch_axis = glm::normalize(pitch_axis);
-		const auto roll_angle = glm::angleAxis(0.0, glm::dvec3(0, 0, 1));
-		const auto yaw_angle = glm::angleAxis(yaw, yaw_axis);
-		const auto pitch_angle = glm::angleAxis(pitch, pitch_axis);
-		auto rotation = roll_angle * yaw_angle * pitch_angle;
-		direction = glm::normalize(rotation * direction);
-
-		// movement
-		auto speed_amp = fmin(2600, pow(fmax(0, (altitude - 500) / 10000) + 1, 1.337)) / 6;
-		auto mag = 10 * (static_cast<double>(window.get_last_frame_time()) / 17000.0) * (1 + state.boost * 40) *
-			speed_amp;
-		auto sideways = glm::normalize(glm::cross(direction, up));
-		auto forwards = direction * mag;
-		auto backwards = -direction * mag;
-		auto left = -sideways * mag;
-		auto right = sideways * mag;
-
-		const auto movement_vector = state.up * forwards
-			+ state.down * backwards
-			+ state.left * left
-			+ state.right * right;
-
-		auto new_eye = eye + movement_vector;
-		auto pot_altitude = glm::length(new_eye) - planet_radius;
-		bool can_change = pot_altitude < 1000 * 1000 * 10;
-		const auto is_boosting = state.boost >= 0.01;
-
-		auto velocity = movement_vector * gravitational_force;
-
-		const auto movement_length = glm::length(movement_vector);
-		const auto is_moving = movement_length > 0.0;
-
-		auto& game_world = rocktree.with<world>();
-		auto& physics_system = game_world.get_physics_system();
-		physics_system.SetGravity(v<JPH::Vec3>(gravity));
-
-		constexpr auto normal_up = glm::dvec3(0.0, 1.0, 0.0);
-
-		const auto axis = glm::cross(normal_up, down);
-		const auto dotProduct = glm::dot(normal_up, down);
-		const auto angle = acos(dotProduct);
-
-		glm::quat rotationQuat = glm::angleAxis(angle, glm::normalize(axis));
-
-		JPH::Quat quat{
-			rotationQuat.x, //
-			rotationQuat.y, //
-			rotationQuat.z, //
-			rotationQuat.w, //
+			mask_list masks{};
+			time_list times{};
 		};
 
-		const auto up_vector = v<JPH::Vec3>(up);
+		// 8-bit octant mask flags of nodes
+		std::map<octant_identifier<>, octant_mask> mask_map{};
 
-		character.SetUp(up_vector);
-		character.set_supporting_volume(JPH::Plane(up_vector, -0.6f));
-		character.SetRotation(quat.Normalized());
+		p.step("Loop 2");
 
-		if (can_change)
+		const auto& ctx = game_world.get_shader_context();
+		ctx.use_shader();
+
+		glUniform1f(ctx.animation_time_loc, ANIMATION_TIME);
+
+		for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))
 		{
-			if (is_boosting || !gravity_on)
-			{
-				character.SetPosition(v<JPH::RVec3>(eye + movement_vector));
-				character.SetLinearVelocity({});
-			}
-			else if (is_moving)
-			{
-				const auto forward_unit = vector_forward(movement_vector, up);
-				velocity = align_vector(forward_unit, movement_vector);
+			// reverse order
+			const auto& full_path = potential_node.first;
+			auto* node = potential_node.second;
+			const auto level = full_path.size();
 
-				if (state.sprinting)
+			assert(level > 0);
+			assert(node->can_have_data);
+
+			auto& mesh = node->with<world_mesh>();
+
+			if (!mesh.is_buffered())
+			{
+				if (mesh.mark_for_buffering())
 				{
-					const auto view_forward = vector_forward(direction, up);
-					const auto move_forward = align_vector(view_forward, velocity);
-
-					const auto rest = velocity - move_forward;
-					velocity = move_forward * 3.0 + rest * 1.5;
+					new_meshes_to_buffer.push(&mesh);
 				}
 
-				handle_input(&character, v<JPH::Vec3>(velocity), up_vector, state.jumping);
+				continue;
 			}
+
+			// set octant mask of previous node
+			const auto octant = full_path[level - 1];
+			auto prev = full_path.substr(0, level - 1);
+
+			auto& prev_entry = mask_map[prev];
+			auto& mask_entry = prev_entry;
+
+			mask_entry.masks[octant] = 1;
+
+			const auto& mask = mask_map[full_path];
+
+			bool must_draw = false;
+			for (size_t i = 0; i < mask.masks.size() && i < mask.times.size() && !must_draw; ++i)
+			{
+				must_draw |= !mask.masks.at(i);
+				must_draw |= (current_time - mask.times.at(i)) <= ANIMATION_TIME;
+			}
+
+			// skip if node is masked completely
+			if (!must_draw) continue;
+
+			glm::mat4 transform = viewprojection * node->matrix_globe_from_mesh;
+
+			glUniformMatrix4fv(ctx.transform_loc, 1, GL_FALSE, &transform[0][0]);
+
+			p.step("Loop2Draw");
+
+			mask_entry.times[octant] = mesh.draw(ctx, current_time, mask.times, mask.masks);
+			current_vertices += node->get_vertices();
+
+			p.step("Loop 2");
 		}
 
-		const auto time_delta = static_cast<double>(window.get_last_frame_time()) / (1000.0 * 1000.0);
+		return new_meshes_to_buffer;
+	}
 
-		physics_system.Update(static_cast<float>(time_delta), 1,
-		                      &game_world.get_temp_allocator(), &game_world.get_job_system());
-		character.PostSimulation(0.05f);
-
-
-		const auto view = glm::lookAt(eye, eye + direction, up);
-		const auto viewprojection = projection * view;
-
-		auto frustum_planes = get_frustum_planes(viewprojection);
-
+	std::map<octant_identifier<>, node*> select_nodes(const rendering_context& c, const glm::dmat4& viewprojection,
+	                                                  bulk* current_bulk)
+	{
+		std::map<octant_identifier<>, node*> potential_nodes{};
 		std::queue<std::pair<octant_identifier<>, bulk*>> valid{};
 		valid.emplace(octant_identifier{}, current_bulk);
 
-		std::map<octant_identifier<>, node*> potential_nodes;
+		const auto frustum_planes = get_frustum_planes(viewprojection);
 
-		p.step("Loop1");
-
-		auto lock = rocktree.get_task_manager().lock_high_priority();
+		auto lock = c.rocktree.get_task_manager().lock_high_priority();
 
 		while (!valid.empty())
 		{
-			auto& entry = valid.front();
+			const auto& entry = valid.front();
 
 			const auto cur = entry.first;
 			auto* bulk = entry.second;
@@ -535,23 +494,23 @@ namespace
 				auto* node = node_kv->second;
 
 				// cull outside frustum using obb
-				// todo: check if it could cull more
-				bool is_visible = obb_frustum_outside != classify_obb_frustum(node->obb, frustum_planes);
-				if (!is_visible && glm::distance2(node->obb.center, eye) > 10000)
+				// TODO: check if it could cull more
+				const auto is_visible = obb_frustum_outside != classify_obb_frustum(node->obb, frustum_planes);
+				if (!is_visible && glm::distance2(node->obb.center, c.eye) > 10000)
 				{
 					continue;
 				}
 
 				{
-					const auto vec = eye + glm::length(eye - node->obb.center) * direction;
+					const auto vec = c.eye + glm::length(c.eye - node->obb.center) * c.direction;
 					constexpr auto identity = glm::identity<glm::dmat4>();
 					const auto t = glm::translate(identity, vec);
 
 					auto m = viewprojection * t;
-					auto s = m[3][3];
-					auto texels_per_meter = 1.0f / node->meters_per_texel;
-					auto wh = 768; //width < height ? width : height;
-					auto r = (RENDER_DISTANCE * (1.0 / s)) * wh;
+					const auto s = m[3][3];
+					const auto texels_per_meter = 1.0f / node->meters_per_texel;
+					constexpr auto wh = 768; //width < height ? width : height;
+					const auto r = (c.render_distance * (1.0 / s)) * wh;
 					if (texels_per_meter > r)
 					{
 						continue;
@@ -567,147 +526,248 @@ namespace
 			}
 		}
 
-		lock.unlock();
+		return potential_nodes;
+	}
 
-		p.step("Between");
+#ifdef USE_ADAPTIVE_RENDER_DISTANCE
+	void update_render_distance(rendering_context& c)
+	{
+		constexpr auto min_render_distance = 1.0;
+		constexpr auto max_render_distance = 2.0;
 
-		std::queue<world_mesh*> new_meshes_to_buffer{};
+		constexpr auto max_vertices = 2'500'000ULL;
+		constexpr auto min_change_vertices = 100'000ULL;
 
-		using mask_list = std::array<int, 8>;
-		using time_list = std::array<float, 8>;
 
-		struct octant_mask
+		if (c.render_distance < max_render_distance && c.last_vertices + min_change_vertices < max_vertices)
 		{
-			mask_list masks{};
-			time_list times{};
+			c.render_distance += 0.01;
+		}
+
+		if (c.last_vertices > max_vertices + min_change_vertices)
+		{
+			c.render_distance -= 0.01;
+		}
+
+		if (c.render_distance < min_render_distance)
+		{
+			c.render_distance = min_render_distance;
+		}
+	}
+#endif
+
+	input_state handle_input(rendering_context& c)
+	{
+		const auto state = c.input.get_input_state();
+
+		if (state.gravity_toggle)
+		{
+			c.gravity_on = !c.gravity_on;
+		}
+
+		return state;
+	}
+
+	glm::dmat4 simulate(rendering_context& c, world& game_world, const input_state& state, const double altitude,
+	                    const double planet_radius)
+	{
+		// up is the vec from the planetoid's center towards the sky
+		const auto up = glm::normalize(c.eye);
+		const auto down = -up;
+
+		constexpr auto gravitational_force = 9.81;
+		const auto gravity = down * gravitational_force;
+
+		GLint viewport[4]{};
+		glGetIntegerv(GL_VIEWPORT, viewport);
+
+		const auto width = viewport[2];
+		const auto height = viewport[3];
+
+
+		// projection
+		const auto aspect_ratio = static_cast<double>(width) / static_cast<double>(height);
+		constexpr auto fov = 0.25 * glm::pi<double>();
+
+
+		const auto horizon = sqrt(altitude * (2 * planet_radius + altitude));
+		auto near_val = 0.5;
+		auto far_val = horizon;
+
+		if (horizon > 370000)
+		{
+			near_val = altitude / 2;
+		}
+
+		if (near_val >= far_val) near_val = far_val - 1;
+		if (std::isnan(far_val) || far_val < near_val) far_val = near_val + 1;
+
+		const glm::dmat4 projection = glm::perspective(fov, aspect_ratio, near_val, far_val);
+
+		// rotation
+		double yaw = state.mouse_x * 0.005;
+		double pitch = -state.mouse_y * 0.005;
+		const auto overhead = glm::dot(c.direction, -up);
+
+		if ((overhead > 0.99 && pitch < 0) || (overhead < -0.99 && pitch > 0))
+		{
+			pitch = 0;
+		}
+
+		auto pitch_axis = glm::cross(c.direction, up);
+		auto yaw_axis = glm::cross(c.direction, pitch_axis);
+
+		pitch_axis = glm::normalize(pitch_axis);
+		const auto roll_angle = glm::angleAxis(0.0, glm::dvec3(0, 0, 1));
+		const auto yaw_angle = glm::angleAxis(yaw, yaw_axis);
+		const auto pitch_angle = glm::angleAxis(pitch, pitch_axis);
+		auto rotation = roll_angle * yaw_angle * pitch_angle;
+		c.direction = glm::normalize(rotation * c.direction);
+
+		// movement
+		auto speed_amp = fmin(2600, pow(fmax(0, (altitude - 500) / 10000) + 1, 1.337)) / 6;
+		auto mag = 10 * (static_cast<double>(c.window.get_last_frame_time()) / 17000.0) * (1 + state.boost * 40) *
+			speed_amp;
+		auto sideways = glm::normalize(glm::cross(c.direction, up));
+		auto forwards = c.direction * mag;
+		auto backwards = -c.direction * mag;
+		auto left = -sideways * mag;
+		auto right = sideways * mag;
+
+		const auto movement_vector = state.up * forwards
+			+ state.down * backwards
+			+ state.left * left
+			+ state.right * right;
+
+		auto new_eye = c.eye + movement_vector;
+		auto pot_altitude = glm::length(new_eye) - planet_radius;
+		bool can_change = pot_altitude < 1000 * 1000 * 10;
+		const auto is_boosting = state.boost >= 0.01;
+
+		auto velocity = movement_vector * gravitational_force;
+
+		const auto movement_length = glm::length(movement_vector);
+		const auto is_moving = movement_length > 0.0;
+
+		auto& physics_system = game_world.get_physics_system();
+		physics_system.SetGravity(v<JPH::Vec3>(gravity));
+
+		constexpr auto normal_up = glm::dvec3(0.0, 1.0, 0.0);
+
+		const auto axis = glm::cross(normal_up, down);
+		const auto dotProduct = glm::dot(normal_up, down);
+		const auto angle = acos(dotProduct);
+
+		glm::quat rotationQuat = glm::angleAxis(angle, glm::normalize(axis));
+
+		JPH::Quat quat{
+			rotationQuat.x, //
+			rotationQuat.y, //
+			rotationQuat.z, //
+			rotationQuat.w, //
 		};
 
-		// 8-bit octant mask flags of nodes
-		std::map<octant_identifier<>, octant_mask> mask_map{};
-		static std::unordered_set<mesh*> last_drawn_meshes{};
-		std::unordered_set<mesh*> drawn_meshes{};
-		drawn_meshes.reserve(last_drawn_meshes.size());
+		const auto up_vector = v<JPH::Vec3>(up);
 
-		p.step("Loop 2");
+		c.character.SetUp(up_vector);
+		c.character.set_supporting_volume(JPH::Plane(up_vector, -0.6f));
+		c.character.SetRotation(quat.Normalized());
 
-		const auto& ctx = game_world.get_shader_context();
-		ctx.use_shader();
-
-		glUniform1f(ctx.animation_time_loc, ANIMATION_TIME);
-
-		for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))
+		if (can_change)
 		{
-			// reverse order
-			const auto& full_path = potential_node.first;
-			auto* node = potential_node.second;
-			auto level = full_path.size();
-
-			assert(level > 0);
-			assert(node->can_have_data);
-
-			auto& mesh = node->with<world_mesh>();
-
-			if (!mesh.is_buffered())
+			if (is_boosting || !c.gravity_on)
 			{
-				if (mesh.mark_for_buffering())
+				c.character.SetPosition(v<JPH::RVec3>(c.eye + movement_vector));
+				c.character.SetLinearVelocity({});
+			}
+			else if (is_moving)
+			{
+				const auto forward_unit = vector_forward(movement_vector, up);
+				velocity = align_vector(forward_unit, movement_vector);
+
+				if (state.sprinting)
 				{
-					new_meshes_to_buffer.push(&mesh);
+					const auto view_forward = vector_forward(c.direction, up);
+					const auto move_forward = align_vector(view_forward, velocity);
+
+					const auto rest = velocity - move_forward;
+					velocity = move_forward * 3.0 + rest * 1.5;
 				}
 
-				continue;
+				handle_input(&c.character, v<JPH::Vec3>(velocity), up_vector, state.jumping);
 			}
-
-			// set octant mask of previous node
-			auto octant = full_path[level - 1];
-			auto prev = full_path.substr(0, level - 1);
-
-			auto& prev_entry = mask_map[prev];
-			auto& mask_entry = prev_entry;
-
-			mask_entry.masks[octant] = 1;
-
-			const auto& mask = mask_map[full_path];
-
-			bool must_draw = false;
-			for (size_t i = 0; i < mask.masks.size() && i < mask.times.size() && !must_draw; ++i)
-			{
-				must_draw |= !mask.masks.at(i);
-				must_draw |= (current_time - mask.times.at(i)) <= ANIMATION_TIME;
-			}
-
-			// skip if node is masked completely
-			if (!must_draw) continue;
-
-			glm::mat4 transform = viewprojection * node->matrix_globe_from_mesh;
-
-			glUniformMatrix4fv(ctx.transform_loc, 1, GL_FALSE, &transform[0][0]);
-
-			p.step("Loop2Draw");
-
-			mask_entry.times[octant] = mesh.draw(ctx, current_time, mask.times, mask.masks);
-			current_vertices += node->get_vertices();
-
-			p.step("Loop 2");
 		}
 
-		p.step("Push buffer");
+		const auto time_delta = static_cast<double>(c.window.get_last_frame_time()) / (1000.0 * 1000.0);
 
-		size_t buffer_queue{0};
+		physics_system.Update(static_cast<float>(time_delta), 1,
+		                      &game_world.get_temp_allocator(), &game_world.get_job_system());
+		c.character.PostSimulation(0.05f);
 
-		meshes_to_buffer.access([&](std::queue<::world_mesh*>& meshes)
+
+		const auto view = glm::lookAt(c.eye, c.eye + c.direction, up);
+		const auto viewprojection = projection * view;
+		return viewprojection;
+	}
+
+	void run_frame(rendering_context& c, profiler& p)
+	{
+		++c.total_frame_counter;
+		const auto current_time = static_cast<float>(c.window.get_current_time());
+
+		uint64_t current_vertices = 0;
+		const auto _ = utils::finally([&]
 		{
-			buffer_queue = meshes.size() + new_meshes_to_buffer.size();
-
-			if (meshes.empty())
-			{
-				meshes = std::move(new_meshes_to_buffer);
-				return;
-			}
-
-			while (!new_meshes_to_buffer.empty())
-			{
-				auto* node = new_meshes_to_buffer.front();
-				new_meshes_to_buffer.pop();
-
-				meshes.push(node);
-			}
+			c.last_vertices = current_vertices;
 		});
 
-		p.step("Draw Text");
+#ifdef USE_ADAPTIVE_RENDER_DISTANCE
+		update_render_distance(c);
+#endif
 
-		static double prevTime = 0;
-		auto crntTime = glfwGetTime();
-		auto timeDiff = crntTime - prevTime;
-		static unsigned int counter = 0;
-		static int fps = 60;
-
-		counter++;
-
-		if (timeDiff >= 1.0 / 4)
+		p.step("Input");
+		const auto state = handle_input(c);
+		if (state.exit)
 		{
-			fps = static_cast<int>((1.0 / timeDiff) * counter);
-			prevTime = crntTime;
-			counter = 0;
+			c.window.close();
+			return;
 		}
 
-		constexpr auto color = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
+		p.step("Prepare");
 
-		auto offset = 35.0f;
+		auto& game_world = c.rocktree.with<world>();
 
-		renderer.draw("FPS: " + std::to_string(fps), 25.0f, (offset += 25.0f), 1.0f, color);
-		renderer.draw("Tasks: " + std::to_string(rocktree.get_tasks()), 25.0f, (offset += 25.0f), 1.0f, color);
-		renderer.draw("Downloads: " + std::to_string(rocktree.get_downloads()), 25.0f, (offset += 25.0f), 1.0f, color);
-		renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, (offset += 25.0f), 1.0f, color);
-		renderer.draw("Objects: " + std::to_string(rocktree.get_objects()), 25.0f, (offset += 25.0f), 1.0f, color);
-		renderer.draw("Vertices: " + std::to_string(current_vertices), 25.0f, (offset += 25.0f), 1.0f, color);
-		renderer.draw("Distance: " + std::to_string(RENDER_DISTANCE), 25.0f, (offset += 25.0f), 1.0f, color);
-		renderer.draw("Gravity: " + std::string(gravity_on ? "on" : "off"), 25.0f, (offset += 25.0f), 1.0f, color);
+		const auto planetoid = c.rocktree.get_planetoid();
+		if (!planetoid || !planetoid->can_be_used()) return;
 
-		/*for (size_t i = 0; i < task_manager::QUEUE_COUNT; ++i)
-		{
-			renderer.draw("Q " + std::to_string(i) + ": " + std::to_string(rocktree.get_tasks(i)), 25.0f,
-			              (offset += 25.0f), 1.0f, color);
-		}*/
+		auto* current_bulk = planetoid->root_bulk;
+		if (!current_bulk || !current_bulk->can_be_used()) return;
+		const double planet_radius = planetoid->radius;
+
+		const auto pos = c.character.GetPosition();
+		c.eye = v(pos);
+
+		const auto altitude = glm::length(c.eye) - planet_radius;
+
+		p.step("Draw sky");
+		draw_sky(altitude);
+
+		p.step("Simulate");
+		const auto viewprojection = simulate(c, game_world, state, altitude, planet_radius);
+
+		p.step("Select nodes");
+		const auto potential_nodes = select_nodes(c, viewprojection, current_bulk);
+
+		p.step("Render");
+		auto new_meshes_to_buffer = draw_world(p, game_world, current_time, viewprojection, current_vertices,
+		                                       potential_nodes);
+
+		p.step("Push buffer");
+		const auto buffer_queue = push_meshes_for_buffering(c, std::move(new_meshes_to_buffer));
+
+		p.step("Draw Text");
+		update_fps(c);
+		draw_text(c, buffer_queue, current_vertices);
 	}
 
 #ifdef _WIN32
@@ -760,30 +820,37 @@ namespace
 		return true;
 	}
 
-	void bufferer(const std::stop_token& token, window& window,
-	              utils::concurrency::container<std::queue<world_mesh*>>& meshes_to_buffer, rocktree& rocktree)
+	void bufferer(rendering_context& c, const std::stop_token& token)
 	{
-		window.use_shared_context([&]
+		c.window.use_shared_context([&]
 		{
 			bool clean = false;
-			auto last_cleanup_frame = frame_counter.load();
+			auto last_cleanup_frame = c.total_frame_counter.load();
 			while (!token.stop_requested())
 			{
-				rocktree.with<world>().get_bufferer().perform_cleanup();
+				c.rocktree.with<world>().get_bufferer().perform_cleanup();
 
-				if (frame_counter > (last_cleanup_frame + 6))
+				if (c.total_frame_counter > (last_cleanup_frame + 6))
 				{
 					clean = !clean;
-					perform_cleanup(rocktree, clean);
-					last_cleanup_frame = frame_counter.load();
+					perform_cleanup(c.rocktree, clean);
+					last_cleanup_frame = c.total_frame_counter.load();
 				}
 
-				if (!buffer_queue(meshes_to_buffer))
+				if (!buffer_queue(c.meshes_to_buffer))
 				{
 					std::this_thread::sleep_for(10ms);
 				}
 			}
 		});
+	}
+
+	text_renderer create_text_renderer()
+	{
+		const auto fs = cmrc::bird::get_filesystem();
+		const auto opensans = fs.open("resources/font/OpenSans-Regular.ttf");
+
+		return {{opensans.cbegin(), opensans.cend()}, 24};
 	}
 
 	void run()
@@ -828,25 +895,21 @@ namespace
 
 		character.AddToPhysicsSystem(JPH::EActivation::Activate);
 
-		utils::concurrency::container<std::queue<world_mesh*>> meshes_to_buffer{};
+		auto text_renderer = create_text_renderer();
+
+		rendering_context context{
+			window, rocktree, eye, direction, text_renderer, character, input,
+		};
 
 		const auto buffer_thread = utils::thread::create_named_jthread("Bufferer", [&](const std::stop_token& token)
 		{
-			bufferer(token, window, meshes_to_buffer, rocktree);
+			bufferer(context, token);
 		});
-
-		auto fs = cmrc::bird::get_filesystem();
-		auto opensans = fs.open("resources/font/OpenSans-Regular.ttf");
-
-		text_renderer text_renderer({opensans.cbegin(), opensans.cend()}, 24);
-
-		bool gravity_on = true;
 
 		window.show([&](profiler& p)
 		{
 			p.silence();
-			run_frame(p, window, rocktree, eye, direction, meshes_to_buffer, text_renderer, character, input,
-			          gravity_on);
+			run_frame(context, p);
 		});
 
 		character.RemoveFromPhysicsSystem();
