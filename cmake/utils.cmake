@@ -306,3 +306,33 @@ macro(momo_target_include_libraries target mode)
     )
   endforeach()
 endmacro()
+
+##########################################
+
+function(momo_strip_target target)
+  if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    return()
+  endif()
+
+  if(NOT MSVC)
+    if(NOT DEFINED STRIP_COMMAND)
+      set(STRIP_COMMAND strip)
+    endif()
+
+    if(NOT DEFINED STRIP_FLAGS)
+      set(STRIP_FLAGS -g -s)
+      if(OSX)
+        set(STRIP_FLAGS -x)
+      endif()
+    endif()
+
+    set(IN_FILE "$<TARGET_FILE:${target}>")
+    set(OUT_FILE "$<TARGET_FILE_DIR:${target}>/$<TARGET_FILE_PREFIX:${target}>$<TARGET_FILE_BASE_NAME:${target}>-unstripped$<TARGET_FILE_SUFFIX:${target}>")
+
+    add_custom_command(TARGET ${target} POST_BUILD 
+      COMMAND ${CMAKE_COMMAND} -E copy ${IN_FILE} ${OUT_FILE}
+      COMMAND "${STRIP_COMMAND}" ${STRIP_FLAGS} "${IN_FILE}"
+      COMMENT "Strippping ${target}"
+    )
+  endif()
+endfunction()

@@ -36,3 +36,5 @@ cmrc_add_resource_library(client-resources
 )
 
 target_link_libraries(client PRIVATE client::rc)
+
+momo_strip_target(client)

@@ -10,11 +10,53 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 ##########################################
 
+if(UNIX)
+  momo_add_c_and_cxx_compile_options(-fvisibility=hidden)
+endif()
+
+##########################################
+
+if(LINUX)
+  add_link_options(
+    -Wl,--no-undefined
+    -Wl,--gc-sections
+    -Wl,-z,now
+    -Wl,-z,noexecstack
+    -static-libstdc++
+  )
+
+  momo_add_c_and_cxx_compile_options(
+    -ffunction-sections
+    -fdata-sections
+    -fstack-protector-strong
+    -fdiagnostics-color=always
+  )
+
+  add_compile_definitions(
+    _REENTRANT
+    _THREAD_SAFE
+  )
+
+  if(NOT MOMO_ENABLE_SANITIZER)
+    add_compile_definitions(
+      _FORTIFY_SOURCE=2
+    )
+  endif()
+
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie")
+endif()
+
+##########################################
+
 if(MSVC)
+  string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  string(REPLACE "/EHs" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
   momo_add_c_and_cxx_compile_options(
     /sdl
     /GS
     /Gy
+    /EHa
     /guard:cf
   )
 
@@ -35,6 +77,7 @@ if(MSVC)
     #/LTCG
   )
 endif()
+
 ##########################################
 
 if(MOMO_ENABLE_SANITIZER)
