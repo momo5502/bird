@@ -252,6 +252,11 @@ public:
 		return static_cast<uint32_t>(data_[0]);
 	}
 
+	explicit operator unsigned long() const
+	{
+		return static_cast<unsigned long>(data_[0]);
+	}
+
 	explicit operator uint16_t() const
 	{
 		return static_cast<uint16_t>(data_[0]);
