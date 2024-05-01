@@ -1,3 +1,0 @@
-[submodule "client/eigen"]
-	path = client/eigen
-	url = https://github.com/eigenteam/eigen-git-mirror
