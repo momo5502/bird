@@ -276,14 +276,14 @@ namespace
 
 	struct simulation_objects
 	{
-		window& window;
-		rocktree& rocktree;
+		window& win;
+		rocktree& rock_tree;
 		glm::dvec3& eye;
 		glm::dvec3& direction;
 
 		text_renderer& renderer;
 		my_character& character;
-		input& input;
+		input& input_handler;
 	};
 
 	struct fps_context
@@ -325,11 +325,11 @@ namespace
 		auto offset = 35.0f;
 
 		c.renderer.draw("FPS: " + std::to_string(c.fps), 25.0f, (offset += 25.0f), 1.0f, color);
-		c.renderer.draw("Tasks: " + std::to_string(c.rocktree.get_tasks()), 25.0f, (offset += 25.0f), 1.0f, color);
-		c.renderer.draw("Downloads: " + std::to_string(c.rocktree.get_downloads()), 25.0f, (offset += 25.0f), 1.0f,
+		c.renderer.draw("Tasks: " + std::to_string(c.rock_tree.get_tasks()), 25.0f, (offset += 25.0f), 1.0f, color);
+		c.renderer.draw("Downloads: " + std::to_string(c.rock_tree.get_downloads()), 25.0f, (offset += 25.0f), 1.0f,
 		                color);
 		c.renderer.draw("Buffering: " + std::to_string(buffer_queue), 25.0f, (offset += 25.0f), 1.0f, color);
-		c.renderer.draw("Objects: " + std::to_string(c.rocktree.get_objects()), 25.0f, (offset += 25.0f), 1.0f, color);
+		c.renderer.draw("Objects: " + std::to_string(c.rock_tree.get_objects()), 25.0f, (offset += 25.0f), 1.0f, color);
 		c.renderer.draw("Vertices: " + std::to_string(current_vertices), 25.0f, (offset += 25.0f), 1.0f, color);
 		c.renderer.draw("Distance: " + std::to_string(c.render_distance), 25.0f, (offset += 25.0f), 1.0f, color);
 		c.renderer.draw("Gravity: " + std::string(c.gravity_on ? "on" : "off"), 25.0f, (offset += 25.0f), 1.0f, color);
@@ -453,7 +453,7 @@ namespace
 
 		const auto frustum_planes = get_frustum_planes(viewprojection);
 
-		auto lock = c.rocktree.get_task_manager().lock_high_priority();
+		auto lock = c.rock_tree.get_task_manager().lock_high_priority();
 
 		while (!valid.empty())
 		{
@@ -558,7 +558,7 @@ namespace
 
 	input_state handle_input(rendering_context& c)
 	{
-		const auto state = c.input.get_input_state();
+		const auto state = c.input_handler.get_input_state();
 
 		if (state.gravity_toggle)
 		{
@@ -626,7 +626,7 @@ namespace
 
 		// movement
 		auto speed_amp = fmin(2600, pow(fmax(0, (altitude - 500) / 10000) + 1, 1.337)) / 6;
-		auto mag = 10 * (static_cast<double>(c.window.get_last_frame_time()) / 17000.0) * (1 + state.boost * 40) *
+		auto mag = 10 * (static_cast<double>(c.win.get_last_frame_time()) / 17000.0) * (1 + state.boost * 40) *
 			speed_amp;
 		auto sideways = glm::normalize(glm::cross(c.direction, up));
 		auto forwards = c.direction * mag;
@@ -698,7 +698,7 @@ namespace
 			}
 		}
 
-		const auto time_delta = static_cast<double>(c.window.get_last_frame_time()) / (1000.0 * 1000.0);
+		const auto time_delta = static_cast<double>(c.win.get_last_frame_time()) / (1000.0 * 1000.0);
 
 		physics_system.Update(static_cast<float>(time_delta), 1,
 		                      &game_world.get_temp_allocator(), &game_world.get_job_system());
@@ -723,7 +723,7 @@ namespace
 	void run_frame(rendering_context& c, profiler& p)
 	{
 		++c.total_frame_counter;
-		const auto current_time = static_cast<float>(c.window.get_current_time());
+		const auto current_time = static_cast<float>(c.win.get_current_time());
 
 		uint64_t current_vertices = 0;
 		const auto _ = utils::finally([&]
@@ -739,16 +739,16 @@ namespace
 		const auto state = handle_input(c);
 		if (state.exit)
 		{
-			c.window.close();
+			c.win.close();
 			return;
 		}
 
 		p.step("Prepare");
-		reset_viewport(c.window);
+		reset_viewport(c.win);
 
-		auto& game_world = c.rocktree.with<world>();
+		auto& game_world = c.rock_tree.with<world>();
 
-		const auto planetoid = c.rocktree.get_planetoid();
+		const auto planetoid = c.rock_tree.get_planetoid();
 		if (!planetoid || !planetoid->can_be_used()) return;
 
 		auto* current_bulk = planetoid->root_bulk;
@@ -833,18 +833,18 @@ namespace
 
 	void bufferer(rendering_context& c, const utils::thread::stop_token& token)
 	{
-		c.window.use_shared_context([&]
+		c.win.use_shared_context([&]
 		{
 			bool clean = false;
 			auto last_cleanup_frame = c.total_frame_counter.load();
 			while (!token.stop_requested())
 			{
-				c.rocktree.with<world>().get_bufferer().perform_cleanup();
+				c.rock_tree.with<world>().get_bufferer().perform_cleanup();
 
 				if (c.total_frame_counter > (last_cleanup_frame + 6))
 				{
 					clean = !clean;
-					perform_cleanup(c.rocktree, clean);
+					perform_cleanup(c.rock_tree, clean);
 					last_cleanup_frame = c.total_frame_counter.load();
 				}
 
@@ -878,11 +878,11 @@ namespace
 		utils::thread::set_name("Main");
 		utils::thread::set_priority(utils::thread::priority::high);
 
-		window window(1280, 800, "Bird");
-		input input(window);
+		window win(1280, 800, "Bird");
+		input input(win);
 
 		world game_world{};
-		custom_rocktree<world, world_mesh> rocktree{"earth", game_world};
+		custom_rocktree<world, world_mesh> rock_tree{"earth", game_world};
 
 		auto eye = lla_to_ecef(48.994556, 8.400166, 6364810.2166);
 		glm::dvec3 direction{-0.295834, -0.662646, -0.688028};
@@ -909,7 +909,7 @@ namespace
 		auto text_renderer = create_text_renderer();
 
 		rendering_context context{
-			window, rocktree, eye, direction, text_renderer, character, input,
+			win, rock_tree, eye, direction, text_renderer, character, input,
 		};
 
 		const auto buffer_thread = utils::thread::create_named_jthread(
@@ -918,7 +918,7 @@ namespace
 				bufferer(context, token);
 			});
 
-		window.show([&](profiler& p)
+		win.show([&](profiler& p)
 		{
 			p.silence();
 			run_frame(context, p);

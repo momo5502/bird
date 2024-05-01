@@ -92,7 +92,7 @@ jobs:
             build/${{matrix.preset}}/artifacts/bird
 
   build-mac-arm:
-    name: Build macOS (arm64)
+    name: Build macOS arm64
     runs-on: macos-latest
     strategy:
       fail-fast: false
@@ -128,7 +128,7 @@ jobs:
             build/${{matrix.preset}}/artifacts/bird
 
   build-mac-intel:
-    name: Build macOS (x64)
+    name: Build macOS x64
     runs-on: macos-13
     strategy:
       fail-fast: false
