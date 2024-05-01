@@ -867,7 +867,7 @@ namespace
 		utils::thread::set_name("Main");
 		utils::thread::set_priority(utils::thread::priority::high);
 
-		window window(1280, 800, "game");
+		window window(1280, 800, "Bird");
 		input input(window);
 
 		world game_world{};
