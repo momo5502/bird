@@ -24,6 +24,8 @@ namespace
 	std::string_view get_vertex_shader()
 	{
 		return R"code(
+#version 150 core
+
 uniform mat4 transform;
 uniform vec2 uv_offset;
 uniform vec2 uv_scale;
@@ -70,6 +72,8 @@ void main() {
 	std::string_view get_fragment_shader()
 	{
 		return R"code(
+#version 150 core
+
 #ifdef GL_ES
 precision mediump float;
 #endif
