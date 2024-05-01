@@ -101,11 +101,11 @@ float rand(vec2 co){
 }
 
 void main() {
-	if(v_alpha == 0.0) {
+	if(v_alpha <= 0.0001) {
 		discard;
 	}
 
-	if(v_alpha != 1.0) {
+	if(v_alpha < 0.999) {
 		float selector = 1.0 / v_alpha;
 
 		vec2 seed = v_texcoords + gl_FragCoord.xy;
