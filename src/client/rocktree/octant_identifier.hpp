@@ -32,7 +32,7 @@ public:
 	size_t size() const
 	{
 		constexpr auto size_bit = (sizeof(Base) - 1) * 8;
-		return static_cast<size_t>(this->value_ >> size_bit);
+		return static_cast<size_t>(static_cast<uint64_t>(this->value_ >> size_bit));
 	}
 
 	uint8_t operator[](const size_t index) const

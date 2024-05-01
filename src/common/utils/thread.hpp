@@ -1,5 +1,7 @@
 #pragma once
 #include <thread>
+#include <memory>
+#include <functional>
 #include "nt.hpp"
 
 namespace utils::thread
