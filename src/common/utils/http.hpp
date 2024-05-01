@@ -23,7 +23,7 @@ namespace utils::http
 	public:
 		stoppable_result_callback() = default;
 
-		stoppable_result_callback(result_function callback, std::stop_token token)
+		stoppable_result_callback(result_function callback, utils::thread::stop_token token)
 			: token_(std::move(token))
 			  , callback_(std::move(callback))
 		{
@@ -81,7 +81,7 @@ namespace utils::http
 		}
 
 	private:
-		std::stop_token token_{};
+		utils::thread::stop_token token_{};
 		result_function callback_{};
 
 		void destroy()
@@ -164,8 +164,8 @@ namespace utils::http
 		downloader(downloader&&) = delete;
 		downloader& operator=(downloader&&) = delete;
 
-		std::future<result> download(url_string url, std::stop_token token = {}, bool high_priority = false);
-		void download(url_string url, result_function function, std::stop_token token = {}, bool high_priority = false);
+		std::future<result> download(url_string url, utils::thread::stop_token token = {}, bool high_priority = false);
+		void download(url_string url, result_function function, utils::thread::stop_token token = {}, bool high_priority = false);
 
 		void stop();
 

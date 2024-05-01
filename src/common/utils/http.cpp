@@ -441,7 +441,7 @@ namespace utils::http
 		: queue_(&queue)
 		  , cv_(&cv)
 		  , worker_(std::make_unique<worker>(max_requests))
-		  , thread_(thread::create_named_jthread("HTTP Worker", [this](const std::stop_token& token)
+		  , thread_(thread::create_named_jthread("HTTP Worker", [this](const utils::thread::stop_token& token)
 		  {
 			  while (!token.stop_requested())
 			  {
@@ -542,7 +542,7 @@ namespace utils::http
 
 	downloader::~downloader() = default;
 
-	std::future<result> downloader::download(url_string url, std::stop_token token, const bool high_priority)
+	std::future<result> downloader::download(url_string url, utils::thread::stop_token token, const bool high_priority)
 	{
 		auto promise = std::make_shared<std::promise<result>>();
 		auto future = promise->get_future();
@@ -555,7 +555,7 @@ namespace utils::http
 		return future;
 	}
 
-	void downloader::download(url_string url, result_function function, std::stop_token token, const bool high_priority)
+	void downloader::download(url_string url, result_function function, utils::thread::stop_token token, const bool high_priority)
 	{
 		this->queue_.access([&](query_queue& queue)
 		{

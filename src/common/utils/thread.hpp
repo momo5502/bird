@@ -4,12 +4,59 @@
 
 namespace utils::thread
 {
+	class stop_source;
+
+	class stop_token
+	{
+	public:
+		friend stop_source;
+		using shared_state = std::shared_ptr<std::atomic_bool>;
+
+		bool stop_possible() const
+		{
+			return static_cast<bool>(this->state_);
+		}
+
+		bool stop_requested() const
+		{
+			return this->state_ && *this->state_;
+		}
+
+	private:
+		shared_state state_{};
+	};
+
+	class stop_source
+	{
+	public:
+		stop_source()
+		{
+			this->token_.state_ = std::make_unique<std::atomic_bool>(false);
+		}
+
+		void request_stop()
+		{
+			if (this->token_.state_)
+			{
+				*this->token_.state_ = true;
+			}
+		}
+
+		stop_token get_token() const
+		{
+			return this->token_;
+		}
+
+	private:
+		stop_token token_{};
+	};
+
 	class joinable_thread
 	{
 	public:
 		joinable_thread() = default;
 
-		joinable_thread(std::function<void(std::stop_token)> runner)
+		joinable_thread(std::function<void(stop_token)> runner)
 		{
 			auto token = this->get_stop_token();
 			this->thread_ = std::thread([r = std::move(runner), t = std::move(token)]
@@ -38,7 +85,7 @@ namespace utils::thread
 			return this->thread_.native_handle();
 		}
 
-		std::stop_token get_stop_token() const
+		stop_token get_stop_token() const
 		{
 			return this->source_.get_token();
 		}
@@ -59,7 +106,7 @@ namespace utils::thread
 		}
 
 	private:
-		std::stop_source source_{};
+		stop_source source_{};
 		std::thread thread_{};
 	};
 

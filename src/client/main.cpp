@@ -820,7 +820,7 @@ namespace
 		return true;
 	}
 
-	void bufferer(rendering_context& c, const std::stop_token& token)
+	void bufferer(rendering_context& c, const utils::thread::stop_token& token)
 	{
 		c.window.use_shared_context([&]
 		{
@@ -901,7 +901,7 @@ namespace
 			window, rocktree, eye, direction, text_renderer, character, input,
 		};
 
-		const auto buffer_thread = utils::thread::create_named_jthread("Bufferer", [&](const std::stop_token& token)
+		const auto buffer_thread = utils::thread::create_named_jthread("Bufferer", [&](const utils::thread::stop_token& token)
 		{
 			bufferer(context, token);
 		});

@@ -1,4 +1,5 @@
 #pragma once
+#include "utils/thread.hpp"
 
 class generic_object
 {
@@ -100,7 +101,7 @@ public:
 		return true;
 	}
 
-	std::stop_token get_stop_token() const
+	utils::thread::stop_token get_stop_token() const
 	{
 		return this->source_.get_token();
 	}
@@ -146,7 +147,7 @@ private:
 	};
 
 	const generic_object* parent_{nullptr};
-	std::stop_source source_{};
+	utils::thread::stop_source source_{};
 	std::atomic<state> state_{state::fresh};
 	std::atomic<std::chrono::steady_clock::time_point> last_use_{std::chrono::steady_clock::now()};
 

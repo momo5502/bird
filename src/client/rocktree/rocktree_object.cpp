@@ -79,7 +79,7 @@ namespace
 	void fetch_google_data(task_manager& manager, utils::http::downloader& downloader, const std::string_view& planet,
 	                       const std::string_view& path,
 	                       const std::filesystem::path& file_path,
-	                       utils::http::result_function callback, std::stop_token token, const bool prefer_cache,
+	                       utils::http::result_function callback, utils::thread::stop_token token, const bool prefer_cache,
 	                       const bool high_priority)
 	{
 		if (token.stop_requested())
