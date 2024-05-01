@@ -40,7 +40,7 @@ namespace
 
 		state.boost = get_pressed_key_value(window, GLFW_KEY_LEFT_SHIFT, GLFW_KEY_RIGHT_SHIFT, GLFW_KEY_LEFT_CONTROL,
 		                                    GLFW_KEY_RIGHT_CONTROL);
-		state.gravity_toggle = get_pressed_key_value(window, GLFW_KEY_TAB);
+		state.gravity_toggle = is_any_key_pressed(window, GLFW_KEY_TAB);
 
 		state.jumping = is_any_key_pressed(window, GLFW_KEY_SPACE);
 		state.sprinting = is_any_key_pressed(window, GLFW_KEY_LEFT_ALT);
