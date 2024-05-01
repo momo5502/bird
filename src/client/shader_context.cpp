@@ -87,9 +87,9 @@ void main() {
 
 	std::string get_fragment_shader()
 	{
-		return get_fragment_fixup()+ R"code(
+		return get_fragment_fixup() + R"code(
 #ifdef GL_ES
-precision mediump float;
+precision highp float;
 #endif
 
 uniform sampler2D textureObj;
@@ -131,8 +131,7 @@ void main() {
 }
 
 shader_context::shader_context()
-	: vertex_array_object_(create_and_bind_vertex_array_object())
-	  , shader_(get_vertex_shader(), get_fragment_shader())
+	: vertex_array_object_(create_and_bind_vertex_array_object()), shader_(get_vertex_shader(), get_fragment_shader())
 {
 	this->shader_.use();
 
