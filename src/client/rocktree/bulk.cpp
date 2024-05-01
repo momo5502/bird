@@ -182,12 +182,12 @@ void bulk::populate(const std::optional<std::string>& data)
 
 void bulk::clear()
 {
-	for (const auto& node : this->nodes | std::views::values)
+	for (const auto& [_, node] : this->nodes)
 	{
 		node->unlink_from(*this);
 	}
 
-	for (const auto& bulk : this->bulks | std::views::values)
+	for (const auto& [_, bulk] : this->bulks)
 	{
 		bulk->unlink_from(*this);
 	}

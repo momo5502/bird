@@ -67,12 +67,12 @@ namespace
 			return;
 		}
 
-		for (auto* node : current_bulk.nodes | std::views::values)
+		for (const auto& [_, node] : current_bulk.nodes)
 		{
 			perform_object_cleanup(*node);
 		}
 
-		for (auto* bulk : current_bulk.bulks | std::views::values)
+		for (const auto& [_, bulk] : current_bulk.bulks)
 		{
 			perform_bulk_cleanup(*bulk);
 		}
@@ -901,10 +901,11 @@ namespace
 			window, rocktree, eye, direction, text_renderer, character, input,
 		};
 
-		const auto buffer_thread = utils::thread::create_named_jthread("Bufferer", [&](const utils::thread::stop_token& token)
-		{
-			bufferer(context, token);
-		});
+		const auto buffer_thread = utils::thread::create_named_jthread(
+			"Bufferer", [&](const utils::thread::stop_token& token)
+			{
+				bufferer(context, token);
+			});
 
 		window.show([&](profiler& p)
 		{
