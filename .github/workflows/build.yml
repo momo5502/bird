@@ -8,7 +8,7 @@ on:
     branches:
       - "*"
     types: [opened, synchronize, reopened]
-    
+
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
@@ -32,10 +32,10 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
 
       - name: Enable Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@v1.12.1        
+        uses: ilammy/msvc-dev-cmd@v1.12.1
 
       - name: CMake Build
         run: cmake --workflow --preset=${{matrix.preset}}
@@ -47,7 +47,7 @@ jobs:
           path: |
             build/${{matrix.preset}}/artifacts/bird.exe
             build/${{matrix.preset}}/artifacts/bird.pdb
-    
+
   build-linux:
     name: Build Linux
     runs-on: ubuntu-20.04
@@ -66,7 +66,7 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
 
       - name: Install Dependencies
         run: |
@@ -90,7 +90,7 @@ jobs:
           name: Linux ${{matrix.configuration}} Artifacts
           path: |
             build/${{matrix.preset}}/artifacts/bird
-    
+
   build-mac:
     name: Build macOS
     runs-on: macos-latest
@@ -109,7 +109,7 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
 
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v4
