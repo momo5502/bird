@@ -27,6 +27,8 @@ set_target_properties(client PROPERTIES OUTPUT_NAME "bird")
 
 set_property(GLOBAL PROPERTY VS_STARTUP_PROJECT client)
 
+momo_strip_target(client)
+
 ##########################################
 
 cmrc_add_resource_library(client-resources
@@ -36,5 +38,3 @@ cmrc_add_resource_library(client-resources
 )
 
 target_link_libraries(client PRIVATE client::rc)
-
-momo_strip_target(client)
