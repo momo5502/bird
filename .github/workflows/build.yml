@@ -35,13 +35,13 @@ jobs:
           submodules: recursive
 
       - name: Enable Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@v1.12.1
+        uses: ilammy/msvc-dev-cmd@v1.13.0
 
       - name: CMake Build
         run: cmake --workflow --preset=${{matrix.preset}}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Windows ${{matrix.configuration}} Artifacts
           path: |
@@ -85,7 +85,7 @@ jobs:
         run: cmake --workflow --preset=${{matrix.preset}}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux ${{matrix.configuration}} Artifacts
           path: |
@@ -112,16 +112,15 @@ jobs:
           submodules: recursive
 
       - name: Install Dependencies
-        run: python3 -m pip install --break-system-packages --user -r ./deps/mbedtls/scripts/basic.requirements.txt
-
-      - name: Install ninja
-        uses: seanmiddleditch/gha-setup-ninja@v4
-
+        run: |
+          brew install ninja
+          python3 -m pip install --break-system-packages --user -r ./deps/mbedtls/scripts/basic.requirements.txt
+  
       - name: CMake Build
         run: cmake --workflow --preset=${{matrix.preset}}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macOS arm64 ${{matrix.configuration}} Artifacts
           path: |
@@ -148,16 +147,15 @@ jobs:
           submodules: recursive
 
       - name: Install Dependencies
-        run: python3 -m pip install --break-system-packages --user -r ./deps/mbedtls/scripts/basic.requirements.txt
-
-      - name: Install ninja
-        uses: seanmiddleditch/gha-setup-ninja@v4
+        run: |
+          brew install ninja
+          python3 -m pip install --break-system-packages --user -r ./deps/mbedtls/scripts/basic.requirements.txt
 
       - name: CMake Build
         run: cmake --workflow --preset=${{matrix.preset}}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macOS x64 ${{matrix.configuration}} Artifacts
           path: |

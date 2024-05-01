@@ -879,7 +879,7 @@ namespace
 		utils::thread::set_priority(utils::thread::priority::high);
 
 		window win(1280, 800, "Bird");
-		input input(win);
+		input input_handler(win);
 
 		world game_world{};
 		custom_rocktree<world, world_mesh> rock_tree{"earth", game_world};
@@ -909,7 +909,7 @@ namespace
 		auto text_renderer = create_text_renderer();
 
 		rendering_context context{
-			win, rock_tree, eye, direction, text_renderer, character, input,
+			win, rock_tree, eye, direction, text_renderer, character, input_handler,
 		};
 
 		const auto buffer_thread = utils::thread::create_named_jthread(
