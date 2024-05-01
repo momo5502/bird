@@ -1,6 +1,21 @@
 include_guard()
 
 ##########################################
+# System identification
+
+set(OSX OFF)
+set(LINUX OFF)
+set(WIN OFF)
+
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    set(LINUX ON)
+elseif(CMAKE_SYSTEM_NAME MATCHES "Darwin")
+    set(OSX ON)
+elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
+    set(WIN ON)
+endif()
+
+##########################################
 
 cmake_policy(SET CMP0069 NEW) 
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
