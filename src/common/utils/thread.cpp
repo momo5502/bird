@@ -41,28 +41,6 @@ namespace utils::thread
 	}
 #endif
 
-	bool set_name(std::thread& t, const std::string& name)
-	{
-		(void)t;
-		(void)name;
-#ifdef _WIN32
-		return set_name(t.native_handle(), name);
-#else
-		return false;
-#endif
-	}
-
-	bool set_name(std::jthread& t, const std::string& name)
-	{
-		(void)t;
-		(void)name;
-#ifdef _WIN32
-		return set_name(t.native_handle(), name);
-#else
-		return false;
-#endif
-	}
-
 	bool set_name(const std::string& name)
 	{
 		(void)name;

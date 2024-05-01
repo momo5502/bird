@@ -4,12 +4,90 @@
 
 namespace utils::thread
 {
+	class joinable_thread
+	{
+	public:
+		joinable_thread() = default;
+
+		joinable_thread(std::function<void(std::stop_token)> runner)
+		{
+			auto token = this->get_stop_token();
+			this->thread_ = std::thread([r = std::move(runner), t = std::move(token)]
+			{
+				r(std::move(t));
+			});
+		}
+
+		joinable_thread(const joinable_thread&) = delete;
+		joinable_thread& operator=(const joinable_thread&) = delete;
+
+		joinable_thread(joinable_thread&&) noexcept = default;
+		joinable_thread& operator=(joinable_thread&&) noexcept = default;
+
+		~joinable_thread()
+		{
+			this->request_stop();
+			if (this->joinable())
+			{
+				this->join();
+			}
+		}
+
+		std::thread::native_handle_type native_handle()
+		{
+			return this->thread_.native_handle();
+		}
+
+		std::stop_token get_stop_token() const
+		{
+			return this->source_.get_token();
+		}
+
+		void request_stop()
+		{
+			this->source_.request_stop();
+		}
+
+		bool joinable() const
+		{
+			return this->thread_.joinable();
+		}
+
+		void join()
+		{
+			this->thread_.join();
+		}
+
+	private:
+		std::stop_source source_{};
+		std::thread thread_{};
+	};
+
+
 #ifdef _WIN32
 	bool set_name(HANDLE t, const std::string& name);
 	bool set_name(DWORD id, const std::string& name);
 #endif
-	bool set_name(std::thread& t, const std::string& name);
-	bool set_name(std::jthread& t, const std::string& name);
+
+	template <typename T>
+	concept ThreadLike =
+		requires(T t)
+		{
+			{ t.native_handle() } -> std::convertible_to<std::thread::native_handle_type>;
+		};
+
+	template <ThreadLike Thread>
+	bool set_name(Thread& t, const std::string& name)
+	{
+		(void)t;
+		(void)name;
+#ifdef _WIN32
+		return set_name(t.native_handle(), name);
+#else
+		return false;
+#endif
+	}
+
 	bool set_name(const std::string& name);
 
 	enum class priority
@@ -21,7 +99,7 @@ namespace utils::thread
 
 	bool set_priority(priority p);
 
-	template <typename ...Args>
+	template <typename... Args>
 	std::thread create_named_thread(const std::string& name, Args&&... args)
 	{
 		auto t = std::thread(std::forward<Args>(args)...);
@@ -29,10 +107,10 @@ namespace utils::thread
 		return t;
 	}
 
-	template <typename ...Args>
-	std::jthread create_named_jthread(const std::string& name, Args&&... args)
+	template <typename... Args>
+	joinable_thread create_named_jthread(const std::string& name, Args&&... args)
 	{
-		auto t = std::jthread(std::forward<Args>(args)...);
+		auto t = joinable_thread(std::forward<Args>(args)...);
 		set_name(t, name);
 		return t;
 	}
@@ -59,6 +137,7 @@ namespace utils::thread
 	private:
 		nt::handle<> handle_{};
 	};
+
 	std::vector<DWORD> get_thread_ids();
 	void for_each_thread(const std::function<void(HANDLE)>& callback, DWORD access = THREAD_ALL_ACCESS);
 

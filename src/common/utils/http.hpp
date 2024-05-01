@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 #include "concurrency.hpp"
+#include "thread.hpp"
 
 namespace utils::http
 {
@@ -135,7 +136,7 @@ namespace utils::http
 
 		class worker;
 		std::unique_ptr<worker> worker_;
-		std::jthread thread_{};
+		thread::joinable_thread thread_{};
 
 		void work(const std::chrono::milliseconds& timeout) const;
 	};
