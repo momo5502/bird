@@ -1,34 +1,45 @@
 [submodule "deps/glm"]
 	path = deps/glm
 	url = https://github.com/g-truc/glm.git
+	shallow = true
 [submodule "deps/glfw"]
 	path = deps/glfw
 	url = https://github.com/glfw/glfw.git
+	shallow = true
 [submodule "deps/glew-cmake"]
 	path = deps/glew-cmake
 	url = https://github.com/Perlmint/glew-cmake.git
+	shallow = true
 [submodule "deps/curl"]
 	path = deps/curl
 	url = https://github.com/curl/curl.git
+	shallow = true
 [submodule "deps/protobuf"]
 	path = deps/protobuf
 	url = https://github.com/protocolbuffers/protobuf.git
 	branch = 21.x
+	shallow = true
 [submodule "deps/stb"]
 	path = deps/stb
 	url = https://github.com/nothings/stb.git
+	shallow = true
 [submodule "deps/freetype"]
 	path = deps/freetype
 	url = https://github.com/freetype/freetype.git
+	shallow = true
 [submodule "deps/xxHash"]
 	path = deps/xxHash
 	url = https://github.com/Cyan4973/xxHash.git
+	shallow = true
 [submodule "deps/mbedtls"]
 	path = deps/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
+	shallow = true
 [submodule "deps/cmrc"]
 	path = deps/cmrc
 	url = https://github.com/vector-of-bool/cmrc.git
+	shallow = true
 [submodule "deps/JoltPhysics"]
 	path = deps/JoltPhysics
 	url = https://github.com/jrouwe/JoltPhysics.git
+	shallow = true
