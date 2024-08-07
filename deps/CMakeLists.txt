@@ -44,6 +44,7 @@ option(CURL_DISABLE_TELNET "" ON)
 option(CURL_DISABLE_TFTP "" ON)
 
 option(CURL_USE_LIBSSH2 "" OFF)
+option(USE_NGHTTP2 "" OFF)
 
 if(MSVC)
   set(CURL_USE_SCHANNEL ON)
