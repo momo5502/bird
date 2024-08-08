@@ -141,4 +141,5 @@ shader_context::shader_context()
 void shader_context::use_shader() const
 {
 	this->shader_.use();
+	glBindVertexArray(this->vertex_array_object_);
 }
