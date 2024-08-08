@@ -52,16 +52,16 @@ namespace
 		return state;
 	}
 
-	double add_deadzone(const double value, const double deadzone)
+	double add_deadzone(const double value, const double deadzone, const double sensitivity = 1.0)
 	{
 		if (value >= deadzone)
 		{
-			return (value - deadzone) / (1.0 - deadzone);
+			return ((value - deadzone) / (1.0 - deadzone)) * sensitivity;
 		}
 
 		if (value <= -deadzone)
 		{
-			return (value + deadzone) / (1.0 - deadzone);
+			return ((value + deadzone) / (1.0 - deadzone)) * sensitivity;
 		}
 
 		return 0.0;
@@ -91,10 +91,12 @@ namespace
 		double left_trigger = (gamepad_state.axes[GLFW_GAMEPAD_AXIS_LEFT_TRIGGER] + 1.0) / 2.0;
 
 		constexpr auto limit = 0.1;
+		constexpr auto sensitivity_scale = 0.5;
+
 		left_x = add_deadzone(left_x, limit);
 		left_y = add_deadzone(left_y, limit);
-		right_x = add_deadzone(right_x, limit);
-		right_y = add_deadzone(right_y, limit);
+		right_x = add_deadzone(right_x, limit, sensitivity_scale);
+		right_y = add_deadzone(right_y, limit, sensitivity_scale);
 		right_trigger = add_deadzone(right_trigger, limit);
 		left_trigger = add_deadzone(left_trigger, limit);
 
