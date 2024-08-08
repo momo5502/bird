@@ -18,6 +18,8 @@
 #include "world/world.hpp"
 #include "world/world_mesh.hpp"
 
+#include "multiplayer.hpp"
+
 CMRC_DECLARE(bird);
 
 //#define USE_ADAPTIVE_RENDER_DISTANCE
@@ -301,6 +303,8 @@ namespace
 		bool gravity_on{true};
 		double render_distance{1.5};
 		uint64_t last_vertices{0};
+
+		multiplayer mp{};
 	};
 
 	void update_fps(fps_context& c)
