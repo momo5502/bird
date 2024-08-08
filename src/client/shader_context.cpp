@@ -2,8 +2,6 @@
 
 #include "shader_context.hpp"
 
-#include <utils/finally.hpp>
-
 namespace
 {
 	void delete_vertex_array_object(const GLuint vao)
@@ -21,18 +19,9 @@ namespace
 		return {vao, delete_vertex_array_object};
 	}
 
-	std::string get_vertex_fixup()
+	std::string_view get_vertex_shader()
 	{
-#ifdef __APPLE__
-		return "#version 150\n#define varying out\n#define attribute in\n";
-#else
-		return "";
-#endif
-	}
-
-	std::string get_vertex_shader()
-	{
-		return get_vertex_fixup() + R"code(
+		return R"code(
 uniform mat4 transform;
 uniform vec2 uv_offset;
 uniform vec2 uv_scale;
@@ -76,18 +65,10 @@ void main() {
 )code";
 	}
 
-	std::string get_fragment_fixup()
-	{
-#ifdef __APPLE__
-		return "#version 150\n#define varying in\n#define texture2D texture\n#define textureCube texture\n#define gl_FragColor fragColor\nout vec4 fragColor;\n";
-#else
-		return "";
-#endif
-	}
 
-	std::string get_fragment_shader()
+	std::string_view get_fragment_shader()
 	{
-		return get_fragment_fixup() + R"code(
+		return R"code(
 #ifdef GL_ES
 precision highp float;
 #endif
