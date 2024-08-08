@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "../gl_objects.hpp"
+#include "../player_mesh.hpp"
 #include "../shader_context.hpp"
 
 static void TraceImpl(const char* in_fmt, ...)
@@ -148,9 +149,10 @@ class world
 {
 public:
 	world()
-		: temp_allocator_(10 * 1024 * 1024),
-		  job_system_(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers,
-		              static_cast<int>(std::thread::hardware_concurrency()) - 2)
+		: temp_allocator_(10 * 1024 * 1024)
+		  , job_system_(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers,
+		                static_cast<int>(std::thread::hardware_concurrency()) - 2)
+		  , player_mesh_(bufferer_)
 
 
 	{
@@ -186,6 +188,11 @@ public:
 		return this->job_system_;
 	}
 
+	player_mesh& get_player_mesh()
+	{
+		return this->player_mesh_;
+	}
+
 private:
 	physics_setup setup_{};
 	JPH::TempAllocatorImpl temp_allocator_;
@@ -199,4 +206,5 @@ private:
 
 	shader_context context_{};
 	gl_bufferer bufferer_{};
+	player_mesh player_mesh_;
 };

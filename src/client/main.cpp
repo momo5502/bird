@@ -777,6 +777,9 @@ namespace
 		auto new_meshes_to_buffer = draw_world(p, game_world, current_time, viewprojection, current_vertices,
 		                                       potential_nodes);
 
+		static const auto initial_eye = c.eye;
+		game_world.get_player_mesh().draw(viewprojection, initial_eye, c.direction);
+
 		p.step("Push buffer");
 		const auto buffer_queue = push_meshes_for_buffering(c, std::move(new_meshes_to_buffer));
 

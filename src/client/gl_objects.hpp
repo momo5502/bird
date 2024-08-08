@@ -5,6 +5,25 @@
 
 gl_object create_texture();
 gl_object create_buffer();
+gl_object create_vertex_array_object();
+
+struct scoped_vao
+{
+	scoped_vao(const GLuint vao)
+	{
+		glBindVertexArray(vao);
+	}
+
+	~scoped_vao()
+	{
+		glBindVertexArray(0);
+	}
+
+	scoped_vao(scoped_vao&&) = delete;
+	scoped_vao(const scoped_vao&) = delete;
+	scoped_vao& operator=(scoped_vao&&) = delete;
+	scoped_vao& operator=(const scoped_vao&) = delete;
+};
 
 class gl_bufferer
 {

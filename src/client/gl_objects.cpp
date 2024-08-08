@@ -13,6 +13,11 @@ namespace
 	{
 		glDeleteBuffers(1, &buffer);
 	}
+
+	void delete_vertex_array_object(const GLuint vao)
+	{
+		glDeleteVertexArrays(1, &vao);
+	}
 }
 
 gl_object create_texture()
@@ -29,6 +34,14 @@ gl_object create_buffer()
 	glGenBuffers(1, &buffer);
 
 	return {buffer, delete_buffer};
+}
+
+gl_object create_vertex_array_object()
+{
+	GLuint vao = 0;
+	glGenVertexArrays(1, &vao);
+
+	return {vao, delete_vertex_array_object};
 }
 
 gl_bufferer::~gl_bufferer()

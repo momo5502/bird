@@ -26,6 +26,7 @@ public:
 
 private:
 	shader shader_{};
+	gl_object vao_{};
 	gl_object vertex_buffer_{};
 
 	FT_Library ft_{nullptr};

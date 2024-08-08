@@ -82,6 +82,7 @@ namespace
 
 text_renderer::text_renderer(const std::string_view& font, const size_t font_size)
 	: shader_(get_vertex_shader(), get_fragment_shader())
+	  , vao_(create_vertex_array_object())
 	  , vertex_buffer_(create_vertex_buffer())
 {
 	if (FT_Init_FreeType(&this->ft_))
@@ -121,6 +122,7 @@ text_renderer& text_renderer::operator=(text_renderer&& obj) noexcept
 		this->characters_ = std::move(obj.characters_);
 		this->shader_ = std::move(obj.shader_);
 		this->vertex_buffer_ = std::move(obj.vertex_buffer_);
+		this->vao_ = std::move(obj.vao_);
 
 		obj.ft_ = nullptr;
 		obj.face_ = nullptr;
@@ -131,6 +133,8 @@ text_renderer& text_renderer::operator=(text_renderer&& obj) noexcept
 
 void text_renderer::draw(const std::string_view& text, float x, float y, const float scale, const glm::vec4 color)
 {
+	scoped_vao _{this->vao_};
+
 	glClear(GL_DEPTH_BUFFER_BIT);
 
 	this->shader_.use();
@@ -155,6 +159,7 @@ void text_renderer::draw(const std::string_view& text, float x, float y, const f
 
 	glBindBuffer(GL_ARRAY_BUFFER, this->vertex_buffer_);
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
+	glEnableVertexAttribArray(0);
 
 	for (const auto chr : text)
 	{
