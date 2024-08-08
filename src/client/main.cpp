@@ -20,7 +20,7 @@
 
 CMRC_DECLARE(bird);
 
-#define USE_ADAPTIVE_RENDER_DISTANCE
+//#define USE_ADAPTIVE_RENDER_DISTANCE
 
 namespace
 {
@@ -299,7 +299,7 @@ namespace
 	{
 		utils::concurrency::container<std::queue<world_mesh*>> meshes_to_buffer{};
 		bool gravity_on{true};
-		double render_distance{2.0};
+		double render_distance{1.5};
 		uint64_t last_vertices{0};
 	};
 
@@ -539,7 +539,7 @@ namespace
 		constexpr auto min_change_vertices = 100'000ULL;
 
 
-		if (c.render_distance < max_render_distance && c.last_vertices + min_change_vertices < max_vertices)
+		if (c.last_vertices + min_change_vertices < max_vertices)
 		{
 			c.render_distance += 0.01;
 		}
@@ -549,10 +549,7 @@ namespace
 			c.render_distance -= 0.01;
 		}
 
-		if (c.render_distance < min_render_distance)
-		{
-			c.render_distance = min_render_distance;
-		}
+		c.render_distance = std::clamp(c.render_distance, min_render_distance, max_render_distance);
 	}
 #endif
 
