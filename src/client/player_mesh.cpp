@@ -50,7 +50,14 @@ void main()
 
 	glm::dmat4 get_model_matrix(const glm::dvec3& position, const glm::dvec3& orientation)
 	{
-		return glm::translate(position) * get_rotation_matrix(position, orientation);
+		constexpr auto height = 2.5;
+		constexpr auto width = 1.0;
+
+		return
+			glm::translate(position) //
+			* get_rotation_matrix(position, orientation) //
+			* glm::translate(glm::dvec3{0.0, - 1.0, 0.0})
+			* glm::scale(glm::dvec3{width, height, width}); //
 	}
 
 	constexpr float vertices[] = {
