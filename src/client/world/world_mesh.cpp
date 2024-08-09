@@ -103,10 +103,11 @@ bool world_mesh::buffer_meshes_internal()
 
 	auto& game_world = node.get_rocktree().with<world>();
 	auto& bufferer = game_world.get_bufferer();
+	auto& shader_ctx = game_world.get_shader_context();
 
 	for (auto& m : this->meshes_)
 	{
-		m.buffer(bufferer);
+		m.buffer(bufferer, shader_ctx);
 	}
 
 	return true;

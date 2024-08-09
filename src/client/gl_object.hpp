@@ -17,6 +17,11 @@ public:
 	GLuint get() const;
 	operator GLuint() const;
 
+	bool is_valid() const
+	{
+		return this->object_.has_value();
+	}
+
 private:
 	std::function<void(GLuint)> destructor_{};
 	std::optional<GLuint> object_{};

@@ -4,21 +4,6 @@
 
 namespace
 {
-	void delete_vertex_array_object(const GLuint vao)
-	{
-		glBindVertexArray(0);
-		glDeleteVertexArrays(1, &vao);
-	}
-
-	gl_object create_and_bind_vertex_array_object()
-	{
-		GLuint vao = 0;
-		glGenVertexArrays(1, &vao);
-		glBindVertexArray(vao);
-
-		return {vao, delete_vertex_array_object};
-	}
-
 	std::string_view get_vertex_shader()
 	{
 		return R"code(
@@ -112,7 +97,7 @@ void main() {
 }
 
 shader_context::shader_context()
-	: vertex_array_object_(create_and_bind_vertex_array_object()), shader_(get_vertex_shader(), get_fragment_shader())
+	: shader_(get_vertex_shader(), get_fragment_shader())
 {
 	const auto _ = this->shader_.use();
 
@@ -131,14 +116,9 @@ shader_context::shader_context()
 	this->own_draw_time_loc = glGetUniformLocation(program, "own_draw_time");
 	this->child_draw_times_loc = glGetUniformLocation(program, "child_draw_times");
 	this->animation_time_loc = glGetUniformLocation(program, "animation_time");
-
-	glEnableVertexAttribArray(this->position_loc);
-	glEnableVertexAttribArray(this->octant_loc);
-	glEnableVertexAttribArray(this->texcoords_loc);
 }
 
 scoped_shader shader_context::use_shader() const
 {
-	glBindVertexArray(this->vertex_array_object_);
 	return this->shader_.use();
 }

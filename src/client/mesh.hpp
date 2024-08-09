@@ -16,6 +16,7 @@ struct vertex
 	uint16_t u, v; // texture coordinates
 };
 #pragma pack(pop)
+
 static_assert((sizeof(vertex) == 8), "vertex size must be 8");
 
 struct mesh_data
@@ -34,14 +35,17 @@ struct mesh_data
 class mesh_buffers
 {
 public:
-	mesh_buffers(gl_bufferer& bufferer, const mesh_data& mesh);
+	mesh_buffers(gl_bufferer& bufferer, const shader_context& ctx, const mesh_data& mesh);
 
 	void draw(const mesh_data& mesh, const shader_context& ctx) const;
 
 private:
+	mutable gl_object vao_{};
 	gl_object vertex_buffer_{};
 	gl_object index_buffer_{};
 	gl_object texture_buffer_{};
+
+	void ensure_vao_existance(const shader_context& ctx) const;
 };
 
 class mesh
@@ -59,7 +63,7 @@ public:
 	}
 
 	void unbuffer();
-	void buffer(gl_bufferer& bufferer);
+	void buffer(gl_bufferer& bufferer, const shader_context& ctx);
 
 	const mesh_data& get_mesh_data() const
 	{

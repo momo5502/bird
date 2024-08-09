@@ -21,6 +21,5 @@ public:
 	[[nodiscard]] scoped_shader use_shader() const;
 
 private:
-	gl_object vertex_array_object_{};
 	shader shader_{};
 };

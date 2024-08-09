@@ -34,17 +34,19 @@ void mesh::unbuffer()
 	this->buffered_mesh_ = {};
 }
 
-void mesh::buffer(gl_bufferer& bufferer)
+void mesh::buffer(gl_bufferer& bufferer, const shader_context& ctx)
 {
 	if (!this->buffered_mesh_)
 	{
-		this->buffered_mesh_.emplace(bufferer, *this->mesh_data_);
+		this->buffered_mesh_.emplace(bufferer, ctx, *this->mesh_data_);
 	}
 }
 
-mesh_buffers::mesh_buffers(gl_bufferer& bufferer, const mesh_data& mesh)
+mesh_buffers::mesh_buffers(gl_bufferer& bufferer, const shader_context& ctx, const mesh_data& mesh)
 {
-	const auto _ = utils::finally([]
+	const auto _0 = ctx.use_shader();
+
+	const auto _1 = utils::finally([]
 	{
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -72,18 +74,46 @@ mesh_buffers::mesh_buffers(gl_bufferer& bufferer, const mesh_data& mesh)
 	create_mesh_texture(mesh);
 }
 
+void mesh_buffers::ensure_vao_existance(const shader_context& ctx) const
+{
+	if (this->vao_.is_valid())
+	{
+		return;
+	}
+
+	const auto _1 = utils::finally([]
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	});
+
+	this->vao_ = create_vertex_array_object();
+
+	scoped_vao _2{this->vao_};
+
+	glBindBuffer(GL_ARRAY_BUFFER, this->vertex_buffer_);
+
+	glVertexAttribPointer(ctx.position_loc, 3, GL_UNSIGNED_BYTE, GL_FALSE, 8, nullptr);
+	glEnableVertexAttribArray(ctx.position_loc);
+
+	glVertexAttribPointer(ctx.octant_loc, 1, GL_UNSIGNED_BYTE, GL_FALSE, 8, reinterpret_cast<void*>(3));
+	glEnableVertexAttribArray(ctx.octant_loc);
+
+	glVertexAttribPointer(ctx.texcoords_loc, 2, GL_UNSIGNED_SHORT, GL_FALSE, 8, reinterpret_cast<void*>(4));
+	glEnableVertexAttribArray(ctx.texcoords_loc);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->index_buffer_);
+}
+
 void mesh_buffers::draw(const mesh_data& mesh, const shader_context& ctx) const
 {
+	this->ensure_vao_existance(ctx);
+
+	scoped_vao _{this->vao_};
+
 	glUniform2fv(ctx.uv_offset_loc, 1, &mesh.uv_offset[0]);
 	glUniform2fv(ctx.uv_scale_loc, 1, &mesh.uv_scale[0]);
 
 	glBindTexture(GL_TEXTURE_2D, this->texture_buffer_);
-	glBindBuffer(GL_ARRAY_BUFFER, this->vertex_buffer_);
-
-	glVertexAttribPointer(ctx.position_loc, 3, GL_UNSIGNED_BYTE, GL_FALSE, 8, nullptr);
-	glVertexAttribPointer(ctx.octant_loc, 1, GL_UNSIGNED_BYTE, GL_FALSE, 8, reinterpret_cast<void*>(3));
-	glVertexAttribPointer(ctx.texcoords_loc, 2, GL_UNSIGNED_SHORT, GL_FALSE, 8, reinterpret_cast<void*>(4));
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->index_buffer_);
 	glDrawElements(GL_TRIANGLE_STRIP, static_cast<GLsizei>(mesh.indices.size()), GL_UNSIGNED_SHORT, nullptr);
 }
