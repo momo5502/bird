@@ -124,7 +124,7 @@ player_mesh::player_mesh(gl_bufferer& bufferer)
 
 	const auto program = this->shader_.get_program();
 
-	const auto color_loc = glGetAttribLocation(program, "color");
+	const auto color_loc = glGetAttribLocation(program, "vertex_color");
 	const auto position_loc = glGetAttribLocation(program, "position");
 	this->transform_loc_ = glGetUniformLocation(program, "transform");
 
