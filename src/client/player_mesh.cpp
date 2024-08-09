@@ -147,13 +147,13 @@ player_mesh::player_mesh(gl_bufferer& bufferer)
 void player_mesh::draw(const glm::dmat4& viewprojection, const glm::dvec3& position,
                        const glm::dvec3& orientation) const
 {
-	this->shader_.use();
+	const auto _1 = this->shader_.use();
 
 	const glm::mat4 transform = viewprojection * get_model_matrix(position, orientation);
 
 	glUniformMatrix4fv(this->transform_loc_, 1, GL_FALSE, &transform[0][0]);
 
-	scoped_vao _{this->vao_};
+	scoped_vao _2{this->vao_};
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->index_buffer_);
 	glDrawElements(GL_TRIANGLES, 6 * 2 * 3, GL_UNSIGNED_SHORT, nullptr);
 }

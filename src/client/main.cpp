@@ -386,7 +386,7 @@ namespace
 		p.step("Loop 2");
 
 		const auto& ctx = game_world.get_shader_context();
-		ctx.use_shader();
+		const auto shader = ctx.use_shader();
 
 		glUniform1f(ctx.animation_time_loc, ANIMATION_TIME);
 
@@ -778,7 +778,8 @@ namespace
 		                                       potential_nodes);
 
 		static const auto initial_eye = c.eye;
-		game_world.get_player_mesh().draw(viewprojection, initial_eye, c.direction);
+		static const auto initial_direction = c.direction;
+		game_world.get_player_mesh().draw(viewprojection, initial_eye, initial_direction);
 
 		p.step("Push buffer");
 		const auto buffer_queue = push_meshes_for_buffering(c, std::move(new_meshes_to_buffer));

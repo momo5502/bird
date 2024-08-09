@@ -18,7 +18,7 @@ public:
 	GLint child_draw_times_loc;
 	GLint animation_time_loc;
 
-	void use_shader() const;
+	[[nodiscard]] scoped_shader use_shader() const;
 
 private:
 	gl_object vertex_array_object_{};

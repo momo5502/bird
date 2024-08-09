@@ -1,6 +1,24 @@
 #pragma once
 #include "gl_object.hpp"
 
+struct scoped_shader
+{
+	scoped_shader(const GLuint shader)
+	{
+		glUseProgram(shader);
+	}
+
+	~scoped_shader()
+	{
+		glUseProgram(0);
+	}
+
+	scoped_shader(scoped_shader&&) = delete;
+	scoped_shader(const scoped_shader&) = delete;
+	scoped_shader& operator=(const scoped_shader&) = delete;
+	scoped_shader& operator=(scoped_shader&&) = delete;
+};
+
 class shader
 {
 public:
@@ -9,7 +27,7 @@ public:
 
 	GLuint get_program() const;
 
-	void use() const;
+	[[nodiscard]] scoped_shader use() const;
 
 private:
 	gl_object program_{};

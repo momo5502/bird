@@ -133,11 +133,11 @@ text_renderer& text_renderer::operator=(text_renderer&& obj) noexcept
 
 void text_renderer::draw(const std::string_view& text, float x, float y, const float scale, const glm::vec4 color)
 {
-	scoped_vao _{this->vao_};
+	scoped_vao _1{this->vao_};
 
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-	this->shader_.use();
+	const auto _2 = this->shader_.use();
 	const auto program = this->shader_.get_program();
 
 	GLint viewport[4]{};

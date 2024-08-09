@@ -117,7 +117,7 @@ GLuint shader::get_program() const
 	return this->program_.get();
 }
 
-void shader::use() const
+scoped_shader shader::use() const
 {
-	glUseProgram(this->program_);
+	return scoped_shader{this->program_};
 }

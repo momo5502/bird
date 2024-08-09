@@ -114,7 +114,7 @@ void main() {
 shader_context::shader_context()
 	: vertex_array_object_(create_and_bind_vertex_array_object()), shader_(get_vertex_shader(), get_fragment_shader())
 {
-	this->shader_.use();
+	const auto _ = this->shader_.use();
 
 	const auto program = this->shader_.get_program();
 
@@ -137,8 +137,8 @@ shader_context::shader_context()
 	glEnableVertexAttribArray(this->texcoords_loc);
 }
 
-void shader_context::use_shader() const
+scoped_shader shader_context::use_shader() const
 {
-	this->shader_.use();
 	glBindVertexArray(this->vertex_array_object_);
+	return this->shader_.use();
 }
