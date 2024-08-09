@@ -154,6 +154,5 @@ void player_mesh::draw(const glm::dmat4& viewprojection, const glm::dvec3& posit
 	glUniformMatrix4fv(this->transform_loc_, 1, GL_FALSE, &transform[0][0]);
 
 	scoped_vao _2{this->vao_};
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->index_buffer_);
 	glDrawElements(GL_TRIANGLES, 6 * 2 * 3, GL_UNSIGNED_SHORT, nullptr);
 }
