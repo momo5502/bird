@@ -117,6 +117,16 @@ GLuint shader::get_program() const
 	return this->program_.get();
 }
 
+GLint shader::uniform(const char* name) const
+{
+	return glGetUniformLocation(this->get_program(), name);
+}
+
+GLint shader::attribute(const char* name) const
+{
+	return glGetAttribLocation(this->get_program(), name);
+}
+
 scoped_shader shader::use() const
 {
 	return scoped_shader{this->program_};

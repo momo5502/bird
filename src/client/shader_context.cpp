@@ -99,23 +99,23 @@ void main() {
 shader_context::shader_context()
 	: shader_(get_vertex_shader(), get_fragment_shader())
 {
-	const auto _ = this->shader_.use();
+	const auto& s = this->shader_;
 
-	const auto program = this->shader_.get_program();
+	const auto _ = s.use();
 
-	this->transform_loc = glGetUniformLocation(program, "transform");
-	this->uv_offset_loc = glGetUniformLocation(program, "uv_offset");
-	this->uv_scale_loc = glGetUniformLocation(program, "uv_scale");
-	this->octant_mask_loc = glGetUniformLocation(program, "octant_mask");
+	this->transform_loc = s.uniform("transform");
+	this->uv_offset_loc = s.uniform("uv_offset");
+	this->uv_scale_loc = s.uniform("uv_scale");
+	this->octant_mask_loc = s.uniform("octant_mask");
 
-	this->position_loc = glGetAttribLocation(program, "position");
-	this->octant_loc = glGetAttribLocation(program, "octant");
-	this->texcoords_loc = glGetAttribLocation(program, "texcoords");
+	this->position_loc = s.attribute("position");
+	this->octant_loc = s.attribute("octant");
+	this->texcoords_loc = s.attribute("texcoords");
 
-	this->current_time_loc = glGetUniformLocation(program, "current_time");
-	this->own_draw_time_loc = glGetUniformLocation(program, "own_draw_time");
-	this->child_draw_times_loc = glGetUniformLocation(program, "child_draw_times");
-	this->animation_time_loc = glGetUniformLocation(program, "animation_time");
+	this->current_time_loc = s.uniform("current_time");
+	this->own_draw_time_loc = s.uniform("own_draw_time");
+	this->child_draw_times_loc = s.uniform("child_draw_times");
+	this->animation_time_loc = s.uniform("animation_time");
 }
 
 scoped_shader shader_context::use_shader() const

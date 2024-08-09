@@ -35,9 +35,8 @@ namespace
 	std::string_view get_vertex_shader()
 	{
 		return R"code(
-			#version 330 core
-			layout (location = 0) in vec4 vertex; // <vec2 pos, vec2 tex>
-			out vec2 TexCoords;
+			attribute vec4 vertex; // <vec2 pos, vec2 tex>
+			varying vec2 TexCoords;
 
 			uniform mat4 projection;
 
@@ -52,17 +51,15 @@ namespace
 	std::string_view get_fragment_shader()
 	{
 		return R"code(
-			#version 330 core
-			in vec2 TexCoords;
-			out vec4 color;
+			varying vec2 TexCoords;
 
 			uniform sampler2D text;
 			uniform vec4 textColor;
 
 			void main()
 			{    
-			    vec4 sampled = vec4(1.0, 1.0, 1.0, texture(text, TexCoords).r);
-			    color = textColor * sampled;
+			    vec4 sampled = vec4(1.0, 1.0, 1.0, texture2D(text, TexCoords).r);
+			    gl_FragColor = textColor * sampled;
 			}
 			)code";
 	}
@@ -157,9 +154,10 @@ void text_renderer::draw(const std::string_view& text, float x, float y, const f
 	glUniform4f(color_uniform, color.r, color.g, color.b, color.a);
 	glActiveTexture(GL_TEXTURE0);
 
+	const auto vertex_loc = this->shader_.attribute("vertex");
 	glBindBuffer(GL_ARRAY_BUFFER, this->vertex_buffer_);
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
-	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(vertex_loc, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
+	glEnableVertexAttribArray(vertex_loc);
 
 	for (const auto chr : text)
 	{

@@ -56,7 +56,7 @@ void main()
 		return
 			glm::translate(position) //
 			* get_rotation_matrix(position, orientation) //
-			* glm::translate(glm::dvec3{0.0, - 1.0, 0.0})
+			* glm::translate(glm::dvec3{0.0, -1.0, 0.0})
 			* glm::scale(glm::dvec3{width, height, width}); //
 	}
 
@@ -129,11 +129,9 @@ player_mesh::player_mesh(gl_bufferer& bufferer)
 
 	glBindVertexArray(this->vao_);
 
-	const auto program = this->shader_.get_program();
-
-	const auto color_loc = glGetAttribLocation(program, "vertex_color");
-	const auto position_loc = glGetAttribLocation(program, "position");
-	this->transform_loc_ = glGetUniformLocation(program, "transform");
+	const auto color_loc = this->shader_.attribute("vertex_color");
+	const auto position_loc = this->shader_.attribute("position");
+	this->transform_loc_ = this->shader_.uniform("transform");
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->index_buffer_);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(triangle_indices), triangle_indices, GL_STATIC_DRAW);

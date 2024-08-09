@@ -27,6 +27,9 @@ public:
 
 	GLuint get_program() const;
 
+	GLint uniform(const char* name) const;
+	GLint attribute(const char* name) const;
+
 	[[nodiscard]] scoped_shader use() const;
 
 private:
