@@ -122,7 +122,6 @@ shader_context::shader_context()
 	this->uv_offset_loc = glGetUniformLocation(program, "uv_offset");
 	this->uv_scale_loc = glGetUniformLocation(program, "uv_scale");
 	this->octant_mask_loc = glGetUniformLocation(program, "octant_mask");
-	this->texture_loc = glGetUniformLocation(program, "texture");
 
 	this->position_loc = glGetAttribLocation(program, "position");
 	this->octant_loc = glGetAttribLocation(program, "octant");

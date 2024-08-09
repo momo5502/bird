@@ -77,8 +77,6 @@ void mesh_buffers::draw(const mesh_data& mesh, const shader_context& ctx) const
 	glUniform2fv(ctx.uv_offset_loc, 1, &mesh.uv_offset[0]);
 	glUniform2fv(ctx.uv_scale_loc, 1, &mesh.uv_scale[0]);
 
-	glUniform1i(ctx.texture_loc, 0);
-
 	glBindTexture(GL_TEXTURE_2D, this->texture_buffer_);
 	glBindBuffer(GL_ARRAY_BUFFER, this->vertex_buffer_);
 
