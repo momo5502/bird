@@ -4,6 +4,7 @@
 
 #include "../gl_objects.hpp"
 #include "../player_mesh.hpp"
+#include "../multiplayer.hpp"
 #include "../shader_context.hpp"
 
 static void TraceImpl(const char* in_fmt, ...)
@@ -193,6 +194,11 @@ public:
 		return this->player_mesh_;
 	}
 
+	multiplayer& get_multiplayer()
+	{
+		return this->multiplayer_;
+	}
+
 private:
 	physics_setup setup_{};
 	JPH::TempAllocatorImpl temp_allocator_;
@@ -207,4 +213,5 @@ private:
 	shader_context context_{};
 	gl_bufferer bufferer_{};
 	player_mesh player_mesh_;
+	multiplayer multiplayer_{};
 };

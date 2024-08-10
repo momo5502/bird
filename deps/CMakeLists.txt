@@ -128,3 +128,26 @@ set(USE_F16C ON)
 set(USE_FMADD ON)
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/JoltPhysics/Build")
+
+##########################################
+
+add_subdirectory(libtommath)
+
+if (MSVC)
+    target_compile_options(libtommath PRIVATE "/wd4146")
+endif()
+
+##########################################
+
+option(WITH_LTM "" OFF)
+
+add_subdirectory(libtomcrypt)
+
+target_compile_definitions(libtomcrypt PUBLIC LTM_DESC)
+target_compile_definitions(libtomcrypt PUBLIC USE_LTM)
+target_compile_definitions(libtomcrypt PUBLIC LTC_NO_PROTOTYPES)
+target_link_libraries(libtomcrypt PUBLIC libtommath)
+
+if (MSVC)
+    target_compile_options(libtomcrypt PRIVATE "/wd4703")
+endif()

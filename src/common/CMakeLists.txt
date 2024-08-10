@@ -13,4 +13,8 @@ target_include_directories(common INTERFACE "${CMAKE_CURRENT_LIST_DIR}")
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
-target_link_libraries(common PUBLIC Threads::Threads)
+target_link_libraries(common PUBLIC
+  Threads::Threads
+  libtomcrypt
+  libtommath
+)

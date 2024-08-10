@@ -322,7 +322,8 @@ namespace
 		}
 	}
 
-	void draw_text(const rendering_context& c, const size_t buffer_queue, const uint64_t current_vertices)
+	void draw_text(const rendering_context& c, world& game_world, const size_t buffer_queue,
+	               const uint64_t current_vertices)
 	{
 		constexpr auto color = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
 
@@ -337,6 +338,8 @@ namespace
 		c.renderer.draw("Vertices: " + std::to_string(current_vertices), 25.0f, (offset += 25.0f), 1.0f, color);
 		c.renderer.draw("Distance: " + std::to_string(c.render_distance), 25.0f, (offset += 25.0f), 1.0f, color);
 		c.renderer.draw("Gravity: " + std::string(c.gravity_on ? "on" : "off"), 25.0f, (offset += 25.0f), 1.0f, color);
+		c.renderer.draw("Players: " + std::to_string(game_world.get_multiplayer().get_player_count()), 25.0f,
+		                (offset += 25.0f), 1.0f, color);
 	}
 
 	size_t push_meshes_for_buffering(rendering_context& c, std::queue<world_mesh*> new_meshes_to_buffer)
@@ -762,6 +765,8 @@ namespace
 		const auto pos = c.character.GetPosition();
 		c.eye = v(pos);
 
+		game_world.get_multiplayer().transmit_position(c.eye, c.direction);
+
 		const auto altitude = glm::length(c.eye) - planet_radius;
 
 		p.step("Draw sky");
@@ -777,16 +782,20 @@ namespace
 		auto new_meshes_to_buffer = draw_world(p, game_world, current_time, viewprojection, current_vertices,
 		                                       potential_nodes);
 
-		static const auto initial_eye = c.eye;
-		static const auto initial_direction = c.direction;
-		game_world.get_player_mesh().draw(viewprojection, initial_eye, initial_direction);
+		game_world.get_multiplayer().access_players([&](const players& players)
+		{
+			for (const auto& player : players)
+			{
+				game_world.get_player_mesh().draw(viewprojection, player.position, player.orientation);
+			}
+		});
 
 		p.step("Push buffer");
 		const auto buffer_queue = push_meshes_for_buffering(c, std::move(new_meshes_to_buffer));
 
 		p.step("Draw Text");
 		update_fps(c);
-		draw_text(c, buffer_queue, current_vertices);
+		draw_text(c, game_world, buffer_queue, current_vertices);
 	}
 
 #ifdef _WIN32
