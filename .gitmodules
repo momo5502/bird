@@ -43,3 +43,13 @@
 	path = deps/JoltPhysics
 	url = https://github.com/jrouwe/JoltPhysics.git
 	shallow = true
+[submodule "deps/libtomcrypt"]
+	path = deps/libtomcrypt
+	url = https://github.com/libtom/libtomcrypt.git
+	branch = develop
+	shallow = true
+[submodule "deps/libtommath"]
+	path = deps/libtommath
+	url = https://github.com/libtom/libtommath.git
+	branch = develop
+	shallow = true
