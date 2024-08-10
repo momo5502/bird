@@ -143,9 +143,13 @@ option(WITH_LTM "" OFF)
 
 add_subdirectory(libtomcrypt)
 
-target_compile_definitions(libtomcrypt PUBLIC LTM_DESC)
-target_compile_definitions(libtomcrypt PUBLIC USE_LTM)
-target_compile_definitions(libtomcrypt PUBLIC LTC_NO_PROTOTYPES)
+target_compile_definitions(libtomcrypt PUBLIC
+  USE_LTM
+  LTM_DESC
+  LTC_NO_PROTOTYPES
+  LTC_NO_AES_NI
+)
+
 target_link_libraries(libtomcrypt PUBLIC libtommath)
 
 if (MSVC)
