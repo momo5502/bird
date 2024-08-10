@@ -11,10 +11,10 @@ task_manager::task_manager(const size_t num_threads)
 	for (auto& thread : this->threads_)
 	{
 		thread = utils::thread::create_named_thread("Task Manager", [this]
-		{
-			utils::thread::set_priority(utils::thread::priority::low);
-			this->work();
-		});
+			{
+				utils::thread::set_priority(utils::thread::priority::low);
+				this->work();
+			});
 	}
 }
 
@@ -27,12 +27,12 @@ void task_manager::schedule(std::deque<task>& q, task t, const bool is_high_prio
 {
 	if (is_high_priority_thread)
 	{
-		std::scoped_lock lock{this->mutex_.high_priority()};
+		std::scoped_lock lock{ this->mutex_.high_priority() };
 		q.push_back(std::move(t));
 	}
 	else
 	{
-		std::scoped_lock lock{this->mutex_};
+		std::scoped_lock lock{ this->mutex_ };
 		q.push_back(std::move(t));
 	}
 
@@ -48,7 +48,7 @@ void task_manager::schedule(task t, const size_t priority, const bool is_high_pr
 void task_manager::stop()
 {
 	{
-		std::lock_guard _{this->mutex_};
+		std::lock_guard _{ this->mutex_ };
 		this->stop_ = true;
 		this->queues_ = {};
 	}
@@ -83,26 +83,26 @@ size_t task_manager::get_tasks(const size_t i) const
 void task_manager::work()
 {
 	auto should_wake_up = [this]
-	{
-		if (this->stop_)
 		{
-			return true;
-		}
-
-		for (const auto& q : queues_)
-		{
-			if (!q.empty())
+			if (this->stop_)
 			{
 				return true;
 			}
-		}
 
-		return false;
-	};
+			for (const auto& q : queues_)
+			{
+				if (!q.empty())
+				{
+					return true;
+				}
+			}
+
+			return false;
+		};
 
 	while (true)
 	{
-		std::unique_lock lock{this->mutex_};
+		std::unique_lock lock{ this->mutex_ };
 
 		if (!should_wake_up())
 		{
@@ -136,11 +136,7 @@ void task_manager::work()
 		}
 		catch (const std::exception& e)
 		{
-#ifdef NDEBUG
-			(void)e;
-#else
 			puts(e.what());
-#endif
 		}
 
 		std::this_thread::yield();
