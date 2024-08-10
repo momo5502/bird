@@ -148,6 +148,22 @@ target_compile_definitions(libtomcrypt PUBLIC
   LTM_DESC
   LTC_NO_PROTOTYPES
   LTC_NO_AES_NI
+  LTC_NOTHING
+  LTC_CBC_MODE
+  LTC_CTR_MODE
+  LTC_SHA1
+  LTC_SHA512
+  LTC_SPRNG
+  LTC_YARROW
+  LTC_FORTUNA
+  LTC_MECC
+  LTC_HMAC
+  LTC_DER
+  LTC_PKCS_5
+  LTC_PKCS_12
+  LTC_RNG_GET_BYTES
+  LTC_RNG_MAKE_PRNG
+  LTC_HASH_HELPERS
 )
 
 target_link_libraries(libtomcrypt PUBLIC libtommath)

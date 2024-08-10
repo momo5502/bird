@@ -50,16 +50,28 @@ namespace utils::cryptography
 			{
 				ltc_mp = ltm_desc;
 
+#ifdef LTC_RIJNDAEL
 				register_cipher(&aes_desc);
+#endif
+
+#ifdef LTC_DES
 				register_cipher(&des3_desc);
+#endif
 
 				register_prng(&sprng_desc);
 				register_prng(&fortuna_desc);
 				register_prng(&yarrow_desc);
 
+#ifdef LTC_SHA1
 				register_hash(&sha1_desc);
+#endif
+#ifdef LTC_SHA256
 				register_hash(&sha256_desc);
+#endif
+
+#ifdef LTC_SHA512
 				register_hash(&sha512_desc);
+#endif
 			}
 		} ___;
 
@@ -166,6 +178,7 @@ namespace utils::cryptography
 		const prng prng_(fortuna_desc);
 	}
 
+#ifdef LTC_MECC
 	ecc::key::key()
 	{
 		ZeroMemory(&this->key_storage_, sizeof(this->key_storage_));
@@ -427,7 +440,9 @@ namespace utils::cryptography
 		data = std::move(out_data);
 		return true;
 	}
+#endif
 
+#ifdef LTC_MRSA
 	std::string rsa::encrypt(const std::string& data, const std::string& hash, const std::string& key)
 	{
 		rsa_key new_key;
@@ -463,7 +478,9 @@ namespace utils::cryptography
 
 		return {};
 	}
+#endif
 
+#ifdef LTC_DES
 	std::string des3::encrypt(const std::string& data, const std::string& iv, const std::string& key)
 	{
 		std::string enc_data;
@@ -493,7 +510,9 @@ namespace utils::cryptography
 
 		return dec_data;
 	}
+#endif
 
+#ifdef LTC_TIGER
 	std::string tiger::compute(const std::string& data, const bool hex)
 	{
 		return compute(cs(data.data()), data.size(), hex);
@@ -513,7 +532,9 @@ namespace utils::cryptography
 
 		return string::dump_hex(hash, "");
 	}
+#endif
 
+#ifdef LTC_RIJNDAEL
 	std::string aes::encrypt(const std::string& data, const std::string& iv, const std::string& key)
 	{
 		std::string enc_data;
@@ -549,7 +570,9 @@ namespace utils::cryptography
 
 		return dec_data;
 	}
+#endif
 
+#if defined(LTC_SHA1) && defined(LTC_HMAC)
 	std::string hmac_sha1::compute(const std::string& data, const std::string& key)
 	{
 		std::string buffer;
@@ -565,7 +588,9 @@ namespace utils::cryptography
 		buffer.resize(out_len);
 		return buffer;
 	}
+#endif
 
+#ifdef LTC_SHA1
 	std::string sha1::compute(const std::string& data, const bool hex)
 	{
 		return compute(cs(data.data()), data.size(), hex);
@@ -585,7 +610,9 @@ namespace utils::cryptography
 
 		return string::dump_hex(hash, "");
 	}
+#endif
 
+#ifdef LTC_SHA256
 	std::string sha256::compute(const std::string& data, const bool hex)
 	{
 		return compute(cs(data.data()), data.size(), hex);
@@ -605,7 +632,9 @@ namespace utils::cryptography
 
 		return string::dump_hex(hash, "");
 	}
+#endif
 
+#ifdef LTC_SHA512
 	std::string sha512::compute(const std::string& data, const bool hex)
 	{
 		return compute(cs(data.data()), data.size(), hex);
@@ -625,7 +654,9 @@ namespace utils::cryptography
 
 		return string::dump_hex(hash, "");
 	}
+#endif
 
+#ifdef LTC_BASE64
 	std::string base64::encode(const uint8_t* data, const size_t len)
 	{
 		std::string result;
@@ -660,6 +691,7 @@ namespace utils::cryptography
 		result.resize(out_len);
 		return result;
 	}
+#endif
 
 	unsigned int jenkins_one_at_a_time::compute(const std::string& data)
 	{

@@ -69,12 +69,12 @@ namespace
 			return;
 		}
 
-		for (const auto& node : current_bulk.nodes | std::views::values)
+		for (const auto &[_, node] : current_bulk.nodes)
 		{
 			perform_object_cleanup(*node);
 		}
 
-		for (const auto& bulk : current_bulk.bulks | std::views::values)
+		for (const auto &[_, bulk] : current_bulk.bulks)
 		{
 			perform_bulk_cleanup(*bulk);
 		}

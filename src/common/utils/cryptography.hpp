@@ -5,6 +5,7 @@
 
 namespace utils::cryptography
 {
+#ifdef LTC_MECC
 	namespace ecc
 	{
 		class key final
@@ -52,59 +53,78 @@ namespace utils::cryptography
 		bool encrypt(const key& key, std::string& data);
 		bool decrypt(const key& key, std::string& data);
 	}
+#endif
 
+#ifdef LTC_MRSA
 	namespace rsa
 	{
 		std::string encrypt(const std::string& data, const std::string& hash, const std::string& key);
 	}
+#endif
 
+#ifdef LTC_DES
 	namespace des3
 	{
 		std::string encrypt(const std::string& data, const std::string& iv, const std::string& key);
 		std::string decrypt(const std::string& data, const std::string& iv, const std::string& key);
 	}
+#endif
 
+#ifdef LTC_TIGER
 	namespace tiger
 	{
 		std::string compute(const std::string& data, bool hex = false);
 		std::string compute(const uint8_t* data, size_t length, bool hex = false);
 	}
+#endif
 
+#ifdef LTC_RIJNDAEL
 	namespace aes
 	{
 		std::string encrypt(const std::string& data, const std::string& iv, const std::string& key);
 		std::string decrypt(const std::string& data, const std::string& iv, const std::string& key);
 	}
+#endif
 
+#if defined(LTC_SHA1) && defined(LTC_HMAC)
 	namespace hmac_sha1
 	{
 		std::string compute(const std::string& data, const std::string& key);
 	}
+#endif
 
+#ifdef LTC_SHA1
 	namespace sha1
 	{
 		std::string compute(const std::string& data, bool hex = false);
 		std::string compute(const uint8_t* data, size_t length, bool hex = false);
 	}
+#endif
 
+#ifdef LTC_SHA256
 	namespace sha256
 	{
 		std::string compute(const std::string& data, bool hex = false);
 		std::string compute(const uint8_t* data, size_t length, bool hex = false);
 	}
+#endif
 
+#ifdef LTC_SHA512
 	namespace sha512
 	{
 		std::string compute(const std::string& data, bool hex = false);
 		std::string compute(const uint8_t* data, size_t length, bool hex = false);
 	}
+#endif
 
+#ifdef LTC_BASE64
 	namespace base64
 	{
 		std::string encode(const uint8_t* data, size_t len);
 		std::string encode(const std::string& data);
 		std::string decode(const std::string& data);
 	}
+#endif
 
 	namespace jenkins_one_at_a_time
 	{
