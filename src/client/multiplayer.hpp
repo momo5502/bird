@@ -5,7 +5,14 @@
 
 inline network::address get_master_server()
 {
-	return {"server.momo5502.com:28960"};
+	try
+	{
+		return {"server.momo5502.com:28960"};
+	}
+	catch(...)
+	{ 
+		return {};
+	}
 }
 
 struct player
