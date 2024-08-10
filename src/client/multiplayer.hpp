@@ -10,8 +10,8 @@ inline network::address get_master_server()
 
 struct player
 {
-	glm::vec3 position{};
-	glm::vec3 orientation{};
+	glm::dvec3 position{};
+	glm::dvec3 orientation{};
 };
 
 using players = std::vector<player>;
@@ -21,7 +21,7 @@ class multiplayer final
 public:
 	multiplayer(network::address server = get_master_server());
 
-	void transmit_position(const glm::vec3& position, const glm::vec3& orientation) const;
+	void transmit_position(const glm::dvec3& position, const glm::dvec3& orientation) const;
 	void access_players(const std::function<void(const players&)>& accessor) const;
 	size_t get_player_count() const;
 

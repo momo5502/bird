@@ -4,10 +4,10 @@
 
 namespace
 {
-	constexpr uint32_t PROTOCOL = 2;
+	constexpr uint32_t PROTOCOL = 3;
 
-	using vec3_t = std::array<float, 3>;
-	using vec4_t = std::array<float, 4>;
+	using vec3_t = std::array<double, 3>;
+	using vec4_t = std::array<double, 4>;
 
 	using name_t = std::array<char, 64>;
 
@@ -43,7 +43,7 @@ multiplayer::multiplayer(network::address server)
 	});
 }
 
-void multiplayer::transmit_position(const glm::vec3& position, const glm::vec3& orientation) const
+void multiplayer::transmit_position(const glm::dvec3& position, const glm::dvec3& orientation) const
 {
 	player_info player{};
 	player.guid = this->identity_.get_hash();
