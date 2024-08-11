@@ -301,6 +301,7 @@ namespace
 		bool gravity_on{true};
 		double render_distance{1.5};
 		uint64_t last_vertices{0};
+		bool is_ready{false};
 	};
 
 	void update_fps(fps_context& c)
@@ -673,9 +674,11 @@ namespace
 		c.character.set_supporting_volume(JPH::Plane(up_vector, -0.6f));
 		c.character.SetRotation(quat.Normalized());
 
+		const auto has_gravity = c.gravity_on && c.is_ready;
+
 		if (can_change)
 		{
-			if (is_boosting || !c.gravity_on)
+			if (is_boosting || !has_gravity)
 			{
 				c.character.SetPosition(v<JPH::RVec3>(c.eye + movement_vector));
 				c.character.SetLinearVelocity({});
@@ -698,7 +701,7 @@ namespace
 			}
 		}
 
-		if (c.gravity_on)
+		if (has_gravity)
 		{
 			const auto time_delta = static_cast<double>(c.win.get_last_frame_time()) / (1000.0 * 1000.0);
 
@@ -723,6 +726,15 @@ namespace
 		glViewport(0, 0, framebuffer_width, framebuffer_height);
 	}
 
+
+	bool has_meshes_to_buffer(rendering_context& c)
+	{
+		return c.meshes_to_buffer.access<bool>([](const std::queue<world_mesh*>& q)
+		{
+			return !q.empty();
+		});
+	}
+
 	void run_frame(rendering_context& c, profiler& p)
 	{
 		++c.total_frame_counter;
@@ -733,6 +745,14 @@ namespace
 		{
 			c.last_vertices = current_vertices;
 		});
+
+		if (!c.is_ready)
+		{
+			c.is_ready = c.total_frame_counter > 10 //
+				&& c.rock_tree.get_tasks() == 0 //
+				&& c.rock_tree.get_objects() > 0 //
+				&& !has_meshes_to_buffer(c);
+		}
 
 #ifdef USE_ADAPTIVE_RENDER_DISTANCE
 		update_render_distance(c);
