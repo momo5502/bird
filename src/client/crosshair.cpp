@@ -25,7 +25,7 @@ void main() {
     vec2 center = screen_size / 2.0;
     vec2 pos = gl_FragCoord.xy;
 
-    float thickness = 2.0;
+    float thickness = 1.0;
     float length = 10.0;
 
     bool isVertical = abs(pos.x - center.x) < thickness && abs(pos.y - center.y) < length;
