@@ -164,9 +164,46 @@ bool multiplayer::access_player_by_body_id(const JPH::BodyID& id, const std::fun
 	});
 }
 
+bool multiplayer::was_killed()
+{
+	const auto killed = this->was_killed_;
+	this->was_killed_ = false;
+
+	return killed;
+}
+
+void multiplayer::kill(const player& p) const
+{
+	utils::buffer_serializer buffer{};
+	buffer.write(PROTOCOL);
+	buffer.write(p.guid);
+
+	this->manager_.send(this->server_, "kill", buffer.get_buffer());
+}
+
 std::unique_lock<std::recursive_mutex> multiplayer::get_player_lock()
 {
 	return this->players_.acquire_lock();
+}
+
+void multiplayer::receive_killed_command(const network::address& address, const std::string_view& data)
+{
+	if (address != this->server_)
+	{
+		return;
+	}
+
+	utils::buffer_deserializer buffer(data);
+	const auto protocol = buffer.read<uint32_t>();
+	if (protocol != PROTOCOL)
+	{
+		return;
+	}
+
+	const auto killer = buffer.read<uint64_t>();
+	(void)killer;
+
+	this->was_killed_ = true;
 }
 
 void multiplayer::receive_player_states(const network::address& address, const std::string_view& data)

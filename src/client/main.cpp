@@ -279,6 +279,8 @@ namespace
 	{
 		window& win;
 		rocktree& rock_tree;
+		glm::dvec3& spawn_eye;
+		glm::dvec3& spawn_direction;
 		glm::dvec3& eye;
 		glm::dvec3& direction;
 
@@ -628,6 +630,7 @@ namespace
 			mp.access_player_by_body_id(result.mBodyID, [&](const player& p)
 			{
 				printf("Hit player: %X - %llX\n", result.mBodyID.GetIndexAndSequenceNumber(), p.guid);
+				mp.kill(p);
 			});
 		}
 	}
@@ -855,7 +858,15 @@ namespace
 		const auto pos = c.character.GetPosition();
 		c.eye = v(pos);
 
-		game_world.get_multiplayer().transmit_position(c.eye, c.direction);
+		auto& mp = game_world.get_multiplayer();
+
+		if (mp.was_killed())
+		{
+			c.eye = c.spawn_eye;
+			c.direction = c.spawn_direction;
+		}
+
+		mp.transmit_position(c.eye, c.direction);
 
 		const auto altitude = glm::length(c.eye) - planet_radius;
 
@@ -1019,7 +1030,7 @@ namespace
 		auto text_renderer = create_text_renderer();
 
 		rendering_context context{
-			win, rock_tree, eye, direction, text_renderer, character, input_handler,
+			win, rock_tree, eye, direction, eye, direction, text_renderer, character, input_handler,
 		};
 
 		const auto buffer_thread = utils::thread::create_named_jthread(
