@@ -201,7 +201,8 @@ void multiplayer::receive_killed_command(const network::address& address, const 
 	}
 
 	const auto killer = buffer.read<uint64_t>();
-	(void)killer;
+
+	printf("Killed by %llX\n", static_cast<unsigned long long>(killer));
 
 	this->was_killed_ = true;
 }
