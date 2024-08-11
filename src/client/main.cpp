@@ -279,8 +279,8 @@ namespace
 	{
 		window& win;
 		rocktree& rock_tree;
-		glm::dvec3& spawn_eye;
-		glm::dvec3& spawn_direction;
+		glm::dvec3 spawn_eye;
+		glm::dvec3 spawn_direction;
 		glm::dvec3& eye;
 		glm::dvec3& direction;
 
@@ -856,8 +856,10 @@ namespace
 		if (!current_bulk || !current_bulk->can_be_used()) return;
 		const double planet_radius = planetoid->radius;
 
-		const auto pos = c.character.GetPosition();
-		c.eye = v(pos);
+		{
+			const auto pos = c.character.GetPosition();
+			c.eye = v(pos);
+		}
 
 		auto& mp = game_world.get_multiplayer();
 
@@ -865,6 +867,8 @@ namespace
 		{
 			c.eye = c.spawn_eye;
 			c.direction = c.spawn_direction;
+			c.character.SetPosition(v<JPH::RVec3>(c.eye));
+			c.character.SetLinearVelocity({});
 		}
 
 		mp.transmit_position(c.eye, c.direction);
