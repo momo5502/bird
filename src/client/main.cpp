@@ -287,7 +287,7 @@ namespace
 		text_renderer& renderer;
 		physics_character& character;
 		input& input_handler;
-		crosshair crosshair{};
+		crosshair xhair{};
 	};
 
 	struct fps_context
@@ -629,7 +629,8 @@ namespace
 		{
 			mp.access_player_by_body_id(result.mBodyID, [&](const player& p)
 			{
-				printf("Hit player: %X - %llX\n", result.mBodyID.GetIndexAndSequenceNumber(), p.guid);
+				static_assert(sizeof(p.guid) == sizeof(unsigned long long));
+				printf("Hit player: %llX\n", static_cast<unsigned long long>(p.guid));
 				mp.kill(p);
 			});
 		}
@@ -895,7 +896,7 @@ namespace
 		p.step("Push buffer");
 		const auto buffer_queue = push_meshes_for_buffering(c, std::move(new_meshes_to_buffer));
 
-		c.crosshair.draw();
+		c.xhair.draw();
 
 		p.step("Draw Text");
 		update_fps(c);
