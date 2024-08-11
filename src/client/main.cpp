@@ -50,12 +50,12 @@ namespace
 			return;
 		}
 
-		for (const auto &[_, node] : current_bulk.nodes)
+		for (const auto& [_, node] : current_bulk.nodes)
 		{
 			perform_object_cleanup(*node);
 		}
 
-		for (const auto &[_, bulk] : current_bulk.bulks)
+		for (const auto& [_, bulk] : current_bulk.bulks)
 		{
 			perform_bulk_cleanup(*bulk);
 		}
@@ -85,17 +85,18 @@ namespace
 		}
 	}
 
+	constexpr double A_EARTH = 6378.1370;
+	constexpr double EARTH_ECC = 0.08181919084262157;
+	constexpr double NAV_E2 = EARTH_ECC * EARTH_ECC;
+	constexpr double deg2rad = glm::pi<double>() / 180.0;
+	constexpr double rad2deg = 180.0 / glm::pi<double>();
+
 	glm::dvec3 lla_to_ecef(const double latitude, const double longitude, const double altitude)
 	{
 		if ((latitude < -90.0) || (latitude > +90.0) || (longitude < -180.0) || (longitude > +360.0))
 		{
 			return {};
 		}
-
-		constexpr double A_EARTH = 6378.1370;
-		constexpr double EARTH_ECC = 0.08181919084262157;
-		constexpr double NAV_E2 = EARTH_ECC * EARTH_ECC;
-		constexpr double deg2rad = glm::pi<double>() / 180.0;
 
 		const double slat = sin(latitude * deg2rad);
 		const double clat = cos(latitude * deg2rad);
@@ -109,6 +110,32 @@ namespace
 		const auto z = (r_n * (1.0 - NAV_E2) + altitude) * slat;
 
 		return glm::dvec3{x, y, z};
+	}
+
+	glm::dvec3 ecef_to_lla(const glm::dvec3& ecef)
+	{
+		const double x = ecef.x;
+		const double y = ecef.y;
+		const double z = ecef.z;
+
+		const double b = A_EARTH * sqrt(1.0 - NAV_E2);
+		const double ep2 = (A_EARTH * A_EARTH - b * b) / (b * b);
+
+		const double p = sqrt(x * x + y * y);
+		const double theta = atan2(z * A_EARTH, p * b);
+
+		double lon = atan2(y, x);
+		double lat = atan2(z + ep2 * b * pow(sin(theta), 3),
+		                   p - NAV_E2 * A_EARTH * pow(cos(theta), 3));
+
+		const double r_n = A_EARTH / sqrt(1.0 - NAV_E2 * sin(lat) * sin(lat));
+		const double alt = p / cos(lat) - r_n;
+
+		// Convert from radians to degrees
+		lat *= rad2deg;
+		lon *= rad2deg;
+
+		return glm::dvec3{lat, lon, alt};
 	}
 
 	void draw_sky(const double altitude)
@@ -870,8 +897,8 @@ namespace
 		world game_world{};
 		custom_rocktree<world, world_mesh> rock_tree{"earth", game_world};
 
-		auto eye = lla_to_ecef(48.994556, 8.400166, 6364810.2166);
-		glm::dvec3 direction{-0.295834, -0.662646, -0.688028};
+		auto eye = lla_to_ecef(48.8605, 2.2914, 6364690.0);
+		glm::dvec3 direction{0.374077, 0.71839, -0.5865};
 
 		constexpr float cCharacterHeightStanding = 1.0f;
 		constexpr float cCharacterRadiusStanding = 0.6f;
@@ -888,7 +915,7 @@ namespace
 		character_settings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cCharacterRadiusStanding);
 
 		physics_character character(&character_settings, v<JPH::RVec3>(eye), JPH::Quat::sIdentity(), 0,
-		                       &game_world.get_physics_system());
+		                            &game_world.get_physics_system());
 
 		character.AddToPhysicsSystem(JPH::EActivation::Activate);
 
@@ -909,6 +936,12 @@ namespace
 			p.silence();
 			run_frame(context, p);
 		});
+
+		puts("Terminating game...");
+		const auto lla = ecef_to_lla(context.eye);
+		printf("LLA: %g, %g, %g\n", lla.x, lla.y, lla.z);
+		printf("Position: %g, %g, %g\n", context.eye.x, context.eye.y, context.eye.z);
+		printf("Orientation: %g, %g, %g\n", context.direction.x, context.direction.y, context.direction.z);
 
 		character.RemoveFromPhysicsSystem();
 	}
