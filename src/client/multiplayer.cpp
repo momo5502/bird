@@ -30,13 +30,67 @@ namespace
 		name_t name{};
 		player_state state{};
 	};
+
+	void update_body(JPH::PhysicsSystem& system, const JPH::Body& body, const glm::dvec3& position,
+	                 const glm::dvec3& orientation)
+	{
+		(void)orientation;
+		const auto up = glm::normalize(position);
+		const auto down = -up;
+
+		constexpr auto normal_up = glm::dvec3(0.0, 1.0, 0.0);
+
+		const auto axis = glm::cross(normal_up, down);
+		const auto dotProduct = glm::dot(normal_up, down);
+		const auto angle = acos(dotProduct);
+
+		const glm::quat rotationQuat = glm::angleAxis(angle, glm::normalize(axis));
+
+		const JPH::Quat quat{
+			rotationQuat.x, //
+			rotationQuat.y, //
+			rotationQuat.z, //
+			rotationQuat.w, //
+		};
+
+		const auto position_vector = v<JPH::DVec3>(position);
+
+		system.GetBodyInterface().SetPositionAndRotation(body.GetID(), position_vector, quat.Normalized(),
+		                                                 JPH::EActivation::Activate);
+	}
+
+	JPH::Body* create_body(JPH::PhysicsSystem& system)
+	{
+		constexpr float cCharacterHeightStanding = 1.0f;
+		constexpr float cCharacterRadiusStanding = 0.6f;
+
+		const auto standingShape = JPH::RotatedTranslatedShapeSettings(
+			JPH::Vec3(0, 0.5f * cCharacterHeightStanding + cCharacterRadiusStanding, 0), JPH::Quat::sIdentity(),
+			new JPH::CapsuleShape(0.5f * cCharacterHeightStanding, cCharacterRadiusStanding)).Create();
+
+		auto& body_interface = system.GetBodyInterface();
+
+		const JPH::BodyCreationSettings body_settings(standingShape.Get(), JPH::DVec3{},
+		                                              JPH::Quat::sIdentity(),
+		                                              JPH::EMotionType::Static, Layers::NON_MOVING);
+
+		auto* body = body_interface.CreateBody(body_settings);
+		assert(body);
+
+		body_interface.AddBody(body->GetID(), JPH::EActivation::DontActivate);
+
+		return body;
+	}
 }
 
 player::~player()
 {
-	if (this->character)
+	if (this->character && this->physics_system)
 	{
-		this->character->RemoveFromPhysicsSystem();
+		auto& body_interface = this->physics_system->GetBodyInterface();
+
+		body_interface.RemoveBody(this->character->GetID());
+		body_interface.DestroyBody(this->character->GetID());
 	}
 }
 
@@ -93,45 +147,20 @@ size_t multiplayer::get_player_count() const
 	});
 }
 
-void multiplayer::access_player_by_body_id(const JPH::BodyID& id, const std::function<void(player&)>& accessor)
+bool multiplayer::access_player_by_body_id(const JPH::BodyID& id, const std::function<void(player&)>& accessor)
 {
-	this->players_.access([&](players& p)
+	return this->players_.access<bool>([&](players& p)
 	{
 		for (auto& [_, player] : p)
 		{
-			if (player.character->GetBodyID() == id)
+			if (player.character->GetID() == id)
 			{
 				accessor(player);
-				break;
+				return true;
 			}
 		}
-	});
-}
 
-void multiplayer::shift_positions_relative_to(const glm::dvec3& origin)
-{
-	const auto orig = v<JPH::RVec3>(origin);
-
-	this->players_.access([&orig](players& p)
-	{
-		for (auto& [_, player] : p)
-		{
-			const auto pos = player.character->GetPosition();
-			const auto new_pos = pos - orig;
-
-			player.character->SetPosition(new_pos);
-		}
-	});
-}
-
-void multiplayer::reset_player_positions()
-{
-	this->players_.access([](players& p)
-	{
-		for (auto& [_, player] : p)
-		{
-			player.character->update(player.position, player.orientation);
-		}
+		return false;
 	});
 }
 
@@ -169,25 +198,8 @@ void multiplayer::receive_player_states(const network::address& address, const s
 			auto& entry = players[player.guid];
 			if (!entry.character)
 			{
-				constexpr float cCharacterHeightStanding = 1.0f;
-				constexpr float cCharacterRadiusStanding = 0.6f;
-
-				auto standingShape = JPH::RotatedTranslatedShapeSettings(
-					JPH::Vec3(0, 0.5f * cCharacterHeightStanding + cCharacterRadiusStanding, 0), JPH::Quat::sIdentity(),
-					new JPH::CapsuleShape(0.5f * cCharacterHeightStanding, cCharacterRadiusStanding)).Create();
-
-				JPH::CharacterSettings character_settings{};
-				character_settings.mLayer = Layers::NON_MOVING;
-				character_settings.mMaxSlopeAngle = JPH::DegreesToRadians(45.0f);
-				character_settings.mShape = standingShape.Get();
-				character_settings.mFriction = 10.0f;
-				character_settings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cCharacterRadiusStanding);
-
-				entry.character = std::make_unique<physics_character>(&character_settings, JPH::DVec3{},
-				                                                      JPH::Quat::sIdentity(),
-				                                                      0, this->physics_system_);
-
-				entry.character->AddToPhysicsSystem(JPH::EActivation::Activate);
+				entry.physics_system = this->physics_system_;
+				entry.character = create_body(*entry.physics_system);
 
 				entry.guid = player.guid;
 				entry.name.assign(player.name.data(), strnlen(player.name.data(), player.name.size()));
@@ -197,7 +209,7 @@ void multiplayer::receive_player_states(const network::address& address, const s
 			entry.position = glm::dvec3(player.state.position[0], player.state.position[1], player.state.position[2]);
 			entry.orientation = glm::dvec3(player.state.angles[0], player.state.angles[1], player.state.angles[2]);
 
-			entry.character->update(entry.position, entry.orientation);
+			update_body(*this->physics_system_, *entry.character, entry.position, entry.orientation);
 		}
 
 		for (auto i = players.begin(); i != players.end();)

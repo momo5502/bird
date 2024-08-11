@@ -3,6 +3,7 @@
 #include "rocktree/rocktree.hpp"
 #include "input.hpp"
 
+#include "crosshair.hpp"
 #include "text_renderer.hpp"
 
 #include <utils/io.hpp>
@@ -284,6 +285,7 @@ namespace
 		text_renderer& renderer;
 		physics_character& character;
 		input& input_handler;
+		crosshair crosshair{};
 	};
 
 	struct fps_context
@@ -585,6 +587,51 @@ namespace
 	}
 #endif
 
+	class body_filter : public JPH::BodyFilter
+	{
+	public:
+		body_filter(rendering_context& c)
+			: c_(&c)
+		{
+		}
+
+		bool ShouldCollide(const JPH::BodyID& inBodyID) const override
+		{
+			return c_->character.GetBodyID() != inBodyID;
+		}
+
+	private:
+		rendering_context* c_{};
+	};
+
+	void shoot_bullet(rendering_context& c, world& game_world)
+	{
+		if (!c.should_shoot_now())
+		{
+			return;
+		}
+
+		auto& mp = game_world.get_multiplayer();
+		const auto lock = mp.get_player_lock();
+
+		const auto eye = c.eye;
+		const auto dir = c.direction;
+
+		JPH::RayCastResult result{};
+		const JPH::RRayCast ray(v<JPH::DVec3>(eye), v<JPH::Vec3>(glm::normalize(dir) * 1000.0));
+
+		const body_filter filter{c};
+		const auto& narrowQuery = game_world.get_physics_system().GetNarrowPhaseQuery();
+
+		if (narrowQuery.CastRay(ray, result, JPH::BroadPhaseLayerFilter{}, JPH::ObjectLayerFilter{}, filter))
+		{
+			mp.access_player_by_body_id(result.mBodyID, [&](const player& p)
+			{
+				printf("Hit player: %X - %llX\n", result.mBodyID.GetIndexAndSequenceNumber(), p.guid);
+			});
+		}
+	}
+
 	input_state handle_input(rendering_context& c)
 	{
 		const auto state = c.input_handler.get_input_state();
@@ -614,11 +661,8 @@ namespace
 		const auto width = viewport[2];
 		const auto height = viewport[3];
 
-
-		// projection
 		const auto aspect_ratio = static_cast<double>(width) / static_cast<double>(height);
 		constexpr auto fov = 0.25 * glm::pi<double>();
-
 
 		const auto horizon = sqrt(altitude * (2 * planet_radius + altitude));
 		auto near_val = 0.5;
@@ -709,7 +753,7 @@ namespace
 		{
 			if (is_boosting || !has_gravity)
 			{
-				c.character.SetPosition(v<JPH::RVec3>(c.eye + movement_vector));
+				c.character.SetPosition(v<JPH::RVec3>(new_eye));
 				c.character.SetLinearVelocity({});
 			}
 			else if (is_moving)
@@ -730,6 +774,8 @@ namespace
 			}
 		}
 
+		shoot_bullet(c, game_world);
+
 		if (has_gravity)
 		{
 			const auto time_delta = static_cast<double>(c.win.get_last_frame_time()) / (1000.0 * 1000.0);
@@ -738,7 +784,6 @@ namespace
 			                      &game_world.get_temp_allocator(), &game_world.get_job_system());
 			c.character.PostSimulation(0.05f);
 		}
-
 
 		const auto view = glm::lookAt(c.eye, c.eye + c.direction, up);
 		const auto viewprojection = projection * view;
@@ -762,74 +807,6 @@ namespace
 		{
 			return !q.empty();
 		});
-	}
-
-	class body_filter : public JPH::BodyFilter
-	{
-	public:
-		body_filter(rendering_context& c, world& game_world)
-			: c_(&c)
-		{
-			game_world.get_multiplayer().access_players([&](const players& p)
-			{
-				for (const auto& player : p)
-				{
-					this->relevant_ids_.insert(player.second.character->GetBodyID());
-				}
-			});
-		}
-
-		bool ShouldCollide(const JPH::BodyID& inBodyID) const override
-		{
-			if (!this->relevant_ids_.contains(inBodyID))
-			{
-				return false;
-			}
-
-			return true;
-		}
-
-		bool ShouldCollideLocked(const JPH::Body& inBody) const override
-		{
-			return ShouldCollide(inBody.GetID());
-		}
-
-	private:
-		std::unordered_set<JPH::BodyID> relevant_ids_{};
-		rendering_context* c_{};
-	};
-
-	void shoot_bullet(rendering_context& c, world& game_world)
-	{
-		if (!c.should_shoot_now())
-		{
-			return;
-		}
-
-		auto& mp = game_world.get_multiplayer();
-		const auto lock = mp.get_player_lock();
-
-		const auto _ = utils::finally([&]
-		{
-			mp.reset_player_positions();
-		});
-
-		JPH::RayCastResult result{};
-		JPH::RRayCast ray(JPH::DVec3{}, v<JPH::Vec3>(glm::normalize(c.direction) * 1000.0));
-
-		const auto& narrowQuery = game_world.get_physics_system().GetNarrowPhaseQuery();
-
-		body_filter filter{c, game_world};
-
-		mp.shift_positions_relative_to(c.eye);
-
-		if (narrowQuery.CastRay(ray, result, JPH::BroadPhaseLayerFilter{}, JPH::ObjectLayerFilter{}, filter))
-		{
-			mp.access_player_by_body_id(result.mBodyID, [](player& p)
-			{
-				printf("Hit player: %llX\n", p.guid);
-			});
-		}
 	}
 
 	void run_frame(rendering_context& c, profiler& p)
@@ -897,17 +874,17 @@ namespace
 
 		game_world.get_multiplayer().access_players([&](const players& players)
 		{
-			for (const auto& player : players)
+			for (const auto& [_, player] : players)
 			{
 				game_world.get_player_mesh().
-				           draw(viewprojection, player.second.position, player.second.orientation);
+				           draw(viewprojection, player.position, player.orientation);
 			}
 		});
 
-		shoot_bullet(c, game_world);
-
 		p.step("Push buffer");
 		const auto buffer_queue = push_meshes_for_buffering(c, std::move(new_meshes_to_buffer));
+
+		c.crosshair.draw();
 
 		p.step("Draw Text");
 		update_fps(c);
@@ -1023,7 +1000,7 @@ namespace
 		constexpr float cCharacterHeightStanding = 1.0f;
 		constexpr float cCharacterRadiusStanding = 0.6f;
 
-		auto standingShape = JPH::RotatedTranslatedShapeSettings(
+		const auto standingShape = JPH::RotatedTranslatedShapeSettings(
 			JPH::Vec3(0, 0.5f * cCharacterHeightStanding + cCharacterRadiusStanding, 0), JPH::Quat::sIdentity(),
 			new JPH::CapsuleShape(0.5f * cCharacterHeightStanding, cCharacterRadiusStanding)).Create();
 

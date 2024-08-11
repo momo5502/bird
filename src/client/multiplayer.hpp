@@ -29,10 +29,11 @@ public:
 	std::string name{};
 	glm::dvec3 position{};
 	glm::dvec3 orientation{};
-	std::unique_ptr<physics_character> character{};
+	JPH::Body* character{};
 
 private:
 	bool was_accessed{false};
+	JPH::PhysicsSystem* physics_system{};
 };
 
 using players = std::map<player_guid, player>;
@@ -46,12 +47,9 @@ public:
 	void access_players(const std::function<void(const players&)>& accessor) const;
 	size_t get_player_count() const;
 
-	void access_player_by_body_id(const JPH::BodyID& id, const std::function<void(player&)>& accessor);
+	bool access_player_by_body_id(const JPH::BodyID& id, const std::function<void(player&)>& accessor);
 
-	void shift_positions_relative_to(const glm::dvec3& origin);
-	void reset_player_positions();
-
-	 std::unique_lock<std::recursive_mutex> get_player_lock();
+	std::unique_lock<std::recursive_mutex> get_player_lock();
 
 private:
 	JPH::PhysicsSystem* physics_system_{};
