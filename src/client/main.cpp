@@ -13,12 +13,11 @@
 
 #include <cmrc/cmrc.hpp>
 
-#include "Jolt/Physics/Collision/Shape/CapsuleShape.h"
-#include "Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h"
 #include "world/world.hpp"
 #include "world/world_mesh.hpp"
 
 #include "multiplayer.hpp"
+#include "world/physics_vector.hpp"
 
 CMRC_DECLARE(bird);
 
@@ -27,24 +26,6 @@ CMRC_DECLARE(bird);
 namespace
 {
 	constexpr float ANIMATION_TIME = 350.0f;
-
-	template <typename T>
-	T v(const glm::dvec3& vec)
-	{
-		using Type = decltype(static_cast<T*>(nullptr)->GetX());
-
-		return T(static_cast<Type>(vec.x), static_cast<Type>(vec.y), static_cast<Type>(vec.z));
-	}
-
-	glm::dvec3 v(const JPH::Vec3& vec)
-	{
-		return {vec.GetX(), vec.GetY(), vec.GetZ()};
-	}
-
-	glm::dvec3 v(const JPH::RVec3& vec)
-	{
-		return {vec.GetX(), vec.GetY(), vec.GetZ()};
-	}
 
 	bool perform_object_cleanup(generic_object& obj)
 	{
@@ -266,16 +247,6 @@ namespace
 		return glm::normalize(forward_vector);
 	}
 
-	struct my_character : JPH::Character
-	{
-		using JPH::Character::Character;
-
-		void set_supporting_volume(JPH::Plane plane)
-		{
-			this->mSupportingVolume = std::move(plane);
-		}
-	};
-
 	struct simulation_objects
 	{
 		window& win;
@@ -284,7 +255,7 @@ namespace
 		glm::dvec3& direction;
 
 		text_renderer& renderer;
-		my_character& character;
+		physics_character& character;
 		input& input_handler;
 	};
 
@@ -303,8 +274,6 @@ namespace
 		bool gravity_on{true};
 		double render_distance{1.5};
 		uint64_t last_vertices{0};
-
-		multiplayer mp{};
 	};
 
 	void update_fps(fps_context& c)
@@ -786,7 +755,7 @@ namespace
 		{
 			for (const auto& player : players)
 			{
-				game_world.get_player_mesh().draw(viewprojection, player.position, player.orientation);
+				game_world.get_player_mesh().draw(viewprojection, player.second.position, player.second.orientation);
 			}
 		});
 
@@ -904,8 +873,8 @@ namespace
 		auto eye = lla_to_ecef(48.994556, 8.400166, 6364810.2166);
 		glm::dvec3 direction{-0.295834, -0.662646, -0.688028};
 
-		static constexpr float cCharacterHeightStanding = 1.0f;
-		static constexpr float cCharacterRadiusStanding = 0.6f;
+		constexpr float cCharacterHeightStanding = 1.0f;
+		constexpr float cCharacterRadiusStanding = 0.6f;
 
 		auto standingShape = JPH::RotatedTranslatedShapeSettings(
 			JPH::Vec3(0, 0.5f * cCharacterHeightStanding + cCharacterRadiusStanding, 0), JPH::Quat::sIdentity(),
@@ -918,7 +887,7 @@ namespace
 		character_settings.mFriction = 10.0f;
 		character_settings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cCharacterRadiusStanding);
 
-		my_character character(&character_settings, v<JPH::RVec3>(eye), JPH::Quat::sIdentity(), 0,
+		physics_character character(&character_settings, v<JPH::RVec3>(eye), JPH::Quat::sIdentity(), 0,
 		                       &game_world.get_physics_system());
 
 		character.AddToPhysicsSystem(JPH::EActivation::Activate);

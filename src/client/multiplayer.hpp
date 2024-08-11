@@ -2,6 +2,7 @@
 #include <network/manager.hpp>
 #include <utils/concurrency.hpp>
 #include <utils/cryptography.hpp>
+#include "world/physics_character.hpp"
 
 inline network::address get_master_server()
 {
@@ -9,30 +10,45 @@ inline network::address get_master_server()
 	{
 		return {"server.momo5502.com:28960"};
 	}
-	catch(...)
-	{ 
+	catch (...)
+	{
 		return {};
 	}
 }
 
-struct player
+using player_guid = uint64_t;
+
+class player
 {
+public:
+	friend class multiplayer;
+
+	~player();
+
+	player_guid guid{};
+	std::string name{};
 	glm::dvec3 position{};
 	glm::dvec3 orientation{};
+	std::unique_ptr<physics_character> character{};
+
+private:
+	bool was_accessed{false};
 };
 
-using players = std::vector<player>;
+using players = std::map<player_guid, player>;
 
 class multiplayer final
 {
 public:
-	multiplayer(network::address server = get_master_server());
+	multiplayer(JPH::PhysicsSystem& physics_system, network::address server = get_master_server());
 
 	void transmit_position(const glm::dvec3& position, const glm::dvec3& orientation) const;
 	void access_players(const std::function<void(const players&)>& accessor) const;
 	size_t get_player_count() const;
 
 private:
+	JPH::PhysicsSystem* physics_system_{};
+
 	utils::cryptography::ecc::key identity_{};
 	utils::concurrency::container<players> players_{};
 

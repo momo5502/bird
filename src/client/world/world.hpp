@@ -17,7 +17,7 @@ static void TraceImpl(const char* in_fmt, ...)
 	va_end(list);
 
 	// Print to the TTY
-	std::cout << buffer << std::endl;
+	std::cout << buffer << "\n";
 }
 
 #ifdef JPH_ENABLE_ASSERTS
@@ -53,6 +53,7 @@ struct physics_setup
 	{
 		JPH::UnregisterTypes();
 		delete JPH::Factory::sInstance;
+		JPH::Factory::sInstance = nullptr;
 	}
 };
 
@@ -154,8 +155,7 @@ public:
 		  , job_system_(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers,
 		                static_cast<int>(std::thread::hardware_concurrency()) - 2)
 		  , player_mesh_(bufferer_)
-
-
+		  , multiplayer_(physics_system_)
 	{
 		physics_system_.Init(1024 * 100, 0, 1024, 1024, broad_phase_layer_interface_,
 		                     object_vs_broadphase_layer_filter_,
@@ -213,5 +213,5 @@ private:
 	shader_context context_{};
 	gl_bufferer bufferer_{};
 	player_mesh player_mesh_;
-	multiplayer multiplayer_{};
+	multiplayer multiplayer_;
 };
