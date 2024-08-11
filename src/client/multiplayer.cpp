@@ -108,6 +108,11 @@ multiplayer::multiplayer(JPH::PhysicsSystem& physics_system, network::address se
 	{
 		this->receive_auth_request(address, data);
 	});
+
+	this->manager_.on("killed", [this](const network::address& address, const std::string_view& data)
+	{
+		this->receive_killed_command(address, data);
+	});
 }
 
 void multiplayer::transmit_position(const glm::dvec3& position, const glm::dvec3& orientation) const
