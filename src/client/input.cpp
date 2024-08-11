@@ -44,6 +44,7 @@ namespace
 
 		state.jumping = is_any_key_pressed(window, GLFW_KEY_SPACE);
 		state.sprinting = is_any_key_pressed(window, GLFW_KEY_LEFT_ALT);
+		state.shooting = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 
 		const auto mouse_position = window.get_mouse_position();
 		state.mouse_x = mouse_position.first;
@@ -82,6 +83,7 @@ namespace
 		state.sprinting = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_THUMB] == GLFW_PRESS;
 
 		state.gravity_toggle = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_BACK] == GLFW_PRESS;
+		state.shooting = gamepad_state.buttons[GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER] == GLFW_PRESS;
 
 		double left_x = gamepad_state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
 		double left_y = gamepad_state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
@@ -134,6 +136,7 @@ namespace
 		state.sprinting = state_1.sprinting || state_2.sprinting;
 
 		state.gravity_toggle = state_1.gravity_toggle || state_2.gravity_toggle;
+		state.shooting = state_1.shooting || state_2.shooting;
 
 		return state;
 	}

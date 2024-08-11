@@ -93,6 +93,53 @@ size_t multiplayer::get_player_count() const
 	});
 }
 
+void multiplayer::access_player_by_body_id(const JPH::BodyID& id, const std::function<void(player&)>& accessor)
+{
+	this->players_.access([&](players& p)
+	{
+		for (auto& [_, player] : p)
+		{
+			if (player.character->GetBodyID() == id)
+			{
+				accessor(player);
+				break;
+			}
+		}
+	});
+}
+
+void multiplayer::shift_positions_relative_to(const glm::dvec3& origin)
+{
+	const auto orig = v<JPH::RVec3>(origin);
+
+	this->players_.access([&orig](players& p)
+	{
+		for (auto& [_, player] : p)
+		{
+			const auto pos = player.character->GetPosition();
+			const auto new_pos = pos - orig;
+
+			player.character->SetPosition(new_pos);
+		}
+	});
+}
+
+void multiplayer::reset_player_positions()
+{
+	this->players_.access([](players& p)
+	{
+		for (auto& [_, player] : p)
+		{
+			player.character->update(player.position, player.orientation);
+		}
+	});
+}
+
+std::unique_lock<std::recursive_mutex> multiplayer::get_player_lock()
+{
+	return this->players_.acquire_lock();
+}
+
 void multiplayer::receive_player_states(const network::address& address, const std::string_view& data)
 {
 	if (address != this->server_)
@@ -136,7 +183,8 @@ void multiplayer::receive_player_states(const network::address& address, const s
 				character_settings.mFriction = 10.0f;
 				character_settings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cCharacterRadiusStanding);
 
-				entry.character = std::make_unique<physics_character>(&character_settings, JPH::DVec3{}, JPH::Quat::sIdentity(),
+				entry.character = std::make_unique<physics_character>(&character_settings, JPH::DVec3{},
+				                                                      JPH::Quat::sIdentity(),
 				                                                      0, this->physics_system_);
 
 				entry.character->AddToPhysicsSystem(JPH::EActivation::Activate);

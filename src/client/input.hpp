@@ -18,6 +18,7 @@ struct input_state
 	bool sprinting{false};
 
 	bool gravity_toggle{false};
+	bool shooting{false};
 };
 
 class window;

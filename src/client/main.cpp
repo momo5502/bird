@@ -295,7 +295,35 @@ namespace
 		int fps{60};
 	};
 
-	struct rendering_context : simulation_objects, fps_context
+	struct shooting_context
+	{
+		bool shot_requested{false};
+		std::chrono::milliseconds cooldown{100ms};
+		std::chrono::high_resolution_clock::time_point last_shot{};
+
+		bool should_shoot_now()
+		{
+			if (!this->shot_requested)
+			{
+				return false;
+			}
+
+			this->shot_requested = false;
+
+			const auto now = std::chrono::high_resolution_clock::now();
+			const auto diff = now - this->last_shot;
+
+			if (diff < this->cooldown)
+			{
+				return false;
+			}
+
+			this->last_shot = now;
+			return true;
+		}
+	};
+
+	struct rendering_context : simulation_objects, fps_context, shooting_context
 	{
 		utils::concurrency::container<std::queue<world_mesh*>> meshes_to_buffer{};
 		bool gravity_on{true};
@@ -560,6 +588,7 @@ namespace
 	input_state handle_input(rendering_context& c)
 	{
 		const auto state = c.input_handler.get_input_state();
+		c.shot_requested = state.shooting;
 
 		if (state.gravity_toggle)
 		{
@@ -735,6 +764,74 @@ namespace
 		});
 	}
 
+	class body_filter : public JPH::BodyFilter
+	{
+	public:
+		body_filter(rendering_context& c, world& game_world)
+			: c_(&c)
+		{
+			game_world.get_multiplayer().access_players([&](const players& p)
+			{
+				for (const auto& player : p)
+				{
+					this->relevant_ids_.insert(player.second.character->GetBodyID());
+				}
+			});
+		}
+
+		bool ShouldCollide(const JPH::BodyID& inBodyID) const override
+		{
+			if (!this->relevant_ids_.contains(inBodyID))
+			{
+				return false;
+			}
+
+			return true;
+		}
+
+		bool ShouldCollideLocked(const JPH::Body& inBody) const override
+		{
+			return ShouldCollide(inBody.GetID());
+		}
+
+	private:
+		std::unordered_set<JPH::BodyID> relevant_ids_{};
+		rendering_context* c_{};
+	};
+
+	void shoot_bullet(rendering_context& c, world& game_world)
+	{
+		if (!c.should_shoot_now())
+		{
+			return;
+		}
+
+		auto& mp = game_world.get_multiplayer();
+		const auto lock = mp.get_player_lock();
+
+		const auto _ = utils::finally([&]
+		{
+			mp.reset_player_positions();
+		});
+
+		JPH::RayCastResult result{};
+		JPH::RRayCast ray(JPH::DVec3{}, v<JPH::Vec3>(glm::normalize(c.direction) * 1000.0));
+
+		const auto& narrowQuery = game_world.get_physics_system().GetNarrowPhaseQuery();
+
+		body_filter filter{c, game_world};
+
+		mp.shift_positions_relative_to(c.eye);
+
+		if (narrowQuery.CastRay(ray, result, JPH::BroadPhaseLayerFilter{}, JPH::ObjectLayerFilter{}, filter))
+		{
+			mp.access_player_by_body_id(result.mBodyID, [](player& p)
+			{
+				printf("Hit player: %llX\n", p.guid);
+			});
+		}
+	}
+
 	void run_frame(rendering_context& c, profiler& p)
 	{
 		++c.total_frame_counter;
@@ -802,9 +899,12 @@ namespace
 		{
 			for (const auto& player : players)
 			{
-				game_world.get_player_mesh().draw(viewprojection, player.second.position, player.second.orientation);
+				game_world.get_player_mesh().
+				           draw(viewprojection, player.second.position, player.second.orientation);
 			}
 		});
+
+		shoot_bullet(c, game_world);
 
 		p.step("Push buffer");
 		const auto buffer_queue = push_meshes_for_buffering(c, std::move(new_meshes_to_buffer));

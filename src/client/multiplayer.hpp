@@ -46,11 +46,18 @@ public:
 	void access_players(const std::function<void(const players&)>& accessor) const;
 	size_t get_player_count() const;
 
+	void access_player_by_body_id(const JPH::BodyID& id, const std::function<void(player&)>& accessor);
+
+	void shift_positions_relative_to(const glm::dvec3& origin);
+	void reset_player_positions();
+
+	 std::unique_lock<std::recursive_mutex> get_player_lock();
+
 private:
 	JPH::PhysicsSystem* physics_system_{};
 
 	utils::cryptography::ecc::key identity_{};
-	utils::concurrency::container<players> players_{};
+	utils::concurrency::container<players, std::recursive_mutex> players_{};
 
 	network::address server_{};
 	network::manager manager_{};
