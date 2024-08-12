@@ -32,7 +32,7 @@ void main() {
     bool isHorizontal = abs(pos.y - center.y) < thickness && abs(pos.x - center.x) < length;
 
     if (isVertical || isHorizontal) {
-        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 0.6);
     } else {
         discard;
     }
