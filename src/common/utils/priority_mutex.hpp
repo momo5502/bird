@@ -16,14 +16,11 @@ namespace utils
 		{
 			std::unique_lock low_lock{this->low_};
 			this->data_.lock();
-
-			low_lock.release();
 		}
 
 		void unlock() noexcept
 		{
 			this->data_.unlock();
-			this->low_.unlock();
 		}
 
 	private:
