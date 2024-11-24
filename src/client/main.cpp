@@ -826,9 +826,10 @@ namespace
 
 		if (!c.is_ready)
 		{
-			c.is_ready = c.total_frame_counter > 10 //
+			c.is_ready = c.total_frame_counter > 30 //
 				&& c.rock_tree.get_tasks() == 0 //
-				&& c.rock_tree.get_objects() > 0 //
+				&& c.rock_tree.get_downloads() == 0 //
+				&& c.rock_tree.get_objects() > 1 //
 				&& !has_meshes_to_buffer(c);
 		}
 
