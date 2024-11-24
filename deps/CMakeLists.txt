@@ -128,6 +128,8 @@ set(USE_TZCNT ON)
 set(USE_F16C ON)
 set(USE_FMADD ON)
 
+option(CPP_RTTI_ENABLED "" ON)
+
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/JoltPhysics/Build")
 
 ##########################################
