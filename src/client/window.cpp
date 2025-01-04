@@ -7,67 +7,67 @@
 
 namespace
 {
-	void init_glfw()
+	void init_sdl()
 	{
-		if (glfwInit() != GLFW_TRUE)
+		if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK))
 		{
-			throw std::runtime_error("Unable to initialize glfw");
-		}
-	}
-
-	void init_glew()
-	{
-		glewExperimental = true;
-
-		if (glewInit() != GLEW_OK)
-		{
-			throw std::runtime_error("Unable to initialize glew");
+			throw std::runtime_error("Unable to initialize SDL");
 		}
 	}
 }
 
 window::window(const int width, const int height, const std::string& title)
 {
-	init_glfw();
+	init_sdl();
 	this->create(width, height, title);
-	init_glew();
 }
 
 window::~window()
 {
-	glfwTerminate();
+	SDL_Quit();
 }
 
-window::operator GLFWwindow*() const
+window::operator SDL_Window*() const
 {
 	return this->handle_;
 }
 
 void window::create(const int width, const int height, const std::string& title)
 {
-	glfwWindowHint(GLFW_SAMPLES, 4);
+	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 5);
+	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 5);
+	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 5);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
+	/*glfwWindowHint(GLFW_SAMPLES, 4);
 	glfwWindowHint(GLFW_DEPTH_BITS, 32);
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);*/
 
-	this->handle_ = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
-	if (!this->handle_)
-	{
-		throw std::runtime_error("Unable to create window");
-	}
+	SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
+	SDL_CreateWindowAndRenderer(title.c_str(), width, height, SDL_WINDOW_OPENGL, &this->handle_, &this->renderer_);
 
-	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+	SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 
-	this->shared_handle_ = glfwCreateWindow(640, 480, "", nullptr, this->handle_);
+	this->shared_handle_ = SDL_CreateWindow("", 640, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN);
+	this->shared_context_ = SDL_GL_CreateContext(this->handle_);
 
-	glfwSetWindowUserPointer(this->handle_, this);
+	SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
+
+
+	//glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+
+	//this->shared_handle_ = glfwCreateWindow(640, 480, "", nullptr, this->handle_);
+
+	/*glfwSetWindowUserPointer(this->handle_, this);
 	glfwMakeContextCurrent(this->handle_);
 	glfwSetWindowSizeCallback(this->handle_, window::size_callback_static);
 
-	glfwSwapInterval(-1);
+	glfwSwapInterval(-1);*/
 
 	glViewport(0, 0, width, height);
 
@@ -79,8 +79,8 @@ void window::create(const int width, const int height, const std::string& title)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	glfwSetInputMode(this->handle_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	glfwSetCursorPos(this->handle_, 0, 0);
+	//glfwSetInputMode(this->handle_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	//glfwSetCursorPos(this->handle_, 0, 0);
 }
 
 void window::size_callback(const int width, const int height)
@@ -88,18 +88,22 @@ void window::size_callback(const int width, const int height)
 	glViewport(0, 0, width, height);
 }
 
-void window::size_callback_static(GLFWwindow* _window, const int width, const int height)
+/*void window::size_callback_static(GLFWwindow* _window, const int width, const int height)
 {
 	static_cast<window*>(glfwGetWindowUserPointer(_window))->size_callback(width, height);
-}
+}*/
 
 void window::show(const std::function<void(profiler& profiler)>& frame_callback)
 {
-	while (this->handle_ && !glfwWindowShouldClose(this->handle_))
+	SDL_Event event;
+	while (this->handle_)
 	{
 		profiler p{"Poll"};
 
-		glfwPollEvents();
+		while (!SDL_PollEvent(&event))
+		{
+			break;
+		}
 
 		p.step("Draw");
 
@@ -110,7 +114,7 @@ void window::show(const std::function<void(profiler& profiler)>& frame_callback)
 
 		p.step("Swap");
 
-		glfwSwapBuffers(this->handle_);
+		SDL_RenderPresent(this->renderer_);
 
 		this->update_frame_times();
 	}
@@ -118,12 +122,12 @@ void window::show(const std::function<void(profiler& profiler)>& frame_callback)
 
 void window::close()
 {
-	glfwSetWindowShouldClose(this->handle_, GLFW_TRUE);
+	//glfwSetWindowShouldClose(this->handle_, GLFW_TRUE);
 }
 
 bool window::is_key_pressed(const int key) const
 {
-	return glfwGetKey(*this, key) == GLFW_PRESS;
+	return false;//return glfwGetKey(*this, key) == GLFW_PRESS;
 }
 
 std::pair<double, double> window::get_mouse_position() const
@@ -134,8 +138,8 @@ std::pair<double, double> window::get_mouse_position() const
 	if (!utils::nt::is_wine())
 #endif
 	{
-		glfwGetCursorPos(*this, &mouse_x, &mouse_y);
-		glfwSetCursorPos(*this, 0, 0);
+		//glfwGetCursorPos(*this, &mouse_x, &mouse_y);
+		//glfwSetCursorPos(*this, 0, 0);
 	}
 
 	return {mouse_x, mouse_y};
@@ -158,13 +162,14 @@ double window::get_current_time() const
 void window::use_shared_context(const std::function<void()>& callback)
 {
 	std::lock_guard<std::mutex> lock{this->shared_context_mutex_};
-	auto old_context = glfwGetCurrentContext();
-	const auto _ = utils::finally([&old_context]
+	auto* old_context = SDL_GL_GetCurrentContext();
+	auto* old_window = SDL_GL_GetCurrentWindow();
+	const auto _ = utils::finally([&]
 	{
-		glfwMakeContextCurrent(old_context);
+		SDL_GL_MakeCurrent(old_window, old_context);
 	});
 
-	glfwMakeContextCurrent(this->shared_handle_);
+	SDL_GL_MakeCurrent(this->shared_handle_, this->shared_context_);
 
 	callback();
 }

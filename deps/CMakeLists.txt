@@ -3,8 +3,16 @@ include(${CMAKE_CURRENT_LIST_DIR}/cmrc/CMakeRC.cmake)
 ##########################################
 
 add_subdirectory(glm)
-add_subdirectory(glfw)
+#add_subdirectory(glfw)
 add_subdirectory(crn)
+
+##########################################
+
+option(SDL_STATIC "" ON)
+option(SDL_SHARED "" OFF)
+option(SDL_TEST_LIBRARY "" OFF)
+option(SDL_EXAMPLES "" OFF)
+add_subdirectory(SDL)
 
 ##########################################
 

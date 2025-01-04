@@ -30,7 +30,7 @@ namespace
 	input_state get_keyboard_state(const window& window)
 	{
 		input_state state{};
-
+		/*
 		state.exit = is_any_key_pressed(window, GLFW_KEY_ESCAPE);
 
 		state.up = get_pressed_key_value(window, GLFW_KEY_UP, GLFW_KEY_W);
@@ -49,7 +49,7 @@ namespace
 		const auto mouse_position = window.get_mouse_position();
 		state.mouse_x = mouse_position.first;
 		state.mouse_y = mouse_position.second;
-
+		*/
 		return state;
 	}
 
@@ -72,7 +72,7 @@ namespace
 	{
 		input_state state{};
 
-		GLFWgamepadstate gamepad_state{};
+		/*GLFWgamepadstate gamepad_state{};
 		if (!glfwJoystickIsGamepad(GLFW_JOYSTICK_1) || !glfwGetGamepadState(GLFW_JOYSTICK_1, &gamepad_state))
 		{
 			return state;
@@ -112,7 +112,7 @@ namespace
 
 		state.mouse_x = right_x * 10.0;
 		state.mouse_y = right_y * 10.0;
-
+		*/
 		return state;
 	}
 

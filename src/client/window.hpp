@@ -8,7 +8,7 @@ public:
 	window(int width, int height, const std::string& title);
 	~window();
 
-	operator GLFWwindow*() const;
+	operator SDL_Window*() const;
 
 	void show(const std::function<void(profiler& profiler)>& frame_callback);
 	void close();
@@ -23,8 +23,11 @@ public:
 
 private:
 	std::mutex shared_context_mutex_{};
-	GLFWwindow* handle_ = nullptr;
-	GLFWwindow* shared_handle_ = nullptr;
+	SDL_Renderer* renderer_ = nullptr;
+	SDL_Window* handle_ = nullptr;
+
+	SDL_Window* shared_handle_ = nullptr;
+	SDL_GLContext shared_context_ = {};
 
 	long long last_frame_time_{};
 	std::chrono::system_clock::time_point last_frame_ = std::chrono::system_clock::now();
@@ -35,5 +38,5 @@ private:
 	void create(int width, int height, const std::string& title);
 
 	static void size_callback(int width, int height);
-	static void size_callback_static(GLFWwindow* window, int width, int height);
+	static void size_callback_static(SDL_Window* window, int width, int height);
 };

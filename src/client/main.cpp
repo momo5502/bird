@@ -294,7 +294,7 @@ namespace
 	{
 		std::atomic_uint64_t total_frame_counter{0};
 
-		double last_frame_time{0};
+		std::chrono::high_resolution_clock::time_point last_frame_time{};
 		uint32_t frame_counter{0};
 		int fps{60};
 	};
@@ -338,14 +338,14 @@ namespace
 
 	void update_fps(fps_context& c)
 	{
-		const auto current_frame_time = glfwGetTime();
+		const auto current_frame_time = std::chrono::high_resolution_clock::now();
 		const auto time_diff = current_frame_time - c.last_frame_time;
 
 		c.frame_counter++;
 
-		if (time_diff >= 1.0 / 4)
+		if (time_diff >= (1s / 4))
 		{
-			c.fps = static_cast<int>((1.0 / time_diff) * c.frame_counter);
+			c.fps = static_cast<int>((1s / time_diff) * c.frame_counter);
 			c.last_frame_time = current_frame_time;
 			c.frame_counter = 0;
 		}
@@ -799,8 +799,8 @@ namespace
 		int framebuffer_width{};
 		int framebuffer_height{};
 
-		glfwGetFramebufferSize(window, &framebuffer_width,
-		                       &framebuffer_height);
+		//glfwGetFramebufferSize(window, &framebuffer_width,
+		//                       &framebuffer_height);
 		glViewport(0, 0, framebuffer_width, framebuffer_height);
 	}
 
@@ -846,7 +846,7 @@ namespace
 		}
 
 		p.step("Prepare");
-		reset_viewport(c.win);
+		//reset_viewport(c.win);
 
 		auto& game_world = c.rock_tree.with<world>();
 
@@ -993,6 +993,8 @@ namespace
 
 	void run()
 	{
+		SDL_SetAppMetadata("Bord", "1.0", "com.momo5502.bird");
+
 #ifdef _WIN32
 		if (utils::nt::is_wine())
 		{

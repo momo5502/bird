@@ -53,3 +53,6 @@
 	url = https://github.com/libtom/libtommath.git
 	branch = develop
 	shallow = true
+[submodule "deps/SDL"]
+	path = deps/SDL
+	url = https://github.com/libsdl-org/SDL.git
