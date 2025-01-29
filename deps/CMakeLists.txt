@@ -46,6 +46,7 @@ option(CURL_DISABLE_SMB "" ON)
 option(CURL_DISABLE_TELNET "" ON)
 option(CURL_DISABLE_TFTP "" ON)
 
+option(CURL_USE_LIBPSL "" OFF)
 option(CURL_USE_LIBSSH2 "" OFF)
 option(USE_NGHTTP2 "" OFF)
 option(USE_LIBIDN2 "" OFF)
