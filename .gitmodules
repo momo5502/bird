@@ -35,6 +35,7 @@
 	path = deps/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
 	shallow = true
+	branch = mbedtls-3.6
 [submodule "deps/cmrc"]
 	path = deps/cmrc
 	url = https://github.com/vector-of-bool/cmrc.git
