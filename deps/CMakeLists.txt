@@ -170,6 +170,7 @@ target_compile_definitions(libtomcrypt PUBLIC
   LTC_FORTUNA
   LTC_MECC
   LTC_HMAC
+  LTC_OMAC
   LTC_DER
   LTC_PKCS_5
   LTC_PKCS_12
