@@ -8,6 +8,7 @@ namespace
 	{
 		return R"code(
 uniform mat4 transform;
+uniform mat4 worldmatrix;
 uniform vec2 uv_offset;
 uniform vec2 uv_scale;
 uniform bool octant_mask[8];
@@ -24,6 +25,7 @@ attribute vec2 texcoords;
 varying vec2 v_texcoords;
 varying float v_alpha;
 varying vec3 v_normal;
+varying vec3 v_worldpos;
 
 void main() {
 
@@ -46,6 +48,10 @@ void main() {
 		mask = 0.0;
 	}
 
+
+	vec4 worldpos = worldmatrix * vec4(position, 1.0);
+	v_worldpos = worldpos.xyz / worldpos.w;
+
     v_normal = normal;
     v_texcoords = (texcoords + uv_offset) * uv_scale * mask;
     gl_Position = transform * vec4(position, 1.0) * mask;
@@ -65,6 +71,7 @@ uniform sampler2D textureObj;
 varying vec2 v_texcoords;
 varying float v_alpha;
 varying vec3 v_normal;
+varying vec3 v_worldpos;
 
 float rand(vec2 co){
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
@@ -108,6 +115,7 @@ shader_context::shader_context()
 	const auto _ = s.use();
 
 	this->transform_loc = s.uniform("transform");
+	this->worldmatrix_loc = s.uniform("worldmatrix");
 	this->uv_offset_loc = s.uniform("uv_offset");
 	this->uv_scale_loc = s.uniform("uv_scale");
 	this->octant_mask_loc = s.uniform("octant_mask");

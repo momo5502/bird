@@ -465,9 +465,11 @@ namespace
 			// skip if node is masked completely
 			if (!must_draw) continue;
 
-			glm::mat4 transform = viewprojection * node->matrix_globe_from_mesh;
+			const glm::mat4 transform = viewprojection * node->matrix_globe_from_mesh;
+			const glm::mat4 worldmatrix = node->matrix_globe_from_mesh;
 
 			glUniformMatrix4fv(ctx.transform_loc, 1, GL_FALSE, &transform[0][0]);
+			glUniformMatrix4fv(ctx.worldmatrix_loc, 1, GL_FALSE, &worldmatrix[0][0]);
 
 			p.step("Loop2Draw");
 

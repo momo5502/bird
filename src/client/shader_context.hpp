@@ -7,6 +7,7 @@ public:
 	shader_context();
 
 	GLint transform_loc;
+	GLint worldmatrix_loc;
 	GLint uv_offset_loc;
 	GLint uv_scale_loc;
 	GLint octant_mask_loc;
