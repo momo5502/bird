@@ -53,9 +53,9 @@ physics_node::physics_node(world& game_world, const std::vector<mesh_data>& mesh
 		for (const auto& vertex : mesh_data.vertices)
 		{
 			const glm::dvec4 local_position{
-				static_cast<double>(vertex.x), //
-				static_cast<double>(vertex.y), //
-				static_cast<double>(vertex.z), //
+				static_cast<double>(vertex.position.x), //
+				static_cast<double>(vertex.position.y), //
+				static_cast<double>(vertex.position.z), //
 				1.0,
 			};
 

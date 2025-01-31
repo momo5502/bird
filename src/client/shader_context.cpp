@@ -17,11 +17,13 @@ uniform float child_draw_times[8];
 uniform float animation_time;
 
 attribute vec3 position;
+attribute vec3 normal;
 attribute float octant;
 attribute vec2 texcoords;
 
 varying vec2 v_texcoords;
 varying float v_alpha;
+varying vec3 v_normal;
 
 void main() {
 
@@ -44,6 +46,7 @@ void main() {
 		mask = 0.0;
 	}
 
+    v_normal = normal;
     v_texcoords = (texcoords + uv_offset) * uv_scale * mask;
     gl_Position = transform * vec4(position, 1.0) * mask;
 }
@@ -61,6 +64,7 @@ precision highp float;
 uniform sampler2D textureObj;
 varying vec2 v_texcoords;
 varying float v_alpha;
+varying vec3 v_normal;
 
 float rand(vec2 co){
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
@@ -109,6 +113,7 @@ shader_context::shader_context()
 	this->octant_mask_loc = s.uniform("octant_mask");
 
 	this->position_loc = s.attribute("position");
+	this->normal_loc = s.attribute("normal");
 	this->octant_loc = s.attribute("octant");
 	this->texcoords_loc = s.attribute("texcoords");
 

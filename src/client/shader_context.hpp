@@ -11,6 +11,7 @@ public:
 	GLint uv_scale_loc;
 	GLint octant_mask_loc;
 	GLint position_loc;
+	GLint normal_loc;
 	GLint octant_loc;
 	GLint texcoords_loc;
 	GLint current_time_loc;

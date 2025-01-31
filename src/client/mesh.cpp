@@ -93,13 +93,18 @@ void mesh_buffers::ensure_vao_existance(const shader_context& ctx) const
 
 	glBindBuffer(GL_ARRAY_BUFFER, this->vertex_buffer_);
 
-	glVertexAttribPointer(ctx.position_loc, 3, GL_UNSIGNED_BYTE, GL_FALSE, 8, nullptr);
+	constexpr auto stride = sizeof(vertex);
+
+	glVertexAttribPointer(ctx.position_loc, 3, GL_UNSIGNED_BYTE, GL_FALSE, stride, nullptr);
 	glEnableVertexAttribArray(ctx.position_loc);
 
-	glVertexAttribPointer(ctx.octant_loc, 1, GL_UNSIGNED_BYTE, GL_FALSE, 8, reinterpret_cast<void*>(3));
+	glVertexAttribPointer(ctx.normal_loc, 3, GL_UNSIGNED_BYTE, GL_FALSE, stride, reinterpret_cast<void*>(3));
+	glEnableVertexAttribArray(ctx.normal_loc);
+
+	glVertexAttribPointer(ctx.octant_loc, 1, GL_UNSIGNED_BYTE, GL_FALSE, stride, reinterpret_cast<void*>(6));
 	glEnableVertexAttribArray(ctx.octant_loc);
 
-	glVertexAttribPointer(ctx.texcoords_loc, 2, GL_UNSIGNED_SHORT, GL_FALSE, 8, reinterpret_cast<void*>(4));
+	glVertexAttribPointer(ctx.texcoords_loc, 2, GL_UNSIGNED_SHORT, GL_FALSE, stride, reinterpret_cast<void*>(7));
 	glEnableVertexAttribArray(ctx.texcoords_loc);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->index_buffer_);

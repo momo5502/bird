@@ -57,12 +57,157 @@ namespace
 			y += data[count * 1 + i];
 			z += data[count * 2 + i];
 
-			vertices[i].x = x;
-			vertices[i].y = y;
-			vertices[i].z = z;
+			vertices[i].position.x = x;
+			vertices[i].position.y = y;
+			vertices[i].position.z = z;
 		}
 
 		return vertices;
+	}
+
+	uint8_t double_to_uint8(const double v)
+	{
+		const auto cr = static_cast<int32_t>(round(v));
+
+		if (cr < 0)
+		{
+			return 0;
+		}
+
+		if (cr > 255)
+		{
+			return 255;
+		}
+
+		return static_cast<uint8_t>(cr);
+	}
+
+	int32_t transform_value(const int32_t v, const int32_t l)
+	{
+		if (4 >= l)
+		{
+			return (v << l) + (v & (1 << l) - 1);
+		}
+
+		if (6 >= l)
+		{
+			const auto r = 8 - l;
+			return (v << l) + (v << l >> r) + (v << l >> r >> r) + (v << l >> r >> r >> r);
+		}
+
+		return -(v & 1);
+	}
+
+	std::vector<uint8_t> unpack_for_normals(const NodeData& nodeData)
+	{
+		if (!nodeData.has_for_normals())
+		{
+			return {};
+		}
+
+		const auto& input = nodeData.for_normals();
+		if (input.size() <= 2)
+		{
+			return {};
+		}
+
+		const auto* data = reinterpret_cast<const uint8_t*>(input.data());
+		const size_t count = *reinterpret_cast<const uint16_t*>(data);
+
+		if (count * 2 != input.size() - 3)
+		{
+			return {};
+		}
+
+		const int32_t s = data[2];
+		data += 3;
+
+		std::vector<uint8_t> output(count * 3);
+
+		for (size_t i = 0; i < count; i++)
+		{
+			double a = transform_value(data[0 + i], s) / 255.0;
+			const double f = transform_value(data[count + i], s) / 255.0;
+
+			double b = a, c = f, g = b + c, h = b - c;
+			int sign = 1;
+
+			if (.5 > g || 1.5 < g || -.5 > h || .5 < h)
+			{
+				sign = -1;
+				if (.5 >= g)
+				{
+					b = .5 - f;
+					c = .5 - a;
+				}
+				else
+				{
+					if (1.5 <= g)
+					{
+						b = 1.5 - f;
+						c = 1.5 - a;
+					}
+					else
+					{
+						if (-.5 >= h)
+						{
+							b = f - .5;
+							c = a + .5;
+						}
+						else
+						{
+							b = f + .5;
+							c = a - .5;
+						}
+					}
+				}
+
+				g = b + c;
+				h = b - c;
+			}
+
+			a = fmin(fmin(2 * g - 1, 3 - 2 * g), fmin(2 * h + 1, 1 - 2 * h)) * sign;
+
+			b = 2 * b - 1;
+			c = 2 * c - 1;
+
+			const auto m = 127 / sqrt(a * a + b * b + c * c);
+
+			output[3 * i + 0] = double_to_uint8(m * a + 127);
+			output[3 * i + 1] = double_to_uint8(m * b + 127);
+			output[3 * i + 2] = double_to_uint8(m * c + 127);
+		}
+
+		return output;
+	}
+
+	void unpackNormals(const Mesh& mesh, std::vector<vertex>& vertices, const std::vector<uint8_t>& for_normals)
+	{
+		if (!mesh.has_normals() || for_normals.empty())
+		{
+			return;
+		}
+
+		const auto count = vertices.size();
+		const auto& normals = mesh.normals();
+		const auto* input = reinterpret_cast<const uint8_t*>(normals.data());
+
+		if (count * 2 != normals.size())
+		{
+			return;
+		}
+
+		for (size_t i = 0; i < count; ++i)
+		{
+			const size_t j = input[i] + (input[count + i] << 8);
+
+			if (3 * j + 2 < for_normals.size())
+			{
+				vertices[i].normal.x = for_normals[3 * j + 0];
+				vertices[i].normal.y = for_normals[3 * j + 1];
+				vertices[i].normal.z = for_normals[3 * j + 2];
+			}
+		}
 	}
 
 	void unpack_tex_coords(const std::string& packed, std::vector<vertex>& vertices, glm::vec2& uv_offset,
@@ -71,7 +216,10 @@ namespace
 		const auto count = vertices.size();
 		auto data = reinterpret_cast<const uint8_t*>(packed.data());
 
-		assert(count * 4 == (packed.size() - 4) && packed.size() >= 4);
+		if (packed.size() < 4 || count * 4 != packed.size() - 4)
+		{
+			return;
+		}
 
 		const auto u_mod = 1 + *reinterpret_cast<const uint16_t*>(data + 0);
 		const auto v_mod = 1 + *reinterpret_cast<const uint16_t*>(data + 2);
@@ -143,14 +291,17 @@ namespace
 					const auto vtx_i = idx;
 					if (vtx_i < vertices.size())
 					{
-						vertices[vtx_i].w = i & 7;
+						vertices[vtx_i].octant_mask = i & 7;
 					}
 				}
 			}
 			k += v;
 		}
 
-		for (; 10 > m; m++) layer_bounds[m] = k;
+		for (; 10 > m; m++)
+		{
+			layer_bounds[m] = k;
+		}
 	}
 }
 
@@ -222,6 +373,8 @@ void node::populate(const std::optional<std::string>& data)
 		m.indices = unpack_indices(mesh.indices());
 		m.vertices = unpack_vertices(mesh.vertices());
 
+		const auto forNormals = unpack_for_normals(node_data);
+		unpackNormals(mesh, m.vertices, forNormals);
 		unpack_tex_coords(mesh.texture_coordinates(), m.vertices, m.uv_offset, m.uv_scale);
 		if (mesh.uv_offset_and_scale_size() == 4)
 		{
@@ -234,25 +387,36 @@ void node::populate(const std::optional<std::string>& data)
 		int layer_bounds[10];
 		unpack_octant_mask_and_octant_counts_and_layer_bounds(mesh.layer_and_octant_counts(), m.indices, m.vertices,
 		                                                      layer_bounds);
-		assert(0 <= layer_bounds[3] && layer_bounds[3] <= m.indices.size());
+		if (layer_bounds[3] < 0 || layer_bounds[3] > m.indices.size())
+		{
+			continue;
+		}
+
 		//m.indices_len = layer_bounds[3]; // enable
 		m.indices.resize(layer_bounds[3]);
 
 		auto textures = mesh.texture();
-		assert(textures.size() == 1);
+		if (textures.size() != 1 || textures[0].data().size() != 1)
+		{
+			continue;
+		}
+
 		auto texture = textures[0];
-		assert(texture.data().size() == 1);
 		auto tex = texture.data()[0];
 
 		// maybe: keep compressed in memory?
 		if (texture.format() == Texture_Format_JPG)
 		{
 			auto tex_data = reinterpret_cast<uint8_t*>(tex.data());
-			int width, height, comp;
+			int width{}, height{}, comp{};
 			unsigned char* pixels = stbi_load_from_memory(&tex_data[0], static_cast<int>(tex.size()), &width,
 			                                              &height,
 			                                              &comp, 0);
-			assert(pixels != NULL);
+			if (!pixels)
+			{
+				continue;
+			}
+
 			assert(width == texture.width() && height == texture.height() && comp == 3);
 			m.texture = std::vector<uint8_t>(pixels, pixels + width * height * comp);
 			stbi_image_free(pixels);

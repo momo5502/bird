@@ -8,16 +8,26 @@ enum class texture_format : int
 	dxt1,
 };
 
+template <typename T>
+struct vec3
+{
+	T x{};
+	T y{};
+	T z{};
+};
+
 #pragma pack(push, 1)
 struct vertex
 {
-	uint8_t x, y, z; // position
-	uint8_t w; // octant mask
-	uint16_t u, v; // texture coordinates
+	vec3<uint8_t> position{};
+	vec3<uint8_t> normal{0x7F,0x7F,0x7F};
+	uint8_t octant_mask{}; // octant mask
+	uint16_t u{};
+	uint16_t v{};
 };
 #pragma pack(pop)
 
-static_assert((sizeof(vertex) == 8), "vertex size must be 8");
+static_assert((sizeof(vertex) == 11), "vertex size must be 8");
 
 struct mesh_data
 {
