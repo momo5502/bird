@@ -26,7 +26,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 ##########################################
 
 if(UNIX)
-  momo_add_c_and_cxx_compile_options(-fvisibility=hidden)
+  momo_add_c_and_cxx_compile_options(
+    -fvisibility=hidden
+    -ftrivial-auto-var-init=zero
+  )
 endif()
 
 ##########################################
