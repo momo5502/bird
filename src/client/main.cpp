@@ -35,7 +35,7 @@ namespace
 			return true;
 		}
 
-		if (!obj.was_used_within(30s, 12s, 4s))
+		if (!obj.was_used_within(10s, 5s, 3s))
 		{
 			obj.mark_for_deletion();
 			return true;
