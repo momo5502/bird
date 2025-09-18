@@ -18,8 +18,8 @@ public:
 
 	glm::dvec3 head_node_center{};
 
-	std::map<octant_identifier<>, node*> nodes{};
-	std::map<octant_identifier<>, bulk*> bulks{};
+	std::unordered_map<octant_identifier<>, node*> nodes{};
+	std::unordered_map<octant_identifier<>, bulk*> bulks{};
 
 	const octant_identifier<>& get_path() const;
 

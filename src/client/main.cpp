@@ -413,7 +413,7 @@ namespace
 		};
 
 		// 8-bit octant mask flags of nodes
-		std::map<octant_identifier<>, octant_mask> mask_map{};
+		std::unordered_map<octant_identifier<>, octant_mask> mask_map{};
 
 		p.step("Loop 2");
 
