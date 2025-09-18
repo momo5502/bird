@@ -146,6 +146,11 @@ public:
 		return *this == obj || *this > obj;
 	}
 
+	Base get_value() const
+	{
+		return this->value_;
+	}
+
 private:
 	void set_size(const size_t size)
 	{
@@ -171,4 +176,15 @@ private:
 	}
 
 	Base value_{0};
+};
+
+template<>
+struct std::hash<octant_identifier<>>
+{
+	inline std::size_t operator()(const octant_identifier<>& o) const noexcept
+	{
+		std::size_t h1 = std::hash<uint64_t>{}(o.get_value().low());
+		std::size_t h2 = std::hash<uint64_t>{}(o.get_value().high());
+		return h1 ^ (h2 << 1); // or use boost::hash_combine
+	}
 };
