@@ -965,12 +965,25 @@ namespace
         });
     }
 
-    text_renderer create_text_renderer()
+    std::string get_resource(const cmrc::embedded_filesystem& fs, const std::string& name)
     {
-        const auto fs = cmrc::bird::get_filesystem();
-        const auto opensans = fs.open("resources/font/OpenSans-Regular.ttf");
+        const auto file = fs.open(name);
+        return {file.cbegin(), file.cend()};
+    }
 
-        return {{opensans.cbegin(), opensans.cend()}, 24};
+    text_renderer create_text_renderer(const cmrc::embedded_filesystem& fs)
+    {
+        return {get_resource(fs, "resources/font/OpenSans-Regular.ttf"), 24};
+    }
+
+    std::string get_vertex_shader(const cmrc::embedded_filesystem& fs)
+    {
+        return get_resource(fs, "resources/shader/world.vs.glsl");
+    }
+
+    std::string get_fragment_shader(const cmrc::embedded_filesystem& fs)
+    {
+        return get_resource(fs, "resources/shader/world.fs.glsl");
     }
 
     void run()
@@ -987,10 +1000,12 @@ namespace
         utils::thread::set_name("Main");
         utils::thread::set_priority(utils::thread::priority::high);
 
+        const auto fs = cmrc::bird::get_filesystem();
+
         window win(1280, 800, "Bird");
         input input_handler(win);
 
-        world game_world{};
+        world game_world{get_vertex_shader(fs), get_fragment_shader(fs)};
         custom_rocktree<world, world_mesh> rock_tree{"earth", game_world};
 
         auto eye = lla_to_ecef(48.8605, 2.2914, 6364690.0);
@@ -1015,7 +1030,7 @@ namespace
 
         character.AddToPhysicsSystem(JPH::EActivation::Activate);
 
-        auto text_renderer = create_text_renderer();
+        auto text_renderer = create_text_renderer(fs);
 
         rendering_context context{
             win, rock_tree, eye, direction, eye, direction, text_renderer, character, input_handler,

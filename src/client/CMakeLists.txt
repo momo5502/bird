@@ -37,6 +37,8 @@ cmrc_add_resource_library(client-resources
   ALIAS client::rc
   NAMESPACE bird
   resources/font/OpenSans-Regular.ttf
+  resources/shader/world.vs.glsl
+  resources/shader/world.fs.glsl
 )
 
 target_link_libraries(client PRIVATE client::rc)

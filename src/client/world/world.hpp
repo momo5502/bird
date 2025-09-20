@@ -150,11 +150,13 @@ class ObjectVsBroadPhaseLayerFilterImpl : public JPH::ObjectVsBroadPhaseLayerFil
 class world
 {
   public:
-    world()
+    world(const std::string_view vertex_shader, const std::string_view fragment_shader)
         : temp_allocator_(10 * 1024 * 1024),
           job_system_(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, static_cast<int>(std::thread::hardware_concurrency()) - 2),
+          context_(vertex_shader, fragment_shader),
           player_mesh_(bufferer_),
           multiplayer_(physics_system_)
+
     {
         physics_system_.Init(1024 * 100, 0, 1024, 1024, broad_phase_layer_interface_, object_vs_broadphase_layer_filter_,
                              object_vs_object_layer_filter_);
@@ -208,7 +210,7 @@ class world
 
     JPH::PhysicsSystem physics_system_;
 
-    shader_context context_{};
+    shader_context context_;
     gl_bufferer bufferer_{};
     player_mesh player_mesh_;
     multiplayer multiplayer_;

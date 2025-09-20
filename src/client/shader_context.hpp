@@ -4,7 +4,7 @@
 class shader_context
 {
   public:
-    shader_context();
+    shader_context(std::string_view vertex_shader, std::string_view fragment_shader);
 
     GLint transform_loc;
     GLint worldmatrix_loc;

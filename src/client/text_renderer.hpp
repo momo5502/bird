@@ -13,7 +13,7 @@ struct character
 class text_renderer
 {
   public:
-    text_renderer(const std::string_view& font, size_t font_size);
+    text_renderer(std::string font, size_t font_size);
     ~text_renderer();
 
     text_renderer(const text_renderer&) = delete;
@@ -25,6 +25,8 @@ class text_renderer
     void draw(const std::string_view& text, float x, float y, float scale, glm::vec4 color);
 
   private:
+    std::unique_ptr<std::string> font_{};
+    
     shader shader_{};
     gl_object vao_{};
     gl_object vertex_buffer_{};

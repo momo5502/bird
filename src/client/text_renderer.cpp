@@ -3,13 +3,19 @@
 #include "gl_objects.hpp"
 #include "text_renderer.hpp"
 
+#include "utils/cryptography.hpp"
+
 namespace
 {
     character create_character(const char glyph, const FT_Face face)
     {
-        if (FT_Load_Char(face, glyph, FT_LOAD_RENDER))
+        const auto error = FT_Load_Char(face, glyph, FT_LOAD_RENDER);
+        if (error)
         {
-            throw std::runtime_error("Failed to render character: " + std::to_string(glyph));
+            char character[2] = {glyph, 0};
+            const auto* error_text = FT_Error_String(error);
+            throw std::runtime_error("Failed to render character: "s + character + " (" +
+                                     (error_text ? error_text : std::to_string(error)) + ")");
         }
 
         character c{};
@@ -76,8 +82,9 @@ namespace
     }
 }
 
-text_renderer::text_renderer(const std::string_view& font, const size_t font_size)
-    : shader_(get_vertex_shader(), get_fragment_shader()),
+text_renderer::text_renderer(std::string font, const size_t font_size)
+    : font_(std::make_unique<std::string>(std::move(font))),
+      shader_(get_vertex_shader(), get_fragment_shader()),
       vao_(create_vertex_array_object()),
       vertex_buffer_(create_vertex_buffer())
 {
@@ -86,7 +93,7 @@ text_renderer::text_renderer(const std::string_view& font, const size_t font_siz
         throw std::runtime_error("Failed to initialize freetype");
     }
 
-    if (FT_New_Memory_Face(this->ft_, reinterpret_cast<const FT_Byte*>(font.data()), static_cast<FT_Long>(font.size()), 0, &this->face_))
+    if (FT_New_Memory_Face(this->ft_, reinterpret_cast<const FT_Byte*>(this->font_->data()), static_cast<FT_Long>(this->font_->size()), 0, &this->face_))
     {
         FT_Done_FreeType(this->ft_);
         throw std::runtime_error("Failed to initialize typeface");
@@ -114,6 +121,7 @@ text_renderer& text_renderer::operator=(text_renderer&& obj) noexcept
         this->ft_ = obj.ft_;
         this->face_ = obj.face_;
 
+        this->font_ = std::move(obj.font_);
         this->characters_ = std::move(obj.characters_);
         this->shader_ = std::move(obj.shader_);
         this->vertex_buffer_ = std::move(obj.vertex_buffer_);
