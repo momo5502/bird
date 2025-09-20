@@ -513,7 +513,7 @@ namespace
                 }
 
                 bulk = bulk_kv->second;
-                if (!bulk->can_be_used())
+                if (!bulk->use())
                 {
                     continue;
                 }
@@ -555,7 +555,7 @@ namespace
                     }
                 }
 
-                if (node->can_be_used() && node->can_have_data && is_visible)
+                if (node->use() && node->can_have_data && is_visible)
                 {
                     potential_nodes[nxt] = node;
                 }
@@ -840,11 +840,13 @@ namespace
         auto& game_world = c.rock_tree.with<world>();
 
         const auto planetoid = c.rock_tree.get_planetoid();
-        if (!planetoid || !planetoid->can_be_used())
+        if (!planetoid || !planetoid->use())
+        {
             return;
+        }
 
         auto* current_bulk = planetoid->root_bulk;
-        if (!current_bulk || !current_bulk->can_be_used())
+        if (!current_bulk || !current_bulk->use())
             return;
         const double planet_radius = planetoid->radius;
 

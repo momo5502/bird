@@ -55,7 +55,7 @@ class generic_object
         return this->state_ == state::fetching;
     }
 
-    bool can_be_used()
+    bool use()
     {
         const auto state = this->state_.load();
         if (state == state::deleting || state == state::failed)
