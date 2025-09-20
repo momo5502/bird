@@ -419,6 +419,7 @@ namespace
         const auto& ctx = game_world.get_shader_context();
         const auto shader = ctx.use_shader();
 
+        glUniform1f(ctx.current_time_loc, current_time);
         glUniform1f(ctx.animation_time_loc, ANIMATION_TIME);
 
         for (const auto& potential_node : std::ranges::reverse_view(potential_nodes))

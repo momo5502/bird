@@ -53,7 +53,6 @@ float world_mesh::draw(const shader_context& ctx, const uint64_t frame_index, co
 
     const auto own_draw_time = *this->draw_time_;
 
-    glUniform1f(ctx.current_time_loc, current_time);
     glUniform1f(ctx.own_draw_time_loc, own_draw_time);
 
     glUniform1iv(ctx.octant_mask_loc, 8, octant_mask.data());
