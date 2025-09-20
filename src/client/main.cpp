@@ -331,7 +331,7 @@ namespace
 	{
 		utils::concurrency::container<std::queue<world_mesh*>> meshes_to_buffer{};
 		bool gravity_on{true};
-		double render_distance{1.5};
+		double render_distance{1.2};
 		uint64_t last_vertices{0};
 		bool is_ready{false};
 	};
