@@ -12,7 +12,7 @@ public:
 	bool is_buffering() const;
 	bool mark_for_buffering();
 
-	float draw(const shader_context& ctx, float current_time, const std::array<float, 8>& child_draw_time,
+	float draw(const shader_context& ctx, uint64_t frame_index, float current_time, const std::array<float, 8>& child_draw_time,
 	           const std::array<int, 8>& octant_mask);
 
 	static void buffer_queue(std::queue<world_mesh*> meshes);
@@ -25,6 +25,7 @@ private:
 		buffered,
 	};
 
+	uint64_t last_frame_index_{};
 	std::vector<mesh> meshes_{};
 	std::optional<float> draw_time_{};
 	std::atomic<buffer_state> buffer_state_{buffer_state::unbuffered};

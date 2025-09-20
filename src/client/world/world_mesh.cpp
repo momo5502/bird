@@ -42,13 +42,15 @@ bool world_mesh::mark_for_buffering()
 	return this->buffer_state_.compare_exchange_strong(expected, buffer_state::buffering);
 }
 
-float world_mesh::draw(const shader_context& ctx, float current_time, const std::array<float, 8>& child_draw_time,
+float world_mesh::draw(const shader_context& ctx, const uint64_t frame_index, const float current_time, const std::array<float, 8>& child_draw_time,
                        const std::array<int, 8>& octant_mask)
 {
-	if (!this->draw_time_)
+	if (!this->draw_time_ )
 	{
 		this->draw_time_ = current_time;
 	}
+
+	this->last_frame_index_ = frame_index;
 
 	const auto own_draw_time = *this->draw_time_;
 

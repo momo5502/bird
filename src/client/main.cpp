@@ -397,7 +397,7 @@ namespace
 		return buffer_queue;
 	}
 
-	std::queue<world_mesh*> draw_world(profiler& p, const world& game_world, float current_time,
+	std::queue<world_mesh*> draw_world(profiler& p, const world& game_world, const uint64_t frame_index, const float current_time,
 	                                   const glm::dmat4& viewprojection, uint64_t& current_vertices,
 	                                   const std::map<octant_identifier<>, node*>& potential_nodes)
 	{
@@ -473,7 +473,7 @@ namespace
 
 			p.step("Loop2Draw");
 
-			mask_entry.times[octant] = mesh.draw(ctx, current_time, mask.times, mask.masks);
+			mask_entry.times[octant] = mesh.draw(ctx, frame_index, current_time, mask.times, mask.masks);
 			current_vertices += node->get_vertices();
 
 			p.step("Loop 2");
@@ -817,7 +817,7 @@ namespace
 
 	void run_frame(rendering_context& c, profiler& p)
 	{
-		++c.total_frame_counter;
+		const auto frame_index = ++c.total_frame_counter;
 		const auto current_time = static_cast<float>(c.win.get_current_time());
 
 		uint64_t current_vertices = 0;
@@ -828,7 +828,7 @@ namespace
 
 		if (!c.is_ready)
 		{
-			c.is_ready = c.total_frame_counter > 30 //
+			c.is_ready = frame_index > 30 //
 				&& c.rock_tree.get_tasks() == 0 //
 				&& c.rock_tree.get_downloads() == 0 //
 				&& c.rock_tree.get_objects() > 1 //
@@ -888,7 +888,7 @@ namespace
 		const auto potential_nodes = select_nodes(c, viewprojection, current_bulk);
 
 		p.step("Render");
-		auto new_meshes_to_buffer = draw_world(p, game_world, current_time, viewprojection, current_vertices,
+		auto new_meshes_to_buffer = draw_world(p, game_world, frame_index, current_time, viewprojection, current_vertices,
 		                                       potential_nodes);
 
 		game_world.get_multiplayer().access_players([&](const players& players)
