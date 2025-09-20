@@ -154,7 +154,7 @@ namespace
         const auto sky_scale = 1.0f - dark_scale;
 
         constexpr auto sky = 0x83b5fc;
-        constexpr auto dark = 0x091321;
+        constexpr auto dark = 0x000000;
 
         constexpr auto sky_r = (sky >> 16 & 0xff) / 255.0;
         constexpr auto sky_g = (sky >> 8 & 0xff) / 255.0;
