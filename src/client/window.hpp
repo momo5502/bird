@@ -4,36 +4,36 @@
 
 class window
 {
-public:
-	window(int width, int height, const std::string& title);
-	~window();
+  public:
+    window(int width, int height, const std::string& title);
+    ~window();
 
-	operator GLFWwindow*() const;
+    operator GLFWwindow*() const;
 
-	void show(const std::function<void(profiler& profiler)>& frame_callback);
-	void close();
+    void show(const std::function<void(profiler& profiler)>& frame_callback);
+    void close();
 
-	bool is_key_pressed(int key) const;
-	std::pair<double, double> get_mouse_position() const;
+    bool is_key_pressed(int key) const;
+    std::pair<double, double> get_mouse_position() const;
 
-	long long get_last_frame_time() const;
-	double get_current_time() const;
+    long long get_last_frame_time() const;
+    double get_current_time() const;
 
-	void use_shared_context(const std::function<void()>& callback);
+    void use_shared_context(const std::function<void()>& callback);
 
-private:
-	std::mutex shared_context_mutex_{};
-	GLFWwindow* handle_ = nullptr;
-	GLFWwindow* shared_handle_ = nullptr;
+  private:
+    std::mutex shared_context_mutex_{};
+    GLFWwindow* handle_ = nullptr;
+    GLFWwindow* shared_handle_ = nullptr;
 
-	long long last_frame_time_{};
-	std::chrono::system_clock::time_point last_frame_ = std::chrono::system_clock::now();
-	std::chrono::system_clock::time_point start_time_ = std::chrono::system_clock::now();
+    long long last_frame_time_{};
+    std::chrono::system_clock::time_point last_frame_ = std::chrono::system_clock::now();
+    std::chrono::system_clock::time_point start_time_ = std::chrono::system_clock::now();
 
-	void update_frame_times();
+    void update_frame_times();
 
-	void create(int width, int height, const std::string& title);
+    void create(int width, int height, const std::string& title);
 
-	static void size_callback(int width, int height);
-	static void size_callback_static(GLFWwindow* window, int width, int height);
+    static void size_callback(int width, int height);
+    static void size_callback_static(GLFWwindow* window, int width, int height);
 };

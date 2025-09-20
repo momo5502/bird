@@ -4,9 +4,9 @@
 
 namespace
 {
-	std::string_view get_vertex_shader()
-	{
-		return R"code(
+    std::string_view get_vertex_shader()
+    {
+        return R"code(
 uniform mat4 transform;
 uniform mat4 worldmatrix;
 uniform vec2 uv_offset;
@@ -57,12 +57,11 @@ void main() {
     gl_Position = transform * vec4(position, 1.0) * mask;
 }
 )code";
-	}
+    }
 
-
-	std::string_view get_fragment_shader()
-	{
-		return R"code(
+    std::string_view get_fragment_shader()
+    {
+        return R"code(
 #ifdef GL_ES
 precision highp float;
 #endif
@@ -104,34 +103,34 @@ void main() {
 	gl_FragColor = vec4(texture2D(textureObj, v_texcoords).rgb, 1.0);
 }
 )code";
-	}
+    }
 }
 
 shader_context::shader_context()
-	: shader_(get_vertex_shader(), get_fragment_shader())
+    : shader_(get_vertex_shader(), get_fragment_shader())
 {
-	const auto& s = this->shader_;
+    const auto& s = this->shader_;
 
-	const auto _ = s.use();
+    const auto _ = s.use();
 
-	this->transform_loc = s.uniform("transform");
-	this->worldmatrix_loc = s.uniform("worldmatrix");
-	this->uv_offset_loc = s.uniform("uv_offset");
-	this->uv_scale_loc = s.uniform("uv_scale");
-	this->octant_mask_loc = s.uniform("octant_mask");
+    this->transform_loc = s.uniform("transform");
+    this->worldmatrix_loc = s.uniform("worldmatrix");
+    this->uv_offset_loc = s.uniform("uv_offset");
+    this->uv_scale_loc = s.uniform("uv_scale");
+    this->octant_mask_loc = s.uniform("octant_mask");
 
-	this->position_loc = s.attribute("position");
-	this->normal_loc = s.attribute("normal");
-	this->octant_loc = s.attribute("octant");
-	this->texcoords_loc = s.attribute("texcoords");
+    this->position_loc = s.attribute("position");
+    this->normal_loc = s.attribute("normal");
+    this->octant_loc = s.attribute("octant");
+    this->texcoords_loc = s.attribute("texcoords");
 
-	this->current_time_loc = s.uniform("current_time");
-	this->own_draw_time_loc = s.uniform("own_draw_time");
-	this->child_draw_times_loc = s.uniform("child_draw_times");
-	this->animation_time_loc = s.uniform("animation_time");
+    this->current_time_loc = s.uniform("current_time");
+    this->own_draw_time_loc = s.uniform("own_draw_time");
+    this->child_draw_times_loc = s.uniform("child_draw_times");
+    this->animation_time_loc = s.uniform("animation_time");
 }
 
 scoped_shader shader_context::use_shader() const
 {
-	return this->shader_.use();
+    return this->shader_.use();
 }
