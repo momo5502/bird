@@ -42,7 +42,7 @@ jobs:
         run: cmake --workflow --preset=${{matrix.preset}}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Windows ${{matrix.configuration}} Artifacts
           path: |
@@ -77,7 +77,7 @@ jobs:
         run: cmake --workflow --preset=${{matrix.preset}}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Linux ${{matrix.configuration}} Artifacts
           path: |
@@ -112,7 +112,7 @@ jobs:
         run: cmake --workflow --preset=${{matrix.preset}}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: macOS ${{matrix.configuration}} Artifacts
           path: |
