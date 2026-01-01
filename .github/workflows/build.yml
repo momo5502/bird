@@ -51,7 +51,7 @@ jobs:
 
   build-linux:
     name: Build Linux
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -71,6 +71,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          sudo apt update
           sudo apt install -y ninja-build libwayland-dev libxkbcommon-dev xorg-dev
 
       - name: CMake Build
